@@ -1,8 +1,10 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## mu-komik
+
+mu-komik is being rebuilt around Next.js, Supabase Auth/Postgres, and Cloudflare R2. The current screen is the reader discovery shell; backend features are added against the schema in `supabase/schema.sql`.
 
 ## Getting Started
 
-First, run the development server:
+Create a local environment file from `.env.example`, then run:
 
 ```bash
 npm run dev
@@ -15,6 +17,8 @@ bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+For direct browser uploads to R2, apply `r2-cors.json` in Cloudflare R2 bucket `mu-komik-assets` under Settings -> CORS policy. Add the final frontend domain to `AllowedOrigins` before production deployment.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
