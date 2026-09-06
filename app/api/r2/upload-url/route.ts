@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { AwsClient } from "aws4fetch";
 import { createClient } from "@supabase/supabase-js";
-
-const r2 = new S3Client({
-  region: "auto",
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
-  },
-});
 
 export async function POST(request: NextRequest) {
   try {
+    const requiredR2 = ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"] as const;
+    const missingR2 = requiredR2.filter((name) => !process.env[name]);
+    if (missingR2.length) {
+      return NextResponse.json({ error: "R2 environment variables are missing", missing: missingR2 }, { status: 500 });
+    }
+    const accountId = process.env.R2_ACCOUNT_ID!;
+    const accessKeyId = process.env.R2_ACCESS_KEY_ID!;
+    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY!;
+    const bucketName = process.env.R2_BUCKET_NAME!;
+
     const authorization = request.headers.get("authorization");
     if (!authorization?.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -53,12 +53,22 @@ export async function POST(request: NextRequest) {
 
     const safeName = body.filename.replace(/[^a-zA-Z0-9._-]/g, "-");
     const objectKey = `comics/${body.comicId}/chapters/${body.chapterId}/${crypto.randomUUID()}-${safeName}`;
-    const command = new PutObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: objectKey, ContentType: body.contentType });
-    const uploadUrl = await getSignedUrl(r2, command, { expiresIn: 600 });
+    const objectUrl = `https://${accountId}.r2.cloudflarestorage.com/${bucketName}/${objectKey}`;
+    const signer = new AwsClient({
+      accessKeyId,
+      secretAccessKey,
+      service: "s3",
+      region: "auto",
+    });
+    const signedRequest = await signer.sign(objectUrl, {
+      method: "PUT",
+      headers: { "Content-Type": body.contentType },
+      aws: { signQuery: true },
+    });
 
-    return NextResponse.json({ uploadUrl, objectKey });
+    return NextResponse.json({ uploadUrl: signedRequest.url, objectKey });
   } catch (error) {
     console.error("R2 upload URL error", error);
-    return NextResponse.json({ error: "Could not create upload URL" }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not create upload URL" }, { status: 500 });
   }
 }
