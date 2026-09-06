@@ -19,7 +19,7 @@ export default function ComicDetailPage() {
 
   useEffect(() => {
     const loadComic = async () => {
-      const { data } = await supabase.from("comics").select("id, title, slug, synopsis, genre, cover_key, profiles!comics_creator_id_fkey(display_name)").eq("slug", slug).eq("status", "published").single();
+      const { data } = await supabase.from("comics").select("id, title, slug, synopsis, genre, cover_key, profiles!comics_creator_id_fkey(display_name)").eq("slug", slug).single();
       if (!data) {
         setLoading(false);
         return;
