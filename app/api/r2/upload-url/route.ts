@@ -4,15 +4,15 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request: NextRequest) {
   try {
-    const requiredR2 = ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"] as const;
+    const accountId = process.env.R2_ACCOUNT_ID || "3e406acec99fd9b13f6e8ec9b4be0ce4";
+    const bucketName = process.env.R2_BUCKET_NAME || "mu-komik-assets";
+    const requiredR2 = ["R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"] as const;
     const missingR2 = requiredR2.filter((name) => !process.env[name]);
     if (missingR2.length) {
       return NextResponse.json({ error: "R2 environment variables are missing", missing: missingR2 }, { status: 500 });
     }
-    const accountId = process.env.R2_ACCOUNT_ID!;
     const accessKeyId = process.env.R2_ACCESS_KEY_ID!;
     const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY!;
-    const bucketName = process.env.R2_BUCKET_NAME!;
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       return NextResponse.json({ error: "Supabase environment variables are missing" }, { status: 500 });
     }
