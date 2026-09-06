@@ -92,8 +92,8 @@ export default function CreatorComicPage() {
       let pageNumber = (existing.data?.page_number || 0) + 1;
       for (const file of files) {
         const urlResponse = await fetch("/api/r2/upload-url", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ comicId: comic.id, chapterId: chapter.id, filename: file.name, contentType: file.type }) });
-        const urlData = await urlResponse.json() as { uploadUrl?: string; objectKey?: string; error?: string };
-        if (!urlResponse.ok || !urlData.uploadUrl || !urlData.objectKey) throw new Error(urlData.error || "Could not prepare upload.");
+        const urlData = await urlResponse.json() as { uploadUrl?: string; objectKey?: string; error?: string; detail?: string; missing?: string[] };
+        if (!urlResponse.ok || !urlData.uploadUrl || !urlData.objectKey) throw new Error(urlData.error ? `${urlData.error}${urlData.missing ? `: ${urlData.missing.join(", ")}` : ""}${urlData.detail ? ` (${urlData.detail})` : ""}` : "Could not prepare upload.");
         const uploadResponse = await fetch(urlData.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
         if (!uploadResponse.ok) throw new Error(`Upload failed for ${file.name}.`);
         const { error } = await supabase.from("pages").insert({ chapter_id: chapter.id, page_number: pageNumber, object_key: urlData.objectKey });

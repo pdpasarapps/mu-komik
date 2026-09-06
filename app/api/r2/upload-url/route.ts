@@ -13,6 +13,9 @@ export async function POST(request: NextRequest) {
     const accessKeyId = process.env.R2_ACCESS_KEY_ID!;
     const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY!;
     const bucketName = process.env.R2_BUCKET_NAME!;
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      return NextResponse.json({ error: "Supabase environment variables are missing" }, { status: 500 });
+    }
 
     const authorization = request.headers.get("authorization");
     if (!authorization?.startsWith("Bearer ")) {
