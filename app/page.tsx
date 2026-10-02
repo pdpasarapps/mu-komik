@@ -32,36 +32,48 @@ export default function Home() {
   const [signedIn, setSignedIn] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [authMessage, setAuthMessage] = useState("");
+  const [authRetry, setAuthRetry] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     let active = true;
-    supabase.auth.getUser().then(({ data, error }) => {
-      if (!active) return;
-      if (error) {
-        setAuthMessage(error.message);
-        return;
+    const checkSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (active) {
+          setSignedIn(Boolean(data.session?.user));
+          setAuthMessage("");
+        }
+      } catch (error) {
+        console.error("Unable to check the current auth session:", error);
+        if (active) setAuthMessage("Status masuk belum dapat diperiksa. Periksa koneksi lalu coba lagi.");
       }
-      setSignedIn(Boolean(data.user));
-    });
+    };
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSignedIn(Boolean(session?.user));
+      if (active) {
+        setSignedIn(Boolean(session?.user));
+        setAuthMessage("");
+      }
     });
+    void checkSession();
     return () => {
       active = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [authRetry]);
   const signOut = async () => {
     setSigningOut(true);
     setAuthMessage("");
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      setAuthMessage(error.message);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      setSignedIn(false);
+    } catch (error) {
+      console.error("Unable to sign out:", error);
+      setAuthMessage("Belum berhasil keluar. Periksa koneksi lalu coba lagi.");
+    } finally {
       setSigningOut(false);
-      return;
     }
-    setSignedIn(false);
-    setSigningOut(false);
   };
   useEffect(() => {
     const loadComics = async () => {
@@ -110,7 +122,7 @@ export default function Home() {
           <button className="menu-button" aria-label="Buka atau tutup navigasi" onClick={() => setMenuOpen(!menuOpen)}><Menu size={20} /></button>
         </div>
       </nav>
-      {authMessage && <p className="empty-state" role="alert">{authMessage}</p>}
+      {authMessage && <p className="empty-state" role="alert">{authMessage} <button className="auth-retry" onClick={() => setAuthRetry((attempt) => attempt + 1)}>Coba lagi</button></p>}
 
       <section className="hero" id="top">
         <div className="hero-copy">
