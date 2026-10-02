@@ -4,7 +4,7 @@ exception when duplicate_object then null;
 end $$;
 
 do $$ begin
-  create type public.comic_status as enum ('draft', 'published', 'archived');
+  create type public.comic_status as enum ('draft', 'pending_review', 'published', 'archived');
 exception when duplicate_object then null;
 end $$;
 
@@ -22,6 +22,9 @@ create table if not exists public.comics (
   title text not null,
   slug text not null unique,
   synopsis text not null default '',
+  contributor text not null default '',
+  contributors jsonb not null default '[{"role":"Penulis","name":""}]'::jsonb
+    check (jsonb_typeof(contributors) = 'array' and contributors <> '[]'::jsonb),
   cover_key text,
   genre text not null default 'Drama',
   status public.comic_status not null default 'draft',
@@ -79,21 +82,49 @@ drop policy if exists "Users update own profile" on public.profiles;
 drop policy if exists "Users manage own history" on public.reading_history;
 drop policy if exists "Users manage own bookmarks" on public.bookmarks;
 drop policy if exists "Creators manage own comics" on public.comics;
+drop policy if exists "Creators create own comics" on public.comics;
+drop policy if exists "Creators update own comics" on public.comics;
+drop policy if exists "Creators delete own comics" on public.comics;
+drop policy if exists "Admins review comics" on public.comics;
 drop policy if exists "Creators manage own chapters" on public.chapters;
 drop policy if exists "Creators manage own pages" on public.pages;
+drop policy if exists "Admins review chapters" on public.chapters;
+drop policy if exists "Admins review pages" on public.pages;
 
 create policy "Published comics are public" on public.comics for select using (status = 'published' or creator_id = auth.uid());
 create policy "Published chapters are public" on public.chapters for select using (
-  exists (select 1 from public.comics where comics.id = chapters.comic_id and (comics.status = 'published' or comics.creator_id = auth.uid()))
+  exists (
+    select 1 from public.comics
+    where comics.id = chapters.comic_id
+      and ((comics.status = 'published' and chapters.published_at is not null) or comics.creator_id = auth.uid())
+  )
 );
 create policy "Published pages are public" on public.pages for select using (
-  exists (select 1 from public.chapters join public.comics on comics.id = chapters.comic_id where chapters.id = pages.chapter_id and (comics.status = 'published' or comics.creator_id = auth.uid()))
+  exists (
+    select 1 from public.chapters
+    join public.comics on comics.id = chapters.comic_id
+    where chapters.id = pages.chapter_id
+      and ((comics.status = 'published' and chapters.published_at is not null) or comics.creator_id = auth.uid())
+  )
 );
 create policy "Users read own profile" on public.profiles for select using (id = auth.uid());
 create policy "Users update own profile" on public.profiles for update using (id = auth.uid()) with check (id = auth.uid());
 create policy "Users manage own history" on public.reading_history for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "Users manage own bookmarks" on public.bookmarks for all using (user_id = auth.uid()) with check (user_id = auth.uid());
-create policy "Creators manage own comics" on public.comics for all using (creator_id = auth.uid()) with check (creator_id = auth.uid());
+create policy "Creators create own comics" on public.comics for insert with check (
+  creator_id = auth.uid() and status in ('draft', 'pending_review')
+);
+create policy "Creators update own comics" on public.comics for update
+using (creator_id = auth.uid() and status in ('draft', 'pending_review', 'published', 'archived'))
+with check (creator_id = auth.uid() and status in ('draft', 'pending_review', 'archived'));
+create policy "Creators delete own comics" on public.comics for delete using (creator_id = auth.uid());
+create policy "Admins review comics" on public.comics for all
+using (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'admin'))
+with check (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'admin'));
+create policy "Admins review chapters" on public.chapters for select
+using (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'admin'));
+create policy "Admins review pages" on public.pages for select
+using (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'admin'));
 create policy "Creators manage own chapters" on public.chapters for all using (
   exists (select 1 from public.comics where comics.id = chapters.comic_id and comics.creator_id = auth.uid())
 ) with check (

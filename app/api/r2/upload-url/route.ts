@@ -4,9 +4,9 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request: NextRequest) {
   try {
-    const accountId = process.env.R2_ACCOUNT_ID || "3e406acec99fd9b13f6e8ec9b4be0ce4";
-    const bucketName = process.env.R2_BUCKET_NAME || "mu-komik-assets";
-    const requiredR2 = ["R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"] as const;
+    const accountId = process.env.R2_ACCOUNT_ID;
+    const bucketName = process.env.R2_BUCKET_NAME;
+    const requiredR2 = ["R2_ACCOUNT_ID", "R2_BUCKET_NAME", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"] as const;
     const missingR2 = requiredR2.filter((name) => !process.env[name]);
     if (missingR2.length) {
       return NextResponse.json({ error: "R2 environment variables are missing", missing: missingR2 }, { status: 500 });
@@ -42,7 +42,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json() as { comicId?: string; chapterId?: string; filename?: string; contentType?: string };
-    if (!body.comicId || !body.chapterId || !body.filename || !body.contentType?.startsWith("image/")) {
+    const contentType = body.contentType;
+    const allowedContentTypes = ["image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"];
+    if (!body.comicId || !body.chapterId || !body.filename || body.filename.length > 180 || !contentType || !allowedContentTypes.includes(contentType)) {
       return NextResponse.json({ error: "Invalid upload details" }, { status: 400 });
     }
 
@@ -52,6 +54,11 @@ export async function POST(request: NextRequest) {
       : await comicQuery.eq("creator_id", userData.user.id).maybeSingle();
     if (!comic) {
       return NextResponse.json({ error: "Comic not found" }, { status: 404 });
+    }
+
+    const { data: chapter } = await supabase.from("chapters").select("id").eq("id", body.chapterId).eq("comic_id", body.comicId).maybeSingle();
+    if (!chapter) {
+      return NextResponse.json({ error: "Chapter not found for this comic" }, { status: 404 });
     }
 
     const safeName = body.filename.replace(/[^a-zA-Z0-9._-]/g, "-");
@@ -65,7 +72,7 @@ export async function POST(request: NextRequest) {
     });
     const signedRequest = await signer.sign(objectUrl, {
       method: "PUT",
-      headers: { "Content-Type": body.contentType },
+      headers: { "Content-Type": contentType },
       aws: { signQuery: true },
     });
 

@@ -13,14 +13,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "mu-komik | Stories in motion",
-  description: "An independent home for comics, creators, and stories worth staying up for.",
+  title: "mu-komik | Kisah penuh warna",
+  description: "Ruang independen untuk komik, kreator, dan cerita yang layak dinikmati.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang="id"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

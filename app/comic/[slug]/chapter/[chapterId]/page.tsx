@@ -19,12 +19,17 @@ export default function ChapterReaderPage() {
 
   useEffect(() => {
     const loadChapter = async () => {
-      const { data } = await supabase.from("chapters").select("id, title, chapter_number, comic_id, comics!inner(title, slug)").eq("id", chapterId).eq("comics.slug", slug).single();
-      if (!data) {
+      const { data: chapterData } = await supabase.from("chapters").select("id, title, chapter_number, comic_id").eq("id", chapterId).maybeSingle();
+      if (!chapterData) {
         setLoading(false);
         return;
       }
-      setChapter(data as Chapter);
+      const { data: comicData } = await supabase.from("comics").select("title, slug").eq("id", chapterData.comic_id).eq("slug", slug).maybeSingle();
+      if (!comicData) {
+        setLoading(false);
+        return;
+      }
+      setChapter({ ...chapterData, comics: comicData });
       const { data: pageData } = await supabase.from("pages").select("id, page_number, object_key").eq("chapter_id", chapterId).order("page_number");
       setPages(pageData ?? []);
       setLoading(false);

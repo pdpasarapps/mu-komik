@@ -2,9 +2,15 @@
 
 mu-komik is being rebuilt around Next.js, Supabase Auth/Postgres, and Cloudflare R2. The current screen is the reader discovery shell; backend features are added against the schema in `supabase/schema.sql`.
 
+For existing Supabase projects, run `supabase/comic-contributors.sql` once before editing comic contributor details.
+For comic publishing and admin curation, run `supabase/comic-curation.sql` once on existing Supabase projects.
+For the admin dashboard, run `supabase/creator-request.sql` first, then `supabase/admin-management.sql` to grant admin access to profile management.
+
 ## Getting Started
 
-Create a local environment file from `.env.example`, then run:
+Copy `.env.example` to `.env.local` and fill in the values from Supabase and Cloudflare R2. Keep `.env.local` private and never commit it. Rotate any server credentials that have been shared outside your trusted environment.
+
+Then run:
 
 ```bash
 npm run dev

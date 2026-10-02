@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowUpRight, CheckCircle2, LoaderCircle, LockKeyhole, Mail, UserRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
 
 const supabase = createClient();
 
@@ -65,10 +66,10 @@ export default function LoginPage() {
 
   return (
     <main className="auth-shell">
-      <a className="auth-back" href="/"><ArrowLeft size={16} /> Back to discovery</a>
+      <Link className="auth-back" href="/"><ArrowLeft size={16} /> Back to discovery</Link>
       <section className="auth-layout">
         <div className="auth-intro">
-          <a className="wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></a>
+          <Link className="wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></Link>
           <p className="eyebrow"><span /> Your shelf, your pace</p>
           <h1>Keep the stories<br /><em>close.</em></h1>
           <p>Sign in to keep your reading history, bookmarks, and preferences with you wherever you read.</p>

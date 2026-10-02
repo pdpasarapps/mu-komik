@@ -29,7 +29,7 @@ using (user_id = auth.uid());
 
 create policy "Users create own creator request"
 on public.creator_requests for insert
-with check (user_id = auth.uid());
+with check (user_id = auth.uid() and status = 'pending');
 
 create policy "Admins view creator requests"
 on public.creator_requests for select
@@ -56,6 +56,41 @@ create policy "Admins update profiles"
 on public.profiles for update
 using (public.is_admin())
 with check (true);
+
+create or replace function public.review_creator_request(p_request_id uuid, p_decision text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_user_id uuid;
+begin
+  if not public.is_admin() then
+    raise exception 'Only admins can review creator requests';
+  end if;
+
+  if p_decision not in ('approved', 'rejected') then
+    raise exception 'Invalid creator request decision';
+  end if;
+
+  update public.creator_requests
+  set status = p_decision, reviewed_at = now()
+  where id = p_request_id and status = 'pending'
+  returning user_id into target_user_id;
+
+  if target_user_id is null then
+    raise exception 'Creator request is missing or no longer pending';
+  end if;
+
+  if p_decision = 'approved' then
+    update public.profiles set role = 'creator' where id = target_user_id;
+  end if;
+end;
+$$;
+
+revoke all on function public.review_creator_request(uuid, text) from public;
+grant execute on function public.review_creator_request(uuid, text) to authenticated;
 
 create or replace function public.protect_profile_role() returns trigger language plpgsql security definer set search_path = public as $$
 begin
