@@ -5,6 +5,7 @@ import { ArrowLeft, Archive, BookOpen, Check, Eye, LoaderCircle, Search, ShieldC
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import AdminAnalyticsPanel from "./analytics-panel";
 
 type RequestStatus = "pending" | "approved" | "rejected";
 type CreatorRequest = { id: string; user_id: string; note: string; portfolio_url: string | null; instagram_url: string | null; other_url: string | null; status: RequestStatus; created_at: string; applicant: string; role: string };
@@ -196,6 +197,7 @@ export default function AdminPage() {
       <section className="admin-content">
         {message && <p className="admin-message" role="status">{message}</p>}
         <nav className="admin-shortcuts" aria-label="Navigasi manajemen admin">
+          <a href="#analytics">Analitik</a>
           <a href="#comic-review">Antrean kurasi</a>
           <a href="#creator-requests">Pengajuan kreator</a>
           <a href="#user-management">Pengguna</a>
@@ -207,6 +209,7 @@ export default function AdminPage() {
           <article className="admin-stat"><span>Komik terbit</span><strong>{publishedComics}</strong><Eye size={20} /></article>
           <article className="admin-stat"><span>Perlu ditinjau</span><strong>{comicReviews.length + pendingRequests}</strong><ShieldCheck size={20} /></article>
         </section>
+        <AdminAnalyticsPanel />
         <section className="comic-review-section">
           <div className="admin-section-heading">
             <div><p className="eyebrow">Antrean publikasi</p><h2 id="comic-review">Kurasi komik</h2></div>

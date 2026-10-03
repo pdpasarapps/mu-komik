@@ -103,6 +103,34 @@ export default function ChapterReaderPage() {
   }, [chapterId, slug]);
 
   useEffect(() => {
+    if (loading || !chapter || !pages.length) return;
+    let active = true;
+    const recordChapterView = async () => {
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) console.error("Unable to check auth before recording a chapter view:", sessionError);
+        if (!active) return;
+        const response = await fetch("/api/analytics/chapter-view", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(sessionData.session?.access_token ? { Authorization: `Bearer ${sessionData.session.access_token}` } : {}),
+          },
+          body: JSON.stringify({ chapterId: chapter.id }),
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          console.error("Unable to record chapter view:", { status: response.status });
+        }
+      } catch (error) {
+        console.error("Unable to record chapter view:", error);
+      }
+    };
+    void recordChapterView();
+    return () => { active = false; };
+  }, [chapter, loading, pages.length]);
+
+  useEffect(() => {
     if (loading || !pages.length) return;
     const observer = new IntersectionObserver((entries) => {
       const visiblePage = entries
