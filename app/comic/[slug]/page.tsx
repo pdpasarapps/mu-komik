@@ -40,6 +40,7 @@ export default function ComicDetailPage() {
   const [shareMessage, setShareMessage] = useState("");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
+  const [shareCover, setShareCover] = useState<{ coverKey: string; file: File } | null>(null);
   const shareUrlRef = useRef<HTMLTextAreaElement>(null);
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
 
@@ -118,6 +119,26 @@ export default function ComicDetailPage() {
     return () => { active = false; };
   }, [slug]);
 
+  useEffect(() => {
+    if (!comic?.cover_key || !publicUrl) return;
+    const coverKey = comic.cover_key;
+    const controller = new AbortController();
+    const imageUrl = `${publicUrl.replace(/\/$/, "")}/${coverKey}`;
+    void fetch(imageUrl, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Cover request failed with status ${response.status}.`);
+        const blob = await response.blob();
+        if (!blob.type.startsWith("image/")) throw new Error("Comic cover response is not an image.");
+        const filename = coverKey.split("/").pop() || `${comic.slug}-cover`;
+        setShareCover({ coverKey, file: new File([blob], filename, { type: blob.type }) });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.name === "AbortError") return;
+        console.error("Unable to prepare the comic cover for sharing:", error);
+      });
+    return () => controller.abort();
+  }, [comic?.cover_key, comic?.slug, publicUrl]);
+
   const toggleBookmark = async () => {
     if (!comic || !userId || bookmarkBusy) return;
     setBookmarkBusy(true);
@@ -143,7 +164,12 @@ export default function ComicDetailPage() {
     setShareUrl(url);
     if (navigator.share) {
       try {
-        await navigator.share({ title: comic?.title, text: `Baca ${comic?.title} di mu-komik`, url });
+        const shareData: ShareData = { title: comic?.title, text: `Baca ${comic?.title} di mu-komik`, url };
+        const coverFile = shareCover && comic?.cover_key === shareCover.coverKey ? shareCover.file : null;
+        if (coverFile && navigator.canShare?.({ files: [coverFile] })) {
+          shareData.files = [coverFile];
+        }
+        await navigator.share(shareData);
         return;
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return;
@@ -225,6 +251,7 @@ export default function ComicDetailPage() {
             <p className="reader-section-kicker">BAGIKAN CERITA</p>
             <h2 id="reader-share-title">Ajak teman membaca</h2>
             <p className="reader-share-description">{comic.title}</p>
+            {coverUrl && <img className="reader-share-cover" src={coverUrl} alt={`Cover ${comic.title} yang akan tampil saat membagikan tautan`} />}
             <textarea ref={shareUrlRef} className="reader-share-url" aria-label="Tautan komik" readOnly value={shareUrl} onFocus={(event) => event.currentTarget.select()} />
             <div className="reader-share-actions">
               <button className="reader-primary-button" type="button" onClick={() => void copyShareUrl()}><Copy size={17} /> Salin tautan</button>

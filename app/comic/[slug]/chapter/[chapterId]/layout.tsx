@@ -5,8 +5,8 @@ type ChapterMetadata = {
   title: string;
   chapter_number: number;
   published_at: string | null;
-  comics: { title: string; slug: string; synopsis: string | null; status: string }
-    | { title: string; slug: string; synopsis: string | null; status: string }[];
+  comics: { title: string; slug: string; synopsis: string | null; status: string; cover_key: string | null }
+    | { title: string; slug: string; synopsis: string | null; status: string; cover_key: string | null }[];
 };
 
 export async function generateMetadata({
@@ -23,7 +23,7 @@ export async function generateMetadata({
 
   const { data, error } = await supabase
     .from("chapters")
-    .select("title, chapter_number, published_at, comics!inner(title, slug, synopsis, status)")
+    .select("title, chapter_number, published_at, comics!inner(title, slug, synopsis, status, cover_key)")
     .eq("id", chapterId)
     .eq("comics.slug", slug)
     .eq("comics.status", "published")
@@ -43,6 +43,10 @@ export async function generateMetadata({
   const synopsis = (comic.synopsis || "").replace(/\*\*/g, "").replace(/👉/g, "").replace(/\s+/g, " ").trim();
   const description = synopsis.length > 160 ? `${synopsis.slice(0, 157).trimEnd()}...` : synopsis || `Baca episode ${chapter.chapter_number} dari komik ${comic.title} di mu-komik.`;
   const canonicalUrl = new URL(`/comic/${encodeURIComponent(slug)}/chapter/${encodeURIComponent(chapterId)}`, siteUrl).toString();
+  const imageBaseUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL;
+  const image = comic.cover_key && imageBaseUrl
+    ? `${imageBaseUrl.replace(/\/$/, "")}/${comic.cover_key}`
+    : undefined;
   return {
     title,
     description,
@@ -54,8 +58,14 @@ export async function generateMetadata({
       title,
       description,
       url: canonicalUrl,
+      ...(image ? { images: [{ url: image, alt: `Sampul komik ${comic.title}` }] } : {}),
     },
-    twitter: { card: "summary", title, description },
+    twitter: {
+      card: image ? "summary_large_image" : "summary",
+      title,
+      description,
+      ...(image ? { images: [image] } : {}),
+    },
   };
 }
 

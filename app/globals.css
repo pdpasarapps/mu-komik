@@ -396,6 +396,7 @@ button, input, select { font: inherit; }
 .reader-share-dialog > .reader-section-kicker { margin: 0 0 9px; color: #737b75; font-size: .64rem; letter-spacing: .1em; }
 .reader-share-dialog h2 { margin: 0; font-size: 1.7rem; letter-spacing: -.055em; }
 .reader-share-description { margin: 8px 0 14px; color: #737b75; font-size: .8rem; }
+.reader-share-cover { display: block; width: auto; max-width: min(100%, 180px); height: 190px; margin: 0 auto 14px; border-radius: 7px; object-fit: contain; background: #efede6; }
 .reader-share-close { position: absolute; top: 13px; right: 13px; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: #68716a; cursor: pointer; }
 .reader-share-close:hover { background: #f0efeb; }
 .reader-share-url { width: 100%; min-height: 66px; resize: none; padding: 10px; border: 1px solid var(--reader-border, #dedfd7); border-radius: 8px; background: white; color: var(--reader-text, #202422); font: .74rem/1.5 monospace; overflow-wrap: anywhere; }
@@ -411,4 +412,4 @@ button, input, select { font: inherit; }
 .account-bookmark-copy strong { overflow: hidden; font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
 .account-bookmark-copy small, .account-bookmark-message { color: #737b75; font-size: .7rem; }
 .account-bookmark-message { line-height: 1.6; }
-@media (max-width: 640px) { .reader-detail-actions { gap: 8px; }.reader-detail-actions .reader-primary-button { flex: 1 1 100%; }.reader-detail-action { min-height: 42px; padding: 0 11px; font-size: .69rem; }.reader-share-dialog { padding: 23px 18px; }.reader-share-actions { display: grid; }.reader-share-actions > * { width: 100%; } }
+@media (max-width: 640px) { .reader-detail-actions { gap: 8px; }.reader-detail-actions .reader-primary-button { flex: 1 1 100%; }.reader-detail-action { min-height: 42px; padding: 0 11px; font-size: .69rem; }.reader-share-dialog { padding: 23px 18px; }.reader-share-cover { height: 150px; }.reader-share-actions { display: grid; }.reader-share-actions > * { width: 100%; } }
