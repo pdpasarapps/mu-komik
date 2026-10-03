@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowUpRight, BookOpen, ChevronLeft, ChevronRight, LoaderCir
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
 
 type ComicContributor = { role: string; name: string };
 type Comic = { id: string; title: string; slug: string; synopsis: string; contributor: string; contributors: ComicContributor[]; genre: string; status: string; cover_key: string | null };
@@ -36,7 +37,7 @@ export default function CreatorComicPage() {
   const reorderInFlightRef = useRef(false);
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({ title: "", chapterNumber: "", published: false });
-  const [comicForm, setComicForm] = useState({ title: "", synopsis: "", contributors: [{ role: "Penulis", name: "" }] as ComicContributor[] });
+  const [comicForm, setComicForm] = useState({ title: "", synopsis: "", genre: "Fantasy", contributors: [{ role: "Penulis", name: "" }] as ComicContributor[] });
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [, setUploadChapterState] = useState<Chapter | null>(null);
   const uploadChapterRef = useRef<Chapter | null>(null);
@@ -70,6 +71,7 @@ export default function CreatorComicPage() {
         setComicForm({
           title: comicData.title,
           synopsis: comicData.synopsis,
+          genre: comicData.genre,
           contributors: storedContributors.length
             ? storedContributors.map((item) => ({ role: item.role || "", name: item.name || "" }))
             : [{ role: "Penulis", name: comicData.contributor || "" }],
@@ -145,6 +147,7 @@ export default function CreatorComicPage() {
     setComicForm({
       title: comic.title,
       synopsis: comic.synopsis,
+      genre: comic.genre,
       contributors: storedContributors.length
         ? storedContributors.map((item) => ({ role: item.role || "", name: item.name || "" }))
         : [{ role: "Penulis", name: comic.contributor || "" }],
@@ -215,6 +218,7 @@ export default function CreatorComicPage() {
         .update({
           title: comicForm.title.trim(),
           synopsis: comicForm.synopsis.trim(),
+          genre: comicForm.genre,
           contributor: contributors.map((item) => `${item.role}: ${item.name}`).join(" · "),
           contributors,
           cover_key: coverKey,
@@ -451,6 +455,7 @@ export default function CreatorComicPage() {
             <button type="button" className="form-close" aria-label="Close comic form" onClick={() => setShowComicForm(false)}>&times;</button>
           </div>
           <label>Judul Komik<input required maxLength={120} value={comicForm.title} onChange={(event) => setComicForm({ ...comicForm, title: event.target.value })} /></label>
+          <label>Genre<select value={comicForm.genre} onChange={(event) => setComicForm({ ...comicForm, genre: event.target.value })}>{COMIC_GENRES.map((genre) => <option key={genre} value={genre}>{getComicGenreLabel(genre)}</option>)}</select></label>
           <label>Deskripsi<textarea required maxLength={3000} rows={4} value={comicForm.synopsis} onChange={(event) => setComicForm({ ...comicForm, synopsis: event.target.value })} /></label>
           <fieldset className="comic-contributors-fieldset">
             <legend>Penulis dan contributor (minimal satu)</legend>

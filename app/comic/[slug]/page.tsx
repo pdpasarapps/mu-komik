@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, LoaderCircle } from "luc
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { getComicGenreLabel } from "@/lib/comic-genres";
 
 const supabase = createClient();
 
@@ -20,8 +21,6 @@ type Comic = {
 };
 
 type Chapter = { id: string; title: string; chapter_number: number; published_at: string | null };
-const genreLabels: Record<string, string> = { Fantasy: "Fantasi", "Sci-fi": "Fiksi ilmiah", Comedy: "Komedi", Action: "Aksi", Romance: "Romantis", Horror: "Horor" };
-
 function cleanSynopsis(synopsis: string) {
   return synopsis.replace(/\*\*/g, "").replace(/👉/g, "").replace(/\n+/g, " ").trim();
 }
@@ -61,7 +60,7 @@ export default function ComicDetailPage() {
         .select("id, title, chapter_number, published_at")
         .eq("comic_id", data.id)
         .not("published_at", "is", null)
-        .order("chapter_number", { ascending: false });
+        .order("chapter_number", { ascending: true });
       if (chapterError) console.error("Unable to load comic episodes:", chapterError);
       if (active) setChapterLoadError(Boolean(chapterError));
 
@@ -119,7 +118,7 @@ export default function ComicDetailPage() {
           {coverUrl ? <img src={coverUrl} alt={`Sampul ${comic.title}`} fetchPriority="high" /> : <span>{comic.title.slice(0, 2).toUpperCase()}</span>}
         </div>
         <div className="reader-detail-copy">
-          <span className="reader-detail-genre">{genreLabels[comic.genre] || comic.genre}</span>
+          <span className="reader-detail-genre">{getComicGenreLabel(comic.genre)}</span>
           <p className="reader-section-kicker">KOMIK · {chapters.length} EPISODE</p>
           <h1>{comic.title}</h1>
           <p className="reader-detail-creator">Karya <strong>{contributor}</strong></p>

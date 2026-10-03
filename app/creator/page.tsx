@@ -5,20 +5,12 @@ import { ArrowLeft, ArrowUpRight, BookOpen, Eye, LoaderCircle, Pencil, Plus, Spa
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
 
 type ComicStatus = "draft" | "pending_review" | "published" | "archived";
 type Comic = { id: string; title: string; slug: string; genre: string; synopsis: string; contributor: string; cover_key: string | null; coverUrl: string | null; status: ComicStatus; created_at: string };
 
 const supabase = createClient();
-const genres = ["Fantasy", "Sci-fi", "Drama", "Comedy", "Action", "Romance"];
-const genreLabels: Record<string, string> = {
-  Fantasy: "Fantasi",
-  "Sci-fi": "Fiksi ilmiah",
-  Drama: "Drama",
-  Comedy: "Komedi",
-  Action: "Aksi",
-  Romance: "Romansa",
-};
 const comicStatusLabel: Record<ComicStatus, string> = {
   draft: "Draf",
   pending_review: "Menunggu kurasi",
@@ -130,7 +122,7 @@ export default function CreatorPage() {
           </div>
           <label>Judul<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Judul komik" /></label>
           <label>Penulis atau kontributor<input maxLength={120} value={form.contributor} onChange={(event) => setForm({ ...form, contributor: event.target.value })} placeholder="Nama penulis atau kontributor" /></label>
-          <label>Genre<select value={form.genre} onChange={(event) => setForm({ ...form, genre: event.target.value })}>{genres.map((genre) => <option key={genre} value={genre}>{genreLabels[genre]}</option>)}</select></label>
+          <label>Genre<select value={form.genre} onChange={(event) => setForm({ ...form, genre: event.target.value })}>{COMIC_GENRES.map((genre) => <option key={genre} value={genre}>{getComicGenreLabel(genre)}</option>)}</select></label>
           <label>Sinopsis<textarea required value={form.synopsis} onChange={(event) => setForm({ ...form, synopsis: event.target.value })} placeholder="Ceritakan tentang komik ini" rows={4} /></label>
           <button className="button button-dark" type="submit" disabled={saving}>{saving ? <><LoaderCircle className="spin" size={16} /> Menyimpan...</> : <>Buat komik <ArrowUpRight size={16} /></>}</button>
         </form>
@@ -151,7 +143,7 @@ export default function CreatorPage() {
                 >
                   {comic.coverUrl
                     ? <img className="creator-comic-cover" src={comic.coverUrl} alt={`Sampul ${comic.title}`} />
-                    : <div role="img" aria-label={`Sampul ${comic.title}`}><span>{genreLabels[comic.genre] || comic.genre}</span><strong>{comic.title.slice(0, 2).toUpperCase()}</strong></div>}
+                    : <div role="img" aria-label={`Sampul ${comic.title}`}><span>{getComicGenreLabel(comic.genre)}</span><strong>{comic.title.slice(0, 2).toUpperCase()}</strong></div>}
                 </div>
                 <span className={`creator-comic-status status-${comic.status}`}>
                   {comicStatusLabel[comic.status]}

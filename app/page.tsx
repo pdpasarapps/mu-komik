@@ -4,20 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, ArrowUpRight, BookOpen, Menu, Search, Sparkles, UserRound, X } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
 
 const supabase = createClient();
-const genreLabels: Record<string, string> = {
-  Fantasy: "Fantasi",
-  "Sci-fi": "Fiksi ilmiah",
-  Drama: "Drama",
-  Comedy: "Komedi",
-  Action: "Aksi",
-  Romance: "Romantis",
-  "Slice of Life": "Slice of Life",
-  Horror: "Horor",
-  Kids: "Anak",
-  Inspirational: "Inspirasi",
-};
 
 type Comic = {
   id: string;
@@ -42,7 +31,7 @@ type ContinueReading = {
 };
 
 function comicGenre(genre: string) {
-  return genreLabels[genre] || genre;
+  return getComicGenreLabel(genre);
 }
 
 function cleanSynopsis(synopsis: string) {
@@ -161,43 +150,79 @@ export default function Home() {
       if (session?.user) {
         const { data: history, error: historyError } = await supabase
           .from("reading_history")
-          .select("last_page, chapter_id, chapters(id, title, chapter_number, comic_id, comics(id, title, slug, synopsis, contributor, genre, cover_key, profiles!comics_creator_id_fkey(display_name)))")
+          .select("last_page, chapter_id")
           .eq("user_id", session.user.id)
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle();
         if (historyError) {
-          console.error("Unable to load reading history:", historyError);
+          console.error("Unable to load reading history:", {
+            message: historyError.message,
+            code: historyError.code,
+            details: historyError.details,
+            hint: historyError.hint,
+          });
         } else if (history) {
-          const chapter = Array.isArray(history.chapters) ? history.chapters[0] : history.chapters;
-          const historyComic = chapter && (Array.isArray(chapter.comics) ? chapter.comics[0] : chapter.comics);
-          if (chapter && historyComic) {
-            const { count: pageCount, error: countError } = await supabase
-              .from("pages")
-              .select("id", { count: "exact", head: true })
-              .eq("chapter_id", history.chapter_id);
-            if (countError) console.error("Unable to load reading progress total:", countError);
-            const profile = Array.isArray(historyComic.profiles) ? historyComic.profiles[0] : historyComic.profiles;
-            const historyRecord: ContinueReading = {
-              comic: {
-                id: historyComic.id,
-                title: historyComic.title,
-                slug: historyComic.slug,
-                synopsis: historyComic.synopsis || "",
-                contributor: historyComic.contributor?.trim() || "",
-                genre: historyComic.genre,
-                creator: profile?.display_name || "Kreator independen",
-                coverUrl: historyComic.cover_key && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${historyComic.cover_key}` : null,
-                latestChapter: null,
-                chapterCount: 0,
-              },
-              chapterId: history.chapter_id,
-              chapterTitle: chapter.title,
-              chapterNumber: chapter.chapter_number,
-              lastPage: history.last_page,
-              pageCount: pageCount || 0,
-            };
-            if (active) setContinueReading(historyRecord);
+          const { data: chapter, error: chapterError } = await supabase
+            .from("chapters")
+            .select("id, title, chapter_number, comic_id")
+            .eq("id", history.chapter_id)
+            .maybeSingle();
+          if (chapterError) {
+            console.error("Unable to load the chapter from reading history:", {
+              message: chapterError.message,
+              code: chapterError.code,
+              details: chapterError.details,
+              hint: chapterError.hint,
+            });
+          } else if (chapter) {
+            const { data: historyComic, error: comicError } = await supabase
+              .from("comics")
+              .select("id, title, slug, synopsis, contributor, genre, cover_key, profiles!comics_creator_id_fkey(display_name)")
+              .eq("id", chapter.comic_id)
+              .maybeSingle();
+            if (comicError) {
+              console.error("Unable to load the comic from reading history:", {
+                message: comicError.message,
+                code: comicError.code,
+                details: comicError.details,
+                hint: comicError.hint,
+              });
+            } else if (historyComic) {
+                const { count: pageCount, error: countError } = await supabase
+                  .from("pages")
+                  .select("id", { count: "exact", head: true })
+                  .eq("chapter_id", history.chapter_id);
+                if (countError) {
+                  console.error("Unable to load reading progress total:", {
+                    message: countError.message,
+                    code: countError.code,
+                    details: countError.details,
+                    hint: countError.hint,
+                  });
+                }
+                const profile = Array.isArray(historyComic.profiles) ? historyComic.profiles[0] : historyComic.profiles;
+                const historyRecord: ContinueReading = {
+                  comic: {
+                    id: historyComic.id,
+                    title: historyComic.title,
+                    slug: historyComic.slug,
+                    synopsis: historyComic.synopsis || "",
+                    contributor: historyComic.contributor?.trim() || "",
+                    genre: historyComic.genre,
+                    creator: profile?.display_name || "Kreator independen",
+                    coverUrl: historyComic.cover_key && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${historyComic.cover_key}` : null,
+                    latestChapter: null,
+                    chapterCount: 0,
+                  },
+                  chapterId: history.chapter_id,
+                  chapterTitle: chapter.title,
+                  chapterNumber: chapter.chapter_number,
+                  lastPage: history.last_page,
+                  pageCount: pageCount || 0,
+                };
+                if (active) setContinueReading(historyRecord);
+            }
           }
         }
       } else if (active) {
@@ -224,7 +249,7 @@ export default function Home() {
   }, []);
 
   const genres = useMemo(() => ["all", ...new Set([
-    "Comedy", "Drama", "Romance", "Action", "Slice of Life", "Horror", "Kids", "Inspirational",
+    ...COMIC_GENRES,
     ...comics.map((comic) => comic.genre).filter(Boolean),
   ])], [comics]);
   const searchedComics = useMemo(() => {
