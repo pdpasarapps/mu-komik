@@ -396,6 +396,7 @@ button, input, select { font: inherit; }
 .reader-share-dialog > .reader-section-kicker { margin: 0 0 9px; color: #737b75; font-size: .64rem; letter-spacing: .1em; }
 .reader-share-dialog h2 { margin: 0; font-size: 1.7rem; letter-spacing: -.055em; }
 .reader-share-description { margin: 8px 0 14px; color: #737b75; font-size: .8rem; }
+.reader-share-synopsis { max-height: 5.5em; margin: -6px 0 14px; overflow: auto; color: #4f5952; font-size: .76rem; line-height: 1.55; }
 .reader-share-cover { display: block; width: auto; max-width: min(100%, 180px); height: 190px; margin: 0 auto 14px; border-radius: 7px; object-fit: contain; background: #efede6; }
 .reader-share-close { position: absolute; top: 13px; right: 13px; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: #68716a; cursor: pointer; }
 .reader-share-close:hover { background: #f0efeb; }

@@ -164,7 +164,9 @@ export default function ComicDetailPage() {
     setShareUrl(url);
     if (navigator.share) {
       try {
-        const shareData: ShareData = { title: comic?.title, text: `Baca ${comic?.title} di mu-komik`, url };
+        const synopsis = comic ? cleanSynopsis(comic.synopsis) : "";
+        const shareText = [synopsis, `Baca ${comic?.title} di mu-komik`].filter(Boolean).join("\n\n");
+        const shareData: ShareData = { title: comic?.title, text: shareText, url };
         const coverFile = shareCover && comic?.cover_key === shareCover.coverKey ? shareCover.file : null;
         if (coverFile && navigator.canShare?.({ files: [coverFile] })) {
           shareData.files = [coverFile];
@@ -251,11 +253,12 @@ export default function ComicDetailPage() {
             <p className="reader-section-kicker">BAGIKAN CERITA</p>
             <h2 id="reader-share-title">Ajak teman membaca</h2>
             <p className="reader-share-description">{comic.title}</p>
+            {cleanSynopsis(comic.synopsis) && <p className="reader-share-synopsis">{cleanSynopsis(comic.synopsis)}</p>}
             {coverUrl && <img className="reader-share-cover" src={coverUrl} alt={`Cover ${comic.title} yang akan tampil saat membagikan tautan`} />}
             <textarea ref={shareUrlRef} className="reader-share-url" aria-label="Tautan komik" readOnly value={shareUrl} onFocus={(event) => event.currentTarget.select()} />
             <div className="reader-share-actions">
               <button className="reader-primary-button" type="button" onClick={() => void copyShareUrl()}><Copy size={17} /> Salin tautan</button>
-              <a className="reader-detail-action" href={`https://wa.me/?text=${encodeURIComponent(`Baca ${comic.title} di mu-komik: ${shareUrl}`)}`} target="_blank" rel="noreferrer"><ExternalLink size={17} /> Bagikan via WhatsApp</a>
+              <a className="reader-detail-action" href={`https://wa.me/?text=${encodeURIComponent([cleanSynopsis(comic.synopsis), `Baca ${comic.title} di mu-komik: ${shareUrl}`].filter(Boolean).join("\n\n"))}`} target="_blank" rel="noreferrer"><ExternalLink size={17} /> Bagikan via WhatsApp</a>
             </div>
             {shareMessage && <p className="reader-detail-action-message" role="status">{shareMessage}</p>}
           </section>
