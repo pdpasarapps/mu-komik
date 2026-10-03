@@ -64,7 +64,7 @@ create table if not exists public.bookmarks (
   comic_id uuid not null references public.comics(id) on delete cascade,
   chapter_id uuid references public.chapters(id) on delete cascade,
   created_at timestamptz not null default now(),
-  primary key (user_id, comic_id, chapter_id)
+  primary key (user_id, comic_id)
 );
 
 alter table public.profiles enable row level security;

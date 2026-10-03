@@ -5,6 +5,7 @@ mu-komik is being rebuilt around Next.js, Supabase Auth/Postgres, and Cloudflare
 For existing Supabase projects, run `supabase/comic-contributors.sql` once before editing comic contributor details.
 For comic publishing and admin curation, run `supabase/comic-curation.sql` once on existing Supabase projects.
 For the admin dashboard, run `supabase/creator-request.sql` first, then `supabase/admin-management.sql` to grant admin access to profile management.
+For comic-level bookmarks on an existing database, run `supabase/comic-bookmarks.sql` once.
 
 ## Getting Started
 
@@ -33,6 +34,8 @@ For production uploads, configure these variables for the deployed Cloudflare Wo
 - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
 The local `.env.local` file does not configure the production Worker.
+
+For search indexing, set `NEXT_PUBLIC_SITE_URL` to the canonical public origin (for example, `https://mu-komik.pdpasarapps.workers.dev`) in both local and production environments. The app exposes `robots.txt` and a sitemap containing published comics and episodes; submit `/sitemap.xml` to Google Search Console and Bing Webmaster Tools after deployment.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

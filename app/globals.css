@@ -385,3 +385,30 @@ button, input, select { font: inherit; }
 .pwa-install-dialog h2 { margin: 18px 0 8px; font-size: 1.55rem; letter-spacing: -.05em; }.pwa-install-dialog p, .pwa-install-dialog li { color: #626b64; font-size: .82rem; line-height: 1.6; }.pwa-install-dialog ol { display: grid; gap: 9px; padding-left: 22px; }.pwa-install-dialog li svg { vertical-align: middle; }
 .pwa-install-dialog-done { min-height: 42px; width: 100%; margin-top: 8px; border: 0; border-radius: 8px; background: #1e2524; color: white; font-weight: 800; cursor: pointer; }
 @media (max-width: 640px) { .pwa-install-card { right: 12px; bottom: 12px; gap: 7px; padding: 9px; }.pwa-install-copy span { font-size: .63rem; }.pwa-install-card > button:not(.pwa-install-dismiss) { min-height: 40px; padding: 0 9px; font-size: .67rem; }.pwa-install-dismiss { width: 32px; } }
+
+.reader-detail-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.reader-detail-action { min-height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 1px solid var(--reader-border, #dedfd7); border-radius: 8px; background: #fffdf8; color: var(--reader-text, #202422); font-size: .78rem; font-weight: 750; cursor: pointer; }
+.reader-detail-action:hover, .reader-detail-action-saved { border-color: #e6a18b; color: #a7472e; background: #fff4ee; }
+.reader-detail-action:disabled { opacity: .65; cursor: wait; }
+.reader-detail-action-message { margin: 10px 0 0; color: #667269; font-size: .75rem; }
+.reader-share-backdrop { position: fixed; z-index: 80; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(20,25,22,.52); }
+.reader-share-dialog { position: relative; width: min(100%, 440px); padding: 27px; border: 1px solid var(--reader-border, #e7e5de); border-radius: 14px; background: #fffdf8; color: var(--reader-text, #202422); box-shadow: 0 20px 60px rgba(0,0,0,.2); }
+.reader-share-dialog > .reader-section-kicker { margin: 0 0 9px; color: #737b75; font-size: .64rem; letter-spacing: .1em; }
+.reader-share-dialog h2 { margin: 0; font-size: 1.7rem; letter-spacing: -.055em; }
+.reader-share-description { margin: 8px 0 14px; color: #737b75; font-size: .8rem; }
+.reader-share-close { position: absolute; top: 13px; right: 13px; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: #68716a; cursor: pointer; }
+.reader-share-close:hover { background: #f0efeb; }
+.reader-share-url { width: 100%; min-height: 66px; resize: none; padding: 10px; border: 1px solid var(--reader-border, #dedfd7); border-radius: 8px; background: white; color: var(--reader-text, #202422); font: .74rem/1.5 monospace; overflow-wrap: anywhere; }
+.reader-share-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 12px; }
+.reader-share-actions > * { flex: 1 1 auto; }
+.account-bookmark-panel { align-self: start; }
+.account-bookmark-list { display: grid; gap: 10px; margin-top: 20px; }
+.account-bookmark-item { min-width: 0; display: flex; align-items: center; gap: 11px; padding: 9px; border: 1px solid var(--line); color: var(--ink); }
+.account-bookmark-item:hover { border-color: var(--orange); }
+.account-bookmark-cover { width: 44px; height: 58px; display: grid; place-items: center; flex: 0 0 auto; overflow: hidden; background: #ece9e0; color: #737b74; }
+.account-bookmark-cover img { width: 100%; height: 100%; object-fit: contain; }
+.account-bookmark-copy { min-width: 0; display: grid; flex: 1; gap: 4px; }
+.account-bookmark-copy strong { overflow: hidden; font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
+.account-bookmark-copy small, .account-bookmark-message { color: #737b75; font-size: .7rem; }
+.account-bookmark-message { line-height: 1.6; }
+@media (max-width: 640px) { .reader-detail-actions { gap: 8px; }.reader-detail-actions .reader-primary-button { flex: 1 1 100%; }.reader-detail-action { min-height: 42px; padding: 0 11px; font-size: .69rem; }.reader-share-dialog { padding: 23px 18px; }.reader-share-actions { display: grid; }.reader-share-actions > * { width: 100%; } }

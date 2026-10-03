@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowUpRight, BookOpen, Bookmark, LogOut, Settings2, Sparkles, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Bookmark, LogOut, Settings2, Sparkles, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { getComicGenreLabel } from "@/lib/comic-genres";
 
 type Profile = { display_name: string; role: "reader" | "creator" | "admin" };
 type CreatorRequest = { status: "pending" | "approved" | "rejected" };
+type BookmarkedComic = { id: string; title: string; slug: string; genre: string; cover_key: string | null };
 
 const supabase = createClient();
+const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
 const roleLabels: Record<Profile["role"], string> = {
   reader: "Pembaca",
   creator: "Kreator",
@@ -34,6 +37,8 @@ export default function AccountPage() {
   const [portfolioUrl, setPortfolioUrl] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
   const [otherUrl, setOtherUrl] = useState("");
+  const [bookmarks, setBookmarks] = useState<BookmarkedComic[]>([]);
+  const [bookmarkError, setBookmarkError] = useState("");
 
   useEffect(() => {
     const loadAccount = async () => {
@@ -49,6 +54,20 @@ export default function AccountPage() {
       setProfile(data);
       const { data: request } = await supabase.from("creator_requests").select("status").eq("user_id", user.id).maybeSingle();
       setCreatorRequest(request);
+      const { data: bookmarkRows, error: bookmarkLoadError } = await supabase
+        .from("bookmarks")
+        .select("created_at, comics(id, title, slug, genre, cover_key)")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (bookmarkLoadError) {
+        console.error("Unable to load account bookmarks:", bookmarkLoadError);
+        setBookmarkError("Favorit belum dapat dimuat.");
+      } else {
+        setBookmarks((bookmarkRows ?? []).flatMap((row) => {
+          const comic = Array.isArray(row.comics) ? row.comics[0] : row.comics;
+          return comic ? [comic] : [];
+        }));
+      }
       setLoading(false);
     };
     loadAccount();
@@ -87,7 +106,19 @@ export default function AccountPage() {
       <section className="account-header"><Link className="auth-back" href="/"><ArrowLeft size={16} /> Kembali ke beranda</Link><div className="account-heading"><div className="account-avatar"><UserRound size={30} /></div><div><p className="eyebrow"><span /> Ruang bacamu</p><h1>Hai, {profile?.display_name || "Pembaca"}.</h1><p>{email}</p></div></div></section>
       <section className="account-grid">
         <article className="account-panel account-panel-wide"><div className="panel-heading"><div><p className="eyebrow">Lanjutkan dari sini</p><h2>Lanjutkan membaca</h2></div><BookOpen size={22} /></div><div className="account-empty"><div className="empty-icon"><BookOpen size={23} /></div><h3>Koleksimu menanti.</h3><p>Mulai baca komik dan bab terakhirmu akan muncul di sini.</p><Link className="button button-dark" href="/#discover">Jelajahi komik</Link></div></article>
-        <article className="account-panel"><div className="panel-heading"><div><p className="eyebrow">Simpan untuk nanti</p><h2>Bookmark</h2></div><Bookmark size={22} /></div><div className="account-empty compact"><div className="empty-icon"><Bookmark size={23} /></div><p>Belum ada bookmark.</p><Link className="text-link" href="/#discover">Cari komik <span>↗</span></Link></div></article>
+        <article className="account-panel account-bookmark-panel">
+          <div className="panel-heading"><div><p className="eyebrow">Simpan untuk nanti</p><h2>Favorit</h2></div><Bookmark size={22} /></div>
+          {bookmarkError ? <p className="account-bookmark-message" role="alert">{bookmarkError} Jalankan supabase/comic-bookmarks.sql pada database.</p>
+            : bookmarks.length ? <div className="account-bookmark-list">{bookmarks.map((comic) => {
+              const coverUrl = comic.cover_key && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${comic.cover_key}` : null;
+              return <Link className="account-bookmark-item" href={`/comic/${comic.slug}`} key={comic.id}>
+                <span className="account-bookmark-cover">{coverUrl ? <img src={coverUrl} alt="" /> : <Bookmark size={19} />}</span>
+                <span className="account-bookmark-copy"><strong>{comic.title}</strong><small>{getComicGenreLabel(comic.genre)}</small></span>
+                <ArrowRight size={16} />
+              </Link>;
+            })}</div>
+            : <div className="account-empty compact"><div className="empty-icon"><Bookmark size={23} /></div><p>Belum ada komik favorit.</p><Link className="text-link" href="/">Cari komik <span>↗</span></Link></div>}
+        </article>
         <article className="account-panel">
           <div className="panel-heading"><div><p className="eyebrow">Ruang pribadimu</p><h2>Pengaturan</h2></div><Settings2 size={22} /></div>
           <div className="settings-row"><span>Jenis akun</span><strong>{profile?.role ? roleLabels[profile.role] : "Pembaca"}</strong></div>
