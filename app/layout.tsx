@@ -13,6 +13,7 @@ export const metadata: Metadata = {
   authors: [{ name: "mu-komik" }],
   creator: "mu-komik",
   publisher: "mu-komik",
+  facebook: { appId: "1452978320076766" },
   openGraph: {
     type: "website",
     locale: "id_ID",

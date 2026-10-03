@@ -123,7 +123,7 @@ export default function ComicDetailPage() {
     if (!comic?.cover_key || !publicUrl) return;
     const coverKey = comic.cover_key;
     const controller = new AbortController();
-    const imageUrl = `${publicUrl.replace(/\/$/, "")}/${coverKey}`;
+    const imageUrl = `/api/share-cover?key=${encodeURIComponent(coverKey)}`;
     void fetch(imageUrl, { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error(`Cover request failed with status ${response.status}.`);
@@ -134,7 +134,7 @@ export default function ComicDetailPage() {
       })
       .catch((error: unknown) => {
         if (error instanceof Error && error.name === "AbortError") return;
-        console.error("Unable to prepare the comic cover for sharing:", error);
+        setShareCover((current) => current?.coverKey === coverKey ? current : null);
       });
     return () => controller.abort();
   }, [comic?.cover_key, comic?.slug, publicUrl]);

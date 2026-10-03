@@ -26,6 +26,7 @@ bun dev
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 For direct browser uploads to R2, apply `r2-cors.json` in Cloudflare R2 bucket `mu-komik-assets` under Settings -> CORS policy. Add the final frontend domain to `AllowedOrigins` before production deployment.
+Comic cover file sharing fetches images through the same-origin `/api/share-cover` route, so it does not depend on browser CORS access to the R2 public host.
 
 For production uploads, configure these variables for the deployed Cloudflare Worker and redeploy:
 
@@ -36,6 +37,8 @@ For production uploads, configure these variables for the deployed Cloudflare Wo
 The local `.env.local` file does not configure the production Worker.
 
 For search indexing, set `NEXT_PUBLIC_SITE_URL` to the canonical public origin (for example, `https://mu-komik.pdpasarapps.workers.dev`) in both local and production environments. The app exposes `robots.txt` and a sitemap containing published comics and episodes; submit `/sitemap.xml` to Google Search Console and Bing Webmaster Tools after deployment.
+
+The Facebook App ID is configured in the global metadata and is emitted as the `fb:app_id` tag.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
