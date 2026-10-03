@@ -26,9 +26,15 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 For direct browser uploads to R2, apply `r2-cors.json` in Cloudflare R2 bucket `mu-komik-assets` under Settings -> CORS policy. Add the final frontend domain to `AllowedOrigins` before production deployment.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+For production uploads, configure these variables for the deployed Cloudflare Worker and redeploy:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `R2_ACCOUNT_ID` and `R2_BUCKET_NAME`
+- `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` (store these as secrets)
+- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+The local `.env.local` file does not configure the production Worker.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 ## Learn More
 

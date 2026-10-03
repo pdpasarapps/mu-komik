@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, ArrowUpRight, BookOpen, ChevronDown, Menu, Search, Sparkles, UserRound, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, BookOpen, Menu, Search, Sparkles, UserRound, X } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -67,6 +67,7 @@ function ComicCard({ comic, compact = false }: { comic: Comic; compact?: boolean
           {chapter && <span className="reader-card-latest">Terbaru · Episode {chapter.chapter_number}</span>}
         </div>
       </Link>
+      {chapter && <Link className="reader-card-read" href={`/comic/${comic.slug}/chapter/${chapter.id}`}><BookOpen size={14} /> Baca <ArrowRight size={14} /></Link>}
     </article>
   );
 }
@@ -222,7 +223,10 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const genres = useMemo(() => ["all", ...new Set(comics.map((comic) => comic.genre).filter(Boolean))], [comics]);
+  const genres = useMemo(() => ["all", ...new Set([
+    "Comedy", "Drama", "Romance", "Action", "Slice of Life", "Horror", "Kids", "Inspirational",
+    ...comics.map((comic) => comic.genre).filter(Boolean),
+  ])], [comics]);
   const searchedComics = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("id-ID");
     return comics.filter((comic) => {
@@ -231,10 +235,10 @@ export default function Home() {
       return matchesGenre && (!normalizedQuery || searchable.includes(normalizedQuery));
     });
   }, [comics, genre, query]);
-  const featuredComic = comics.find((comic) => comic.latestChapter) || comics[0];
   const latestComics = [...comics].filter((comic) => comic.latestChapter).sort((a, b) =>
     new Date(b.latestChapter?.published_at || 0).getTime() - new Date(a.latestChapter?.published_at || 0).getTime(),
   );
+  const featuredComic = latestComics[0] || comics[0];
   const ongoingComics = [...comics].sort((a, b) => b.chapterCount - a.chapterCount).filter((comic) => comic.chapterCount > 1);
 
   const focusSearch = () => {
@@ -271,10 +275,15 @@ export default function Home() {
 
       {authMessage && <div className="reader-inline-message" role="alert">{authMessage}<button onClick={() => setAuthRetry((attempt) => attempt + 1)}>Coba lagi</button></div>}
 
-      {featuredComic ? (
+      {catalogState === "loading" ? (
+        <section className="reader-featured reader-featured-loading" aria-label="Memuat komik pilihan">
+          <div className="reader-featured-copy"><span className="reader-featured-skeleton reader-featured-skeleton-kicker" /><span className="reader-featured-skeleton reader-featured-skeleton-meta" /><span className="reader-featured-skeleton reader-featured-skeleton-title" /><span className="reader-featured-skeleton reader-featured-skeleton-description" /><span className="reader-featured-skeleton reader-featured-skeleton-button" /></div>
+          <div className="reader-featured-cover-skeleton" aria-hidden="true" />
+        </section>
+      ) : featuredComic ? (
         <section className="reader-featured">
           <div className="reader-featured-copy">
-            <span className="reader-kicker"><Sparkles size={15} /> CERITA TERBARU</span>
+            <span className="reader-kicker"><Sparkles size={15} /> UPDATE TERBARU</span>
             <p className="reader-featured-genre">{comicGenre(featuredComic.genre)} <span>·</span> {featuredComic.contributor || featuredComic.creator}</p>
             <h1>{featuredComic.title}</h1>
             <p className="reader-featured-synopsis">{cleanSynopsis(featuredComic.synopsis) || "Temukan cerita baru dan mulai membaca hari ini."}</p>
@@ -312,7 +321,7 @@ export default function Home() {
 
         {ongoingComics.length > 0 && (
           <section className="reader-home-section">
-            <div className="reader-section-heading"><div><p className="reader-section-kicker">SERIAL YANG TERUS BERLANJUT</p><h2>Temukan serial favoritmu</h2></div><a href="#jelajah">Semua komik <ArrowUpRight size={16} /></a></div>
+            <div className="reader-section-heading"><div><p className="reader-section-kicker">SERIAL YANG TERUS BERLANJUT</p><h2>Ikuti ceritanya</h2></div><a href="#jelajah">Semua komik <ArrowUpRight size={16} /></a></div>
             <div className="reader-comic-rail">{ongoingComics.slice(0, 6).map((comic) => <ComicCard key={comic.id} comic={comic} />)}</div>
           </section>
         )}
@@ -347,7 +356,8 @@ export default function Home() {
             <div className="reader-mobile-search-inline"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari komik, kreator, atau genre..." aria-label="Cari komik, kreator, atau genre" /></div>
           </div>
           {catalogState === "ready" && searchedComics.length > 0 && <div className="reader-comic-grid">{searchedComics.map((comic) => <ComicCard key={comic.id} comic={comic} />)}</div>}
-          {catalogState === "ready" && searchedComics.length === 0 && <div className="reader-empty-state"><p>{query || genre !== "all" ? "Belum ada cerita di kategori ini." : "Belum ada komik terbit."}</p><button onClick={() => { setGenre("all"); setQuery(""); }}>Jelajahi semua komik</button></div>}
+          {catalogState === "loading" && <div className="reader-comic-grid">{Array.from({ length: 6 }, (_, index) => <ComicSkeleton key={index} />)}</div>}
+          {catalogState === "ready" && searchedComics.length === 0 && <div className="reader-empty-state"><p>{query ? "Komik yang kamu cari belum ditemukan." : genre !== "all" ? "Belum ada komik dalam kategori ini." : "Belum ada komik terbit."}</p><button onClick={() => { setGenre("all"); setQuery(""); }}>Jelajahi semua komik</button></div>}
         </section>
       </div>
 
@@ -358,7 +368,7 @@ export default function Home() {
       <footer className="reader-footer">
         <Link className="wordmark reader-wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></Link>
         <p>Tempat cerita Indonesia menemukan pembacanya.</p>
-        <a href="#jelajah">Jelajahi <ChevronDown size={15} /></a>
+        <nav className="reader-footer-links" aria-label="Tautan footer"><a href="#jelajah">Jelajah</a><a href="#genre">Genre</a><a href="#creator">Kreator</a></nav>
         <span>© 2026 mu-komik</span>
       </footer>
     </main>

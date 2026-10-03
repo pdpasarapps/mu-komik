@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, ChevronDown, ChevronLeft, ChevronRight, List, LoaderCircle, Maximize2, Minimize2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -25,6 +25,7 @@ export default function ChapterReaderPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [pageLoadError, setPageLoadError] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const lastScrollY = useRef(0);
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
 
   useEffect(() => {
@@ -135,6 +136,31 @@ export default function ChapterReaderPage() {
   }, [currentPage, loading, pages.length]);
 
   useEffect(() => {
+    if (loading || !pages.length) return;
+    lastScrollY.current = window.scrollY;
+    let animationFrame = 0;
+    const handleScroll = () => {
+      if (animationFrame) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        const currentScrollY = window.scrollY;
+        const scrollDelta = currentScrollY - lastScrollY.current;
+        if (currentScrollY < 90 || scrollDelta < -8) {
+          setControlsVisible(true);
+        } else if (scrollDelta > 8) {
+          setControlsVisible(false);
+        }
+        lastScrollY.current = currentScrollY;
+        animationFrame = 0;
+      });
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    };
+  }, [loading, pages.length]);
+
+  useEffect(() => {
     if (!userId || !historyReady || !chapter || !pages.length) return;
     const timer = window.setTimeout(async () => {
       const { error } = await supabase.from("reading_history").upsert({
@@ -165,7 +191,14 @@ export default function ChapterReaderPage() {
   const pageUrl = (page: Page) => publicUrl ? `${publicUrl.replace(/\/$/, "")}/${page.object_key}` : null;
 
   return (
-    <main className={`reader-experience${controlsVisible ? "" : " reader-controls-hidden"}`}>
+    <main
+      className={`reader-experience${controlsVisible ? "" : " reader-controls-hidden"}`}
+      onPointerDown={(event) => {
+        if (!controlsVisible && !(event.target instanceof Element && event.target.closest("a, button, summary"))) {
+          setControlsVisible(true);
+        }
+      }}
+    >
       <header className="reader-experience-header">
         <Link className="reader-experience-back" href={`/comic/${comic.slug}`} aria-label="Kembali ke detail komik"><ArrowLeft size={19} /><span>{comic.title}</span></Link>
         <div className="reader-experience-chapter"><span>Episode {chapter.chapter_number}</span><strong>{chapter.title}</strong></div>
@@ -197,6 +230,21 @@ export default function ChapterReaderPage() {
         </section>
       ) : (
         <section className="reader-no-pages"><BookOpen size={28} /><h1>{pageLoadError ? "Halaman komik belum dapat dimuat." : "Episode ini belum memiliki halaman."}</h1><p>{pageLoadError ? "Periksa koneksi lalu muat ulang episode ini." : "Kembali lagi nanti untuk membaca cerita ini."}</p>{pageLoadError ? <button onClick={() => window.location.reload()}>Coba lagi</button> : <Link href={`/comic/${comic.slug}`}>Kembali ke komik</Link>}</section>
+      )}
+
+      {pages.length > 0 && (
+        <section className="reader-episode-end" aria-labelledby="reader-episode-end-title">
+          <span className="reader-episode-end-kicker">EPISODE SELESAI</span>
+          <h1 id="reader-episode-end-title">Sampai di sini untuk episode ini.</h1>
+          <p>{nextChapter ? "Lanjutkan petualangannya di episode berikutnya." : "Kamu sudah membaca episode terbaru dari komik ini."}</p>
+          <div className="reader-episode-end-actions">
+            {previousChapter && <Link className="reader-episode-secondary-action" href={`/comic/${comic.slug}/chapter/${previousChapter.id}`}><ChevronLeft size={17} /> Episode sebelumnya</Link>}
+            {nextChapter
+              ? <Link className="reader-episode-next-action" href={`/comic/${comic.slug}/chapter/${nextChapter.id}`}>Baca episode berikutnya <ArrowRight size={18} /></Link>
+              : <span className="reader-episode-latest-label">Ini adalah episode terbaru</span>}
+            <Link className="reader-episode-secondary-action" href={`/comic/${comic.slug}`}><BookOpen size={17} /> Kembali ke komik</Link>
+          </div>
+        </section>
       )}
 
       <button className="reader-controls-toggle" onClick={() => setControlsVisible((visible) => !visible)} aria-label={controlsVisible ? "Sembunyikan kontrol" : "Tampilkan kontrol"}>

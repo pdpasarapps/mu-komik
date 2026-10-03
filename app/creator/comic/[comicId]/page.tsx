@@ -315,6 +315,10 @@ export default function CreatorComicPage() {
       for (const file of files) {
         const urlResponse = await fetch("/api/r2/upload-url", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ comicId: comic.id, chapterId: chapter.id, filename: file.name, contentType: file.type }) });
         const urlData = await urlResponse.json() as { uploadUrl?: string; objectKey?: string; error?: string; detail?: string; missing?: string[] };
+        if (urlData.error === "R2 environment variables are missing") {
+          const missing = urlData.missing?.join(", ");
+          throw new Error(`Server storage is not configured${missing ? ` (${missing})` : ""}. Ask an admin to configure the production Worker.`);
+        }
         if (!urlResponse.ok || !urlData.uploadUrl || !urlData.objectKey) throw new Error(urlData.error ? `${urlData.error}${urlData.missing ? `: ${urlData.missing.join(", ")}` : ""}${urlData.detail ? ` (${urlData.detail})` : ""}` : "Could not prepare upload.");
         const uploadResponse = await fetch(urlData.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
         if (!uploadResponse.ok) throw new Error(`Upload failed for ${file.name}.`);
