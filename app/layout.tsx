@@ -1,9 +1,13 @@
 import type { Metadata, Viewport } from "next";
+import { siteUrl } from "@/lib/seo";
 import PwaSupport from "./pwa-support";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://mu-komik.pdpasarapps.workers.dev"),
+  metadataBase: siteUrl,
+  alternates: {
+    canonical: siteUrl.toString(),
+  },
   title: {
     default: "mu-komik | Baca Komik Indonesia",
     template: "%s | mu-komik",
@@ -18,6 +22,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "id_ID",
     siteName: "mu-komik",
+    url: siteUrl.toString(),
     title: "mu-komik | Baca Komik Indonesia",
     description: "Temukan dan baca komik Indonesia dari kreator independen.",
   },
