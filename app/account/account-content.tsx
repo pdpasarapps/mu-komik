@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import type { ReactNode } from "react";
-import { ArrowRight, ArrowUpRight, BarChart3, BookOpen, Bookmark, CircleHelp, Library, LogOut, Plus, Settings2, Sparkles, Trash2, UserRound } from "lucide-react";
+import { ArrowRight, ArrowUpRight, BarChart3, BookOpen, Bookmark, CircleHelp, Home, Library, LogOut, Plus, Settings2, Sparkles, Trash2, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -13,6 +13,7 @@ import CreatorAnalytics from "./creator-analytics";
 import { getComicGenreLabel } from "@/lib/comic-genres";
 import { createCreatorHandle, isValidCreatorHandle } from "@/lib/creator-handle";
 import { getCreatorSocialPlaceholder, isValidCreatorSocialUrl, normalizeCreatorSocialUrl, parseCreatorSocialLinks, type CreatorSocialLink } from "@/lib/creator-social-links";
+import { usePlatformSettings } from "../platform-runtime";
 
 export type AccountSection = "overview" | "reading" | "favorites" | "account-settings" | "creator-profile" | "creator-guide" | "comic-editor" | "analitik-komik" | CreatorArea;
 const isCreatorArea = (section: AccountSection): section is CreatorArea =>
@@ -49,6 +50,7 @@ const requestStatusLabels: Record<CreatorRequest["status"], string> = {
 };
 
 export default function AccountContent({ section, children }: { section: AccountSection; children?: ReactNode }) {
+  const { settings } = usePlatformSettings();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -405,6 +407,7 @@ export default function AccountContent({ section, children }: { section: Account
       <aside className="account-sidebar">
         <Link className="account-brand" href="/account" aria-label="Ruang Bacamu"><BrandLogo linked={false} /></Link>
         <nav className="account-sidebar-nav" aria-label="Navigasi akun">
+          <Link className="account-nav-link" href="/"><Home size={18} /><span>Beranda</span></Link>
           <p className="account-nav-label">Pembaca</p>
           <Link className={`account-nav-link${section === "reading" ? " active" : ""}`} href="/account/reading" aria-current={section === "reading" ? "page" : undefined}><BookOpen size={18} /><span>Lanjut membaca</span></Link>
           <Link className={`account-nav-link${section === "favorites" ? " active" : ""}`} href="/account/favorites" aria-current={section === "favorites" ? "page" : undefined}><Bookmark size={18} /><span>Favorit</span></Link>
@@ -628,7 +631,7 @@ export default function AccountContent({ section, children }: { section: Account
             </form>
           )}
           {profile?.role === "admin" && <Link className="account-creator-link" href="/admin"><Settings2 size={16} /> Buka panel admin <ArrowUpRight size={15} /></Link>}
-          {profile?.role === "reader" && (
+          {profile?.role === "reader" && settings.feature_flags.creators && (
             <div className="creator-request">
               <div className="creator-request-title"><Sparkles size={16} /> Jadi kreator</div>
               <p>{creatorRequest?.status === "rejected" ? "Pengajuanmu ditolak. Perbarui dan kirim kembali pengajuan." : "Ceritakan kepada admin komik yang ingin kamu terbitkan dan alasan karyamu layak hadir di sini."}</p>
@@ -733,6 +736,7 @@ export default function AccountContent({ section, children }: { section: Account
       </>}
       </div>
       <nav className="account-mobile-nav" aria-label="Navigasi akun">
+        <Link href="/"><Home size={19} /><span>Beranda</span></Link>
         <Link href="/account/reading" className={section === "reading" ? "active" : ""}><BookOpen size={19} /><span>Baca</span></Link>
         <Link href="/account/favorites" className={section === "favorites" ? "active" : ""}><Bookmark size={19} /><span>Favorit</span></Link>
         {profile?.role === "creator" && <>

@@ -1,7 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { siteUrl } from "@/lib/seo";
+import { getPlatformSettings } from "@/lib/platform-settings";
+import PlatformRuntime from "./platform-runtime";
 import PwaSupport from "./pwa-support";
 import "./globals.css";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
@@ -63,11 +67,12 @@ export const viewport: Viewport = {
   themeColor: "#f7f6f2",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const { settings } = await getPlatformSettings();
   return (
     <html lang="id" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
-        {children}
+        <PlatformRuntime initialSettings={settings}>{children}</PlatformRuntime>
         <PwaSupport />
       </body>
     </html>

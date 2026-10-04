@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, CheckCircle2, ChevronUp, CircleDot, Copy, ExternalLink, Eye, Heart, LoaderCircle, Share2, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { usePlatformSettings } from "../../platform-runtime";
 import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import PlatformLinks from "@/components/platform-links";
@@ -98,6 +99,7 @@ function cleanSynopsis(synopsis: string) {
 }
 
 export default function ComicDetailPage({ initialComic, initialChapters }: ComicDetailPageProps) {
+  const { settings } = usePlatformSettings();
   const { slug } = useParams<{ slug: string }>();
   const [comic, setComic] = useState<Comic | null>(initialComic);
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
@@ -545,12 +547,12 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
             {resumeChapter && <p className="reader-detail-resume">Terakhir dibaca · Episode {resumeChapter.chapter_number}</p>}
           </div>
           <div className="reader-detail-actions">
-            {userId
+            {settings.feature_flags.favorites && (userId
               ? <button className={`reader-detail-action${isBookmarked ? " reader-detail-action-saved" : ""}`} onClick={() => void toggleBookmark()} disabled={bookmarkBusy} aria-pressed={isBookmarked} aria-label={isBookmarked ? "Hapus dari favorit" : "Simpan ke favorit"}>
                   {bookmarkBusy ? <LoaderCircle className="spin" size={17} /> : <Heart size={17} fill={isBookmarked ? "currentColor" : "none"} />}
                   Favorit
                 </button>
-              : <Link className="reader-detail-action" href="/login" aria-label="Masuk untuk menyimpan komik ke favorit"><Heart size={17} /> Favorit</Link>}
+              : <Link className="reader-detail-action" href="/login" aria-label="Masuk untuk menyimpan komik ke favorit"><Heart size={17} /> Favorit</Link>)}
             <button className="reader-detail-action" onClick={() => void shareComic()}><Share2 size={17} /> Bagikan</button>
           </div>
           {bookmarkMessage && <p className="reader-detail-action-message" role="status">{bookmarkMessage}</p>}

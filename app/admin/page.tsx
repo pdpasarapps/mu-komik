@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useState } from "react";
-import { ArrowLeft, Archive, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, Image as ImageIcon, LayoutDashboard, LoaderCircle, Search, ShieldCheck, UserRound, Users, X } from "lucide-react";
+import { ArrowLeft, Archive, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, Image as ImageIcon, LayoutDashboard, LoaderCircle, Megaphone, Search, Settings2, ShieldCheck, UserRound, Users, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -9,13 +9,15 @@ import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import AdminAnalyticsPanel from "./analytics-panel";
 import { createComicSharePreview } from "@/lib/comic-share-preview";
+import { defaultPlatformSettings, type PlatformSettings } from "@/lib/platform-settings";
+import { usePlatformSettings } from "../platform-runtime";
 
 type RequestStatus = "pending" | "approved" | "rejected";
 type CreatorRequest = { id: string; user_id: string; note: string; portfolio_url: string | null; instagram_url: string | null; other_url: string | null; status: RequestStatus; created_at: string; applicant: string; role: string };
 type ComicReview = { id: string; title: string; slug: string; synopsis: string; contributor: string; created_at: string; creator_id: string; creator: string };
 type AdminUser = { id: string; display_name: string; role: "reader" | "creator" | "admin"; created_at: string };
 type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string };
-type AdminSection = "overview" | "analytics" | "comic-review" | "creator-requests" | "users" | "comics" | "share-previews";
+type AdminSection = "overview" | "analytics" | "comic-review" | "creator-requests" | "users" | "comics" | "share-previews" | "ads-management" | "platform-settings";
 
 const supabase = createClient();
 const adminSections: Record<AdminSection, { label: string; description: string }> = {
@@ -26,6 +28,8 @@ const adminSections: Record<AdminSection, { label: string; description: string }
   users: { label: "Manajemen pengguna", description: "Kelola akun dan peran pengguna." },
   comics: { label: "Katalog komik", description: "Cari komik dan kelola status publikasinya." },
   "share-previews": { label: "Preview share komik", description: "Buat gambar preview statis di R2 untuk dibaca WhatsApp dan platform sosial." },
+  "ads-management": { label: "Iklan & sponsor", description: "Siapkan monetisasi platform melalui iklan dan kerja sama sponsor." },
+  "platform-settings": { label: "Pengaturan platform", description: "Atur status operasional dan fitur yang tersedia di MU-Komik." },
 };
 const roleLabels = { reader: "Pembaca", creator: "Kreator", admin: "Admin" };
 const comicStatusLabels = { draft: "Draf", pending_review: "Menunggu kurasi", published: "Terbit", archived: "Diarsipkan" };
@@ -33,6 +37,7 @@ const requestStatusLabels = { pending: "Menunggu", approved: "Disetujui", reject
 
 export default function AdminPage() {
   const router = useRouter();
+  const { updateSettings } = usePlatformSettings();
   const params = useParams<{ section?: string }>();
   const requestedSection = params.section;
   const section = requestedSection && requestedSection in adminSections
@@ -53,6 +58,10 @@ export default function AdminPage() {
   const [selectedRequest, setSelectedRequest] = useState<CreatorRequest | null>(null);
   const [generatingSharePreviews, setGeneratingSharePreviews] = useState(false);
   const [sharePreviewProgress, setSharePreviewProgress] = useState("");
+  const [platformSettings, setPlatformSettings] = useState<PlatformSettings>(defaultPlatformSettings);
+  const [platformSettingsError, setPlatformSettingsError] = useState("");
+  const [savingPlatformSettings, setSavingPlatformSettings] = useState(false);
+  const [platformSettingsMessage, setPlatformSettingsMessage] = useState("");
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
 
   const loadRequests = useEffectEvent(async () => {
@@ -67,6 +76,27 @@ export default function AdminPage() {
       return;
     }
     setAdminUserId(userData.user.id);
+    if (section === "platform-settings") {
+      const { data: settingsData, error: settingsError } = await supabase
+        .from("platform_settings")
+        .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_message, feature_flags")
+        .eq("id", true)
+        .maybeSingle();
+      if (settingsError) {
+        console.error("Unable to load platform settings:", settingsError);
+        setPlatformSettingsError("Pengaturan belum dapat dimuat. Jalankan supabase/platform-settings.sql di Supabase SQL Editor, lalu muat ulang halaman.");
+      } else if (settingsData) {
+        setPlatformSettings({
+          ...defaultPlatformSettings,
+          ...settingsData,
+          feature_flags: { ...defaultPlatformSettings.feature_flags, ...settingsData.feature_flags },
+        });
+        setPlatformSettingsError("");
+      } else {
+        setPlatformSettings(defaultPlatformSettings);
+        setPlatformSettingsError("");
+      }
+    }
     const [requestResult, profileResult, comicResult] = await Promise.all([
       supabase.from("creator_requests").select("id, user_id, note, portfolio_url, instagram_url, other_url, status, created_at").eq("status", "pending").order("created_at", { ascending: false }),
       supabase.from("profiles").select("id, display_name, role, created_at").order("created_at", { ascending: false }),
@@ -183,6 +213,28 @@ export default function AdminPage() {
     }
   };
 
+  const savePlatformSettings = async () => {
+    if (savingPlatformSettings) return;
+    setSavingPlatformSettings(true);
+    setPlatformSettingsMessage("");
+    const { error } = await supabase.from("platform_settings").upsert({
+      id: true,
+      ...platformSettings,
+      updated_by: adminUserId,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "id" });
+    if (error) {
+      console.error("Unable to save platform settings:", error);
+      setPlatformSettingsMessage(error.code === "42P01" || error.code === "PGRST205"
+        ? "Tabel pengaturan belum tersedia. Jalankan supabase/platform-settings.sql di Supabase SQL Editor."
+        : `Pengaturan gagal disimpan: ${error.message}`);
+    } else {
+      updateSettings(platformSettings);
+      setPlatformSettingsMessage("Pengaturan platform berhasil disimpan.");
+    }
+    setSavingPlatformSettings(false);
+  };
+
   const reviewRequest = async (request: CreatorRequest, status: "approved" | "rejected") => {
     setActionId(request.id);
     setMessage("");
@@ -281,13 +333,30 @@ export default function AdminPage() {
           <Link className="admin-brand" href="/account" aria-label="Kembali ke Akun"><BrandLogo linked={false} /></Link>
           <nav className="admin-sidebar-links" aria-label="Navigasi dashboard admin">
             <p className="admin-sidebar-label">Administrasi</p>
-            <Link href="/admin/overview" aria-current={section === "overview" ? "page" : undefined}><LayoutDashboard size={18} /><span>Ringkasan</span></Link>
-            <Link href="/admin/analytics" aria-current={section === "analytics" ? "page" : undefined}><ChartNoAxesColumn size={18} /><span>Analitik</span></Link>
-            <Link href="/admin/comic-review" aria-current={section === "comic-review" ? "page" : undefined}><BookOpen size={18} /><span>Kurasi komik</span>{comicReviews.length > 0 && <small>{comicReviews.length}</small>}</Link>
-            <Link href="/admin/creator-requests" aria-current={section === "creator-requests" ? "page" : undefined}><ClipboardList size={18} /><span>Pengajuan kreator</span>{requests.length > 0 && <small>{requests.length}</small>}</Link>
-            <Link href="/admin/users" aria-current={section === "users" ? "page" : undefined}><Users size={18} /><span>Pengguna</span></Link>
-            <Link href="/admin/comics" aria-current={section === "comics" ? "page" : undefined}><BookOpen size={18} /><span>Katalog komik</span></Link>
-            <Link href="/admin/share-previews" aria-current={section === "share-previews" ? "page" : undefined}><ImageIcon size={18} /><span>Preview share</span></Link>
+            <div className="admin-sidebar-group" aria-label="Dashboard">
+              <p className="admin-sidebar-group-label">Dashboard</p>
+              <Link href="/admin/overview" aria-current={section === "overview" ? "page" : undefined}><LayoutDashboard size={18} /><span>Ringkasan</span></Link>
+              <Link href="/admin/analytics" aria-current={section === "analytics" ? "page" : undefined}><ChartNoAxesColumn size={18} /><span>Analitik</span></Link>
+            </div>
+            <div className="admin-sidebar-group" aria-label="Moderasi">
+              <p className="admin-sidebar-group-label">Moderasi</p>
+              <Link href="/admin/comic-review" aria-current={section === "comic-review" ? "page" : undefined}><BookOpen size={18} /><span>Kurasi komik</span>{comicReviews.length > 0 && <small>{comicReviews.length}</small>}</Link>
+              <Link href="/admin/creator-requests" aria-current={section === "creator-requests" ? "page" : undefined}><ClipboardList size={18} /><span>Pengajuan kreator</span>{requests.length > 0 && <small>{requests.length}</small>}</Link>
+            </div>
+            <div className="admin-sidebar-group" aria-label="Kelola konten">
+              <p className="admin-sidebar-group-label">Kelola konten</p>
+              <Link href="/admin/users" aria-current={section === "users" ? "page" : undefined}><Users size={18} /><span>Pengguna</span></Link>
+              <Link href="/admin/comics" aria-current={section === "comics" ? "page" : undefined}><BookOpen size={18} /><span>Katalog komik</span></Link>
+              <Link href="/admin/share-previews" aria-current={section === "share-previews" ? "page" : undefined}><ImageIcon size={18} /><span>Preview share</span></Link>
+            </div>
+            <div className="admin-sidebar-group" aria-label="Ads Management">
+              <p className="admin-sidebar-group-label">Ads Management</p>
+              <Link href="/admin/ads-management" aria-current={section === "ads-management" ? "page" : undefined}><Megaphone size={18} /><span>Iklan & sponsor</span></Link>
+            </div>
+            <div className="admin-sidebar-group" aria-label="Pengaturan">
+              <p className="admin-sidebar-group-label">Pengaturan</p>
+              <Link href="/admin/platform-settings" aria-current={section === "platform-settings" ? "page" : undefined}><Settings2 size={18} /><span>Pengaturan platform</span></Link>
+            </div>
           </nav>
           <div className="admin-sidebar-user">
             <span className="admin-user-avatar"><ShieldCheck size={18} /></span>
@@ -310,6 +379,49 @@ export default function AdminPage() {
           <article className="admin-stat"><span>Total komik</span><strong>{comics.length}</strong><BookOpen size={20} /></article>
           <article className="admin-stat"><span>Komik terbit</span><strong>{publishedComics}</strong><Eye size={20} /></article>
           <article className="admin-stat"><span>Perlu ditinjau</span><strong>{comicReviews.length + pendingRequests}</strong><ShieldCheck size={20} /></article>
+        </section>}
+        {section === "ads-management" && <section className="admin-management-section">
+          <div className="admin-section-heading">
+            <div><p className="eyebrow">Monetisasi platform</p><h2>Iklan & sponsor</h2></div>
+          </div>
+          <div className="admin-empty">
+            <Megaphone size={28} />
+            <h2>Ruang iklan dan sponsor sedang disiapkan.</h2>
+            <p>Pengelolaan kampanye, penempatan iklan, dan kerja sama sponsor akan tersedia di sini.</p>
+          </div>
+        </section>}
+        {section === "platform-settings" && <section className="admin-management-section admin-platform-settings">
+          <div className="admin-section-heading">
+            <div><p className="eyebrow">Operasional</p><h2>Website dan platform</h2></div>
+          </div>
+          {platformSettingsError ? <p className="admin-settings-error" role="alert">{platformSettingsError}</p> : <>
+            <article className="admin-setting-card">
+              <div className="admin-setting-heading"><div><h3>Mode maintenance</h3><p>Pengunjung akan melihat halaman maintenance. Panel admin dan halaman masuk tetap bisa digunakan.</p></div><label className="admin-switch"><input type="checkbox" checked={platformSettings.maintenance_enabled} onChange={(event) => setPlatformSettings((current) => ({ ...current, maintenance_enabled: event.target.checked }))} /><span /></label></div>
+              <label className="admin-setting-field">Pesan maintenance<textarea value={platformSettings.maintenance_message} onChange={(event) => setPlatformSettings((current) => ({ ...current, maintenance_message: event.target.value }))} maxLength={500} rows={3} /></label>
+            </article>
+            <article className="admin-setting-card">
+              <div className="admin-setting-heading"><div><h3>Banner pengumuman</h3><p>Tampilkan pengumuman di bagian atas halaman untuk semua pengunjung.</p></div><label className="admin-switch"><input type="checkbox" checked={platformSettings.announcement_enabled} onChange={(event) => setPlatformSettings((current) => ({ ...current, announcement_enabled: event.target.checked }))} /><span /></label></div>
+              <label className="admin-setting-field">Isi pengumuman<textarea value={platformSettings.announcement_message} onChange={(event) => setPlatformSettings((current) => ({ ...current, announcement_message: event.target.value }))} maxLength={300} rows={3} placeholder="Tulis pengumuman untuk pembaca dan kreator..." /></label>
+            </article>
+            <article className="admin-setting-card">
+              <div className="admin-setting-heading"><div><h3>Status fitur</h3><p>Fitur yang dimatikan akan menampilkan pemberitahuan dan tidak bisa dibuka pengunjung. Komentar belum tersedia; statusnya disimpan untuk aktivasi di masa mendatang.</p></div></div>
+              <div className="admin-feature-toggles">
+                {([
+                  ["reading", "Membaca komik"],
+                  ["search", "Pencarian komik"],
+                  ["creators", "Area kreator"],
+                  ["comments", "Komentar (siap untuk fitur mendatang)"],
+                  ["favorites", "Favorit komik"],
+                ] as const).map(([feature, label]) => (
+                  <label className="admin-feature-toggle" key={feature}><span>{label}</span><input type="checkbox" checked={platformSettings.feature_flags[feature]} onChange={(event) => setPlatformSettings((current) => ({ ...current, feature_flags: { ...current.feature_flags, [feature]: event.target.checked } }))} /></label>
+                ))}
+              </div>
+            </article>
+            <div className="admin-settings-actions">
+              <button className="approve-button" type="button" onClick={() => void savePlatformSettings()} disabled={savingPlatformSettings}>{savingPlatformSettings ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />}{savingPlatformSettings ? "Menyimpan..." : "Simpan pengaturan"}</button>
+              {platformSettingsMessage && <p role={platformSettingsMessage.startsWith("Pengaturan platform berhasil") ? "status" : "alert"}>{platformSettingsMessage}</p>}
+            </div>
+          </>}
         </section>}
         {section === "analytics" && <AdminAnalyticsPanel />}
         {section === "share-previews" && <section className="admin-management-section">

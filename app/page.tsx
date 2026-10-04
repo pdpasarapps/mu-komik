@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
 import BrandLogo from "@/components/brand-logo";
 import PlatformLinks from "@/components/platform-links";
+import { usePlatformSettings } from "./platform-runtime";
 
 const supabase = createClient();
 
@@ -102,6 +103,7 @@ function ComicSkeleton() {
 }
 
 export default function Home() {
+  const { settings } = usePlatformSettings();
   const [comics, setComics] = useState<Comic[]>([]);
   const [catalogState, setCatalogState] = useState<"loading" | "ready" | "empty" | "error">("loading");
   const [episodeLoadError, setEpisodeLoadError] = useState(false);
@@ -331,13 +333,13 @@ export default function Home() {
     ...comics.map((comic) => comic.genre).filter(Boolean),
   ])], [comics]);
   const searchedComics = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase("id-ID");
+    const normalizedQuery = settings.feature_flags.search ? query.trim().toLocaleLowerCase("id-ID") : "";
     return comics.filter((comic) => {
       const matchesGenre = genre === "all" || comic.genre === genre;
       const searchable = `${comic.title} ${comic.creator} ${comic.contributor} ${comic.genre}`.toLocaleLowerCase("id-ID");
       return matchesGenre && (!normalizedQuery || searchable.includes(normalizedQuery));
     });
-  }, [comics, genre, query]);
+  }, [comics, genre, query, settings.feature_flags.search]);
   const latestComics = [...comics].filter((comic) => comic.latestChapter).sort((a, b) =>
     new Date(b.latestChapter?.published_at || 0).getTime() - new Date(a.latestChapter?.published_at || 0).getTime(),
   );
@@ -360,17 +362,17 @@ export default function Home() {
         <nav className={`reader-nav-links${menuOpen ? " reader-nav-links-open" : ""}`} aria-label="Navigasi utama">
           <a href="#jelajah" onClick={() => setMenuOpen(false)}>Jelajah</a>
           <a href="#genre" onClick={() => setMenuOpen(false)}>Genre</a>
-          {signedIn && <a href="#creator" onClick={() => setMenuOpen(false)}>Kreator</a>}
+          {signedIn && settings.feature_flags.creators && <a href="#creator" onClick={() => setMenuOpen(false)}>Kreator</a>}
           {signedIn && <Link href="/account" onClick={() => setMenuOpen(false)}>Koleksi saya</Link>}
           {!signedIn && <Link href="/login" onClick={() => setMenuOpen(false)}>Masuk</Link>}
         </nav>
-        <form className={`reader-header-search${mobileSearchOpen ? " reader-header-search-open" : ""}`} onSubmit={(event) => { event.preventDefault(); document.querySelector("#jelajah")?.scrollIntoView({ behavior: "smooth" }); }}>
+        {settings.feature_flags.search && <form className={`reader-header-search${mobileSearchOpen ? " reader-header-search-open" : ""}`} onSubmit={(event) => { event.preventDefault(); document.querySelector("#jelajah")?.scrollIntoView({ behavior: "smooth" }); }}>
           <Search size={17} aria-hidden="true" />
           <input ref={searchInputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari komik, kreator, genre..." aria-label="Cari komik, kreator, atau genre" />
           {mobileSearchOpen && <button type="button" className="reader-search-close" onClick={() => setMobileSearchOpen(false)} aria-label="Tutup pencarian"><X size={17} /></button>}
-        </form>
+        </form>}
         <div className="reader-header-actions">
-          <button className="reader-search-mobile" aria-label="Cari komik" onClick={focusSearch}><Search size={20} /></button>
+          {settings.feature_flags.search && <button className="reader-search-mobile" aria-label="Cari komik" onClick={focusSearch}><Search size={20} /></button>}
           {signedIn
             ? <Link className="reader-login-button" href="/account"><UserRound size={17} /><span>Profil</span></Link>
             : <Link className="reader-login-button" href="/login"><UserRound size={17} /><span>Masuk</span></Link>}
@@ -460,7 +462,7 @@ export default function Home() {
                 </button>
               ))}
             </div>
-            <div className="reader-mobile-search-inline"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari komik, kreator, atau genre..." aria-label="Cari komik, kreator, atau genre" /></div>
+            {settings.feature_flags.search && <div className="reader-mobile-search-inline"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari komik, kreator, atau genre..." aria-label="Cari komik, kreator, atau genre" /></div>}
           </div>
           {catalogState === "ready" && searchedComics.length > 0 && <div className="reader-comic-grid">{searchedComics.map((comic) => <ComicCard key={comic.id} comic={comic} />)}</div>}
           {catalogState === "loading" && <div className="reader-comic-grid">{Array.from({ length: 6 }, (_, index) => <ComicSkeleton key={index} />)}</div>}
@@ -468,10 +470,10 @@ export default function Home() {
         </section>
       </div>
 
-      <section className="reader-creator-cta" id="creator">
+      {settings.feature_flags.creators && <section className="reader-creator-cta" id="creator">
         <div><p className="reader-section-kicker">PUNYA CERITA?</p><h2>Terbitkan komikmu dan temukan pembaca baru.</h2></div>
         <Link className="reader-primary-button" href={signedIn ? "/account" : "/login"}>Jadi kreator <ArrowRight size={17} /></Link>
-      </section>
+      </section>}
       <footer className="reader-footer">
         <BrandLogo className="wordmark reader-wordmark" />
         <p>Tempat cerita Indonesia menemukan pembacanya.</p>
