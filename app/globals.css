@@ -531,6 +531,14 @@ button, input, select { font: inherit; }
 .reader-sponsored-ad-reader .reader-sponsored-ad-link { min-height: 130px; grid-template-columns: minmax(130px, .55fr) minmax(0, 1.45fr); }
 .reader-sponsored-ad-reader .reader-sponsored-ad-image { min-height: 130px; }
 .reader-sponsored-ad-reader .reader-sponsored-ad-copy { padding-top: 25px; padding-bottom: 22px; }
+.reader-sponsored-ad-reader.reader-sponsored-ad-native { width: min(100%, 960px); height: var(--reader-ad-height, auto); display: flex; flex-direction: column; margin: 0 auto; border-radius: 0; }
+.reader-sponsored-ad-reader.reader-sponsored-ad-native .reader-sponsored-ad-link { position: relative; min-height: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
+.reader-sponsored-ad-reader.reader-sponsored-ad-native .reader-sponsored-ad-image { width: 100%; height: auto; min-height: 0; flex: 1 1 auto; object-fit: contain; }
+.reader-sponsored-ad-reader.reader-sponsored-ad-native .reader-sponsored-ad-copy { position: absolute; z-index: 1; right: 0; bottom: 0; left: 0; flex: 0 0 auto; gap: 5px; padding: 40px 20px 18px; background: linear-gradient( to top, rgba(12, 16, 15, .94) 0%, rgba(12, 16, 15, .72) 48%, rgba(12, 16, 15, 0) 100% ); color: #fff; }
+.reader-sponsored-ad-reader.reader-sponsored-ad-native .reader-sponsored-ad-sponsor,
+.reader-sponsored-ad-reader.reader-sponsored-ad-native .reader-sponsored-ad-description { color: rgba(255, 255, 255, .82); }
+.reader-sponsored-ad-reader.reader-sponsored-ad-native .reader-sponsored-ad-cta { color: #fff; }
+.reader-sponsored-ad-reader.reader-sponsored-ad-native .reader-sponsored-ad-description { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .reader-episode-end-actions { width: 100%; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 9px; margin-top: 9px; }
 .reader-episode-next-action, .reader-episode-secondary-action { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 13px; border-radius: 7px; font-size: .72rem; font-weight: 750; }
 .reader-episode-next-action { background: #f26b43; color: #1e2524; }.reader-episode-next-action:hover { background: #fa8663; }

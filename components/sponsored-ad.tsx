@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { ExternalLink, Megaphone } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -17,8 +17,9 @@ type SponsoredCampaign = {
 
 const supabase = createClient();
 
-export default function SponsoredAd({ slotKey, placement, comicId }: { slotKey: string; placement: "home" | "comic" | "reader"; comicId?: string }) {
+export default function SponsoredAd({ slotKey, placement, comicId, matchPageIndex }: { slotKey: string; placement: "home" | "comic" | "reader"; comicId?: string; matchPageIndex?: number }) {
   const [campaign, setCampaign] = useState<SponsoredCampaign | null>(null);
+  const [matchedPageHeight, setMatchedPageHeight] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,11 +66,33 @@ export default function SponsoredAd({ slotKey, placement, comicId }: { slotKey: 
     return () => { cancelled = true; };
   }, [comicId, slotKey]);
 
+  useEffect(() => {
+    if (placement !== "reader" || matchPageIndex === undefined) return;
+    const frame = document.querySelector<HTMLElement>(`[data-reader-page="${matchPageIndex}"]`);
+    if (!frame) return;
+
+    const updateHeight = () => {
+      const image = frame.querySelector("img");
+      const height = image?.getBoundingClientRect().height || frame.getBoundingClientRect().height;
+      if (height > 0) setMatchedPageHeight(height);
+    };
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(frame);
+    const image = frame.querySelector("img");
+    if (image) observer.observe(image);
+    return () => observer.disconnect();
+  }, [matchPageIndex, placement]);
+
   if (!campaign) return null;
   const sponsorLabel = campaign.format === "sponsor" ? "Sponsor" : "Iklan";
+  const nativeReaderAd = placement === "reader" && campaign.format === "native";
+  const adStyle = nativeReaderAd && matchedPageHeight
+    ? { "--reader-ad-height": `${matchedPageHeight}px` } as CSSProperties
+    : undefined;
 
   return (
-    <aside className={`reader-sponsored-ad reader-sponsored-ad-${placement}`} aria-label={`${sponsorLabel}: ${campaign.sponsor_name}`}>
+    <aside className={`reader-sponsored-ad reader-sponsored-ad-${placement}${nativeReaderAd ? " reader-sponsored-ad-native" : ""}`} aria-label={`${sponsorLabel}: ${campaign.sponsor_name}`} style={adStyle}>
       <div className="reader-sponsored-ad-label"><Megaphone size={13} /> {sponsorLabel}</div>
       <a className="reader-sponsored-ad-link" href={campaign.destination_url} target="_blank" rel="noreferrer noopener sponsored">
         {campaign.image_url && <Image className="reader-sponsored-ad-image" src={campaign.image_url} alt="" width={1200} height={600} unoptimized loading="lazy" />}
