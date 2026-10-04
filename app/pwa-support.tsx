@@ -13,7 +13,7 @@ export default function PwaSupport() {
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [isIosInstallable, setIsIosInstallable] = useState(false);
   const [isStandalone, setIsStandalone] = useState(true);
-  const [installInstructions, setInstallInstructions] = useState<"ios" | "android" | "android-pending" | null>(null);
+  const [installInstructions, setInstallInstructions] = useState<"ios" | "android" | "android-manual" | "android-pending" | null>(null);
   const didInstallRef = useRef(false);
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export default function PwaSupport() {
 
   const install = async () => {
     if (!installPrompt) {
-      setInstallInstructions("ios");
+      setInstallInstructions(/Android/i.test(navigator.userAgent) ? "android-manual" : "ios");
       return;
     }
     await installPrompt.prompt();
@@ -85,16 +85,21 @@ export default function PwaSupport() {
           <section className="pwa-install-dialog" role="dialog" aria-modal="true" aria-labelledby="pwa-install-title" onClick={(event) => event.stopPropagation()}>
             <button className="pwa-install-dialog-close" onClick={() => setInstallInstructions(null)} aria-label="Tutup petunjuk"><X size={19} /></button>
             <Image className="pwa-install-dialog-logo" src="/logo_mukomik.jpg" alt="Logo mu-komik" width={72} height={72} />
-            <h2 id="pwa-install-title">{installInstructions === "ios" ? "Pasang mu-komik" : installInstructions === "android-pending" ? "Permintaan instalasi diterima" : "Mu-komik sudah terpasang"}</h2>
+            <h2 id="pwa-install-title">{installInstructions === "ios" ? "Pasang mu-komik" : installInstructions === "android-manual" ? "Pasang lewat menu Chrome" : installInstructions === "android-pending" ? "Permintaan instalasi diterima" : "Chrome melaporkan instalasi selesai"}</h2>
             {installInstructions === "android" ? (
               <>
-                <p>Jika ikon belum muncul di layar utama, periksa daftar aplikasi atau Pengaturan Android &gt; Aplikasi.</p>
-                <ol><li>Buka daftar aplikasi dan cari <strong>mu-komik</strong>.</li><li>Tekan lama ikonnya, lalu pilih <strong>Tambahkan ke layar utama</strong> atau seret ikon ke layar utama.</li></ol>
+                <p>Pesan ini berasal dari Chrome; situs tidak dapat memastikan ikon sudah ditambahkan ke launcher.</p>
+                <ol><li>Cari <strong>mu-komik</strong> di daftar aplikasi atau Setelan &gt; Aplikasi &gt; Kelola aplikasi.</li><li>Jika aplikasinya ada, tekan lama ikonnya untuk menambahkannya ke layar utama. Periksa juga pengaturan launcher atau aplikasi tersembunyi.</li><li>Jika tidak terdaftar, pastikan Chrome diperbarui lalu coba instal ulang dari menu Chrome <strong>⋮</strong>.</li></ol>
               </>
             ) : installInstructions === "android-pending" ? (
               <>
                 <p>Chrome menerima permintaan pemasangan, tetapi belum mengonfirmasi bahwa aplikasi selesai dipasang.</p>
                 <ol><li>Tunggu beberapa saat, lalu cari <strong>mu-komik</strong> di daftar aplikasi.</li><li>Jika tidak ditemukan, tutup Chrome dan coba lagi melalui menu <strong>⋮ &gt; Instal aplikasi</strong>.</li></ol>
+              </>
+            ) : installInstructions === "android-manual" ? (
+              <>
+                <p>Tombol pemasangan cepat Chrome tidak tersedia saat ini. Pastikan halaman dibuka langsung di Chrome, bukan browser dalam aplikasi lain.</p>
+                <ol><li>Buka menu Chrome <strong>⋮</strong> lalu pilih <strong>Instal aplikasi</strong> jika tersedia.</li><li>Jika pilihan itu tidak muncul, perbarui Chrome, muat ulang situs, lalu periksa lagi menu tersebut.</li></ol>
               </>
             ) : installInstructions === "ios" ? (
               <>
