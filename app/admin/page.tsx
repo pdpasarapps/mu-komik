@@ -276,29 +276,30 @@ export default function AdminPage() {
 
   return (
     <main className="admin-shell">
-      <nav className="admin-nav">
-        <BrandLogo />
-        <Link className="auth-back" href="/account"><ArrowLeft size={16} /> Kembali ke akun</Link>
-      </nav>
       <div className="admin-layout">
         <aside className="admin-sidebar">
-          <p className="admin-sidebar-label">ADMIN WORKSPACE</p>
+          <Link className="admin-brand" href="/account" aria-label="Kembali ke Akun"><BrandLogo linked={false} /></Link>
           <nav className="admin-sidebar-links" aria-label="Navigasi dashboard admin">
-            <Link href="/admin/overview" aria-current={section === "overview" ? "page" : undefined}><LayoutDashboard size={17} /> Ringkasan</Link>
-            <Link href="/admin/analytics" aria-current={section === "analytics" ? "page" : undefined}><ChartNoAxesColumn size={17} /> Analitik</Link>
-            <Link href="/admin/comic-review" aria-current={section === "comic-review" ? "page" : undefined}><BookOpen size={17} /> Kurasi komik{comicReviews.length > 0 && <span>{comicReviews.length}</span>}</Link>
-            <Link href="/admin/creator-requests" aria-current={section === "creator-requests" ? "page" : undefined}><ClipboardList size={17} /> Pengajuan kreator{requests.length > 0 && <span>{requests.length}</span>}</Link>
-            <Link href="/admin/users" aria-current={section === "users" ? "page" : undefined}><Users size={17} /> Pengguna</Link>
-            <Link href="/admin/comics" aria-current={section === "comics" ? "page" : undefined}><BookOpen size={17} /> Katalog komik</Link>
-            <Link href="/admin/share-previews" aria-current={section === "share-previews" ? "page" : undefined}><ImageIcon size={17} /> Preview share</Link>
+            <p className="admin-sidebar-label">Administrasi</p>
+            <Link href="/admin/overview" aria-current={section === "overview" ? "page" : undefined}><LayoutDashboard size={18} /><span>Ringkasan</span></Link>
+            <Link href="/admin/analytics" aria-current={section === "analytics" ? "page" : undefined}><ChartNoAxesColumn size={18} /><span>Analitik</span></Link>
+            <Link href="/admin/comic-review" aria-current={section === "comic-review" ? "page" : undefined}><BookOpen size={18} /><span>Kurasi komik</span>{comicReviews.length > 0 && <small>{comicReviews.length}</small>}</Link>
+            <Link href="/admin/creator-requests" aria-current={section === "creator-requests" ? "page" : undefined}><ClipboardList size={18} /><span>Pengajuan kreator</span>{requests.length > 0 && <small>{requests.length}</small>}</Link>
+            <Link href="/admin/users" aria-current={section === "users" ? "page" : undefined}><Users size={18} /><span>Pengguna</span></Link>
+            <Link href="/admin/comics" aria-current={section === "comics" ? "page" : undefined}><BookOpen size={18} /><span>Katalog komik</span></Link>
+            <Link href="/admin/share-previews" aria-current={section === "share-previews" ? "page" : undefined}><ImageIcon size={18} /><span>Preview share</span></Link>
           </nav>
-          <div className="admin-sidebar-footer"><ShieldCheck size={16} /> Akses administrator</div>
+          <div className="admin-sidebar-user">
+            <span className="admin-user-avatar"><ShieldCheck size={18} /></span>
+            <span><strong>Administrator</strong><small>Akses penuh</small></span>
+            <Link href="/account" aria-label="Kembali ke Akun"><ArrowLeft size={17} /></Link>
+          </div>
         </aside>
         <div className="admin-main">
+          <div className="admin-mobile-header"><BrandLogo linked={false} /><Link className="admin-account-link" href="/account"><ArrowLeft size={16} /> Akun</Link></div>
           <header className="admin-header">
-            <p className="eyebrow"><span /> Panel administrasi</p>
+            <p className="eyebrow">Panel administrasi</p>
             <div className="admin-title">
-              <div className="admin-icon"><ShieldCheck size={25} /></div>
               <div><h1>{adminSections[section].label}</h1><p>{adminSections[section].description}</p></div>
             </div>
           </header>
@@ -385,7 +386,7 @@ export default function AdminPage() {
                     {comic.contributor && <p className="comic-review-contributor">Kontributor: {comic.contributor}</p>}
                   </div>
                   <div className="comic-review-actions">
-                    <Link className="button button-light" href={`/creator/comic/${comic.id}`}><Eye size={15} /> Tinjau komik</Link>
+                    <Link className="button button-light" href={`/account/komik/${comic.id}`}><Eye size={15} /> Tinjau komik</Link>
                     <button className="approve-button" onClick={() => reviewComic(comic, "published")} disabled={comicActionId === comic.id}><Check size={16} /> Terbitkan</button>
                     <button className="reject-button" onClick={() => reviewComic(comic, "draft")} disabled={comicActionId === comic.id}><X size={16} /> Kembalikan ke draf</button>
                   </div>
@@ -476,7 +477,7 @@ export default function AdminPage() {
                     <td>{comic.genre}</td>
                     <td><span className={`request-status request-${comic.status === "published" ? "approved" : comic.status === "pending_review" ? "pending" : comic.status}`}>{comicStatusLabels[comic.status]}</span></td>
                     <td className="admin-comic-actions">
-                      <Link className="admin-manage-link" href={`/creator/comic/${comic.id}`}>Kelola</Link>
+                      <Link className="admin-manage-link" href={`/account/komik/${comic.id}`}>Kelola</Link>
                       {comic.status === "draft" && <button className="admin-action-link" onClick={() => updateComicStatus(comic, "pending_review")} disabled={comicActionId === comic.id}>Ajukan kurasi</button>}
                       {comic.status === "published" && <button className="admin-action-link admin-action-danger" onClick={() => updateComicStatus(comic, "archived")} disabled={comicActionId === comic.id}><Archive size={14} /> Arsipkan</button>}
                       {comic.status === "archived" && <button className="admin-action-link" onClick={() => updateComicStatus(comic, "draft")} disabled={comicActionId === comic.id}>Pulihkan ke draf</button>}
