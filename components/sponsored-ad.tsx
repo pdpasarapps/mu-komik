@@ -12,6 +12,8 @@ type SponsoredCampaign = {
   description: string;
   destination_url: string;
   image_url: string | null;
+  image_url_tablet: string | null;
+  image_url_mobile: string | null;
   format: "banner" | "native" | "sponsor";
 };
 
@@ -58,6 +60,8 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
           description: typeof row.description === "string" ? row.description : "",
           destination_url: row.destination_url,
           image_url: typeof row.image_url === "string" ? row.image_url : null,
+          image_url_tablet: typeof row.image_url_tablet === "string" ? row.image_url_tablet : null,
+          image_url_mobile: typeof row.image_url_mobile === "string" ? row.image_url_mobile : null,
           format: row.format,
         });
       }
@@ -87,6 +91,7 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
   if (!campaign) return null;
   const sponsorLabel = campaign.format === "sponsor" ? "Sponsor" : "Iklan";
   const nativeReaderAd = placement === "reader" && campaign.format === "native";
+  const fallbackImage = campaign.image_url || campaign.image_url_tablet || campaign.image_url_mobile;
   const adStyle = nativeReaderAd && matchedPageHeight
     ? { "--reader-ad-height": `${matchedPageHeight}px` } as CSSProperties
     : undefined;
@@ -95,7 +100,11 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
     <aside className={`reader-sponsored-ad reader-sponsored-ad-${placement}${nativeReaderAd ? " reader-sponsored-ad-native" : ""}`} data-reader-stop={readerStopId} aria-label={`${sponsorLabel}: ${campaign.sponsor_name}`} style={adStyle}>
       <div className="reader-sponsored-ad-label"><Megaphone size={13} /> {sponsorLabel}</div>
       <a className="reader-sponsored-ad-link" href={campaign.destination_url} target="_blank" rel="noreferrer noopener sponsored">
-        {campaign.image_url && <Image className="reader-sponsored-ad-image" src={campaign.image_url} alt="" width={1200} height={600} unoptimized loading="lazy" />}
+        {fallbackImage && <picture className="reader-sponsored-ad-picture">
+          {campaign.image_url_mobile && <source media="(max-width: 767px)" srcSet={campaign.image_url_mobile} />}
+          {campaign.image_url_tablet && <source media="(min-width: 768px) and (max-width: 1023px)" srcSet={campaign.image_url_tablet} />}
+          <Image className="reader-sponsored-ad-image" src={fallbackImage} alt="" width={1200} height={600} unoptimized loading="lazy" />
+        </picture>}
         <span className="reader-sponsored-ad-copy">
           <span className="reader-sponsored-ad-sponsor">{campaign.sponsor_name}</span>
           <strong>{campaign.title}</strong>

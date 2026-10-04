@@ -451,7 +451,16 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                     ? <img src={src} alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`} loading={index < 2 ? "eager" : "lazy"} onClick={() => setControlsVisible(true)} />
                     : <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div>}
                 </div>
-                {index === 4 && <SponsoredAd slotKey="reader_mid_chapter" placement="reader" comicId={comic.id} matchPageIndex={index} readerStopId="mid-chapter-ad" />}
+                {(index + 1) % 5 === 0 && index < pages.length - 1 && (
+                  <SponsoredAd
+                    key={`mid-chapter-ad-${page.page_number}`}
+                    slotKey="reader_mid_chapter"
+                    placement="reader"
+                    comicId={comic.id}
+                    matchPageIndex={index}
+                    readerStopId={`mid-chapter-ad-${page.page_number}`}
+                  />
+                )}
               </Fragment>
             );
           })}

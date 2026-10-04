@@ -25,6 +25,8 @@ type SponsorCampaign = {
   description: string;
   destination_url: string;
   image_url: string | null;
+  image_url_tablet: string | null;
+  image_url_mobile: string | null;
   slot_id: string | null;
   target_comic_id: string | null;
   target_placement: TargetPlacement;
@@ -54,6 +56,8 @@ const emptyCampaign = {
   description: "",
   destination_url: "",
   image_url: "",
+  image_url_tablet: "",
+  image_url_mobile: "",
   slot_id: "",
   target_comic_id: "",
   target_placement: "all" as TargetPlacement,
@@ -63,6 +67,7 @@ const emptyCampaign = {
 };
 
 type CampaignUrlField = "destination_url" | "image_url";
+type CampaignImageField = "image_url" | "image_url_tablet" | "image_url_mobile";
 
 function normalizeHttpUrl(value: string) {
   const trimmed = value.trim();
@@ -88,6 +93,9 @@ type DatabaseError = { code?: string; message: string; details?: string | null; 
 function databaseErrorMessage(error: DatabaseError) {
   if (error.code === "42P01" || error.code === "PGRST205") {
     return "Tabel iklan belum tersedia. Jalankan supabase/ads-management.sql di Supabase SQL Editor.";
+  }
+  if (error.code === "42703" && /image_url_(tablet|mobile)/i.test(error.message)) {
+    return "Kolom gambar responsif belum tersedia di database. Jalankan ulang supabase/ads-management.sql di Supabase SQL Editor, lalu muat ulang halaman.";
   }
   if (error.code === "42703" || error.code === "PGRST202") {
     return "Skema penargetan iklan belum diterapkan. Jalankan ulang supabase/ads-management.sql di Supabase SQL Editor, lalu muat ulang halaman.";
@@ -129,13 +137,13 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
     const load = async () => {
       const [slotResult, campaignResult, comicsResult] = await Promise.all([
         supabase.from("ad_slots").select("id, name, slot_key, format, description, is_active, created_at").order("created_at", { ascending: false }),
-        supabase.from("sponsor_campaigns").select("id, sponsor_name, title, description, destination_url, image_url, slot_id, target_comic_id, target_placement, starts_on, ends_on, status, created_at").order("created_at", { ascending: false }),
+        supabase.from("sponsor_campaigns").select("id, sponsor_name, title, description, destination_url, image_url, image_url_tablet, image_url_mobile, slot_id, target_comic_id, target_placement, starts_on, ends_on, status, created_at").order("created_at", { ascending: false }),
         supabase.from("comics").select("id, title, slug").eq("status", "published").order("title"),
       ]);
       if (cancelled) return;
       const error = slotResult.error || campaignResult.error || comicsResult.error;
       if (error) {
-        console.error("Unable to load ads management data:", error);
+        logDatabaseError("Unable to load ads management data:", error);
         setMessage(databaseErrorMessage(error));
       } else {
         setSlots((slotResult.data ?? []) as AdSlot[]);
@@ -232,6 +240,8 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
       description: campaignForm.description.trim(),
       destination_url: destinationUrl,
       image_url: imageUrl || null,
+      image_url_tablet: campaignForm.image_url_tablet || null,
+      image_url_mobile: campaignForm.image_url_mobile || null,
       slot_id: campaignForm.target_comic_id ? null : campaignForm.slot_id || null,
       target_comic_id: campaignForm.target_comic_id || null,
       target_placement: campaignForm.target_placement,
@@ -241,8 +251,8 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
       updated_at: new Date().toISOString(),
     };
     const result = campaignForm.id
-      ? await supabase.from("sponsor_campaigns").update(values).eq("id", campaignForm.id).select("id, sponsor_name, title, description, destination_url, image_url, slot_id, target_comic_id, target_placement, starts_on, ends_on, status, created_at").single()
-      : await supabase.from("sponsor_campaigns").insert(values).select("id, sponsor_name, title, description, destination_url, image_url, slot_id, target_comic_id, target_placement, starts_on, ends_on, status, created_at").single();
+      ? await supabase.from("sponsor_campaigns").update(values).eq("id", campaignForm.id).select("id, sponsor_name, title, description, destination_url, image_url, image_url_tablet, image_url_mobile, slot_id, target_comic_id, target_placement, starts_on, ends_on, status, created_at").single()
+      : await supabase.from("sponsor_campaigns").insert(values).select("id, sponsor_name, title, description, destination_url, image_url, image_url_tablet, image_url_mobile, slot_id, target_comic_id, target_placement, starts_on, ends_on, status, created_at").single();
     if (result.error) {
       logDatabaseError("Unable to save sponsor campaign:", result.error);
       setMessage(databaseErrorMessage(result.error));
@@ -311,6 +321,8 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
     setCampaignForm({
       ...campaign,
       image_url: campaign.image_url || "",
+      image_url_tablet: campaign.image_url_tablet || "",
+      image_url_mobile: campaign.image_url_mobile || "",
       slot_id: campaign.slot_id || "",
       target_comic_id: campaign.target_comic_id || "",
       target_placement: campaign.target_placement || "all",
@@ -348,7 +360,7 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
     setCampaignUrlErrors((current) => ({ ...current, [field]: error }));
   };
 
-  const uploadCampaignImage = async (event: ChangeEvent<HTMLInputElement>) => {
+  const uploadCampaignImage = async (event: ChangeEvent<HTMLInputElement>, imageField: CampaignImageField) => {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
@@ -376,9 +388,9 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
       if (!response.ok || !result.imageUrl) {
         throw new Error(result.error || `Upload gagal (HTTP ${response.status}).`);
       }
-      setCampaignForm((current) => ({ ...current, image_url: result.imageUrl! }));
-      setCampaignUrlErrors((current) => ({ ...current, image_url: "" }));
-      setMessage("Gambar kampanye berhasil diunggah.");
+      setCampaignForm((current) => ({ ...current, [imageField]: result.imageUrl! }));
+      if (imageField === "image_url") setCampaignUrlErrors((current) => ({ ...current, image_url: "" }));
+      setMessage(`Gambar ${imageField === "image_url" ? "desktop" : imageField === "image_url_tablet" ? "tablet" : "mobile"} berhasil diunggah.`);
     } catch (error) {
       console.error("Campaign image upload failed:", error);
       setMessage(error instanceof Error ? error.message : "Gagal mengunggah gambar kampanye.");
@@ -388,17 +400,11 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
     }
   };
 
-  const imageRecommendation = campaignForm.target_comic_id
-    ? campaignForm.target_placement === "comic_detail"
-      ? "1200 × 600 px (2:1) untuk penempatan detail komik."
-      : campaignForm.target_placement === "reader"
-        ? "1200 × 600 px (2:1) untuk penempatan reader."
-        : "1200 × 600 px (2:1) sebagai ukuran kompromi untuk detail komik dan reader."
-    : slots.find((slot) => slot.id === campaignForm.slot_id)?.slot_key === "home_banner"
-      ? "1200 × 400 px (3:1) untuk banner beranda."
-      : slots.find((slot) => slot.id === campaignForm.slot_id)?.slot_key === "catalog_grid_native"
-        ? "1200 × 600 px (2:1) untuk kartu native selebar grid katalog."
-      : "1200 × 600 px (2:1) untuk kartu sponsor detail komik atau reader.";
+  const isHomeBanner = !campaignForm.target_comic_id
+    && slots.find((slot) => slot.id === campaignForm.slot_id)?.slot_key === "home_banner";
+  const imageRecommendations = isHomeBanner
+    ? { desktop: "1200 × 400 px", tablet: "768 × 360 px", mobile: "720 × 480 px" }
+    : { desktop: "1200 × 600 px", tablet: "900 × 600 px", mobile: "720 × 900 px" };
 
   if (loading) {
     return <div className="ads-panel-loading"><LoaderCircle className="spin" size={20} /> Memuat data iklan...</div>;
@@ -469,17 +475,37 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
             </div>
             <label>Deskripsi<textarea maxLength={500} rows={2} value={campaignForm.description} onChange={(event) => setCampaignForm((current) => ({ ...current, description: event.target.value }))} /></label>
             <label>URL tujuan<input required type="text" inputMode="url" aria-invalid={Boolean(campaignUrlErrors.destination_url)} aria-describedby="campaign-destination-help" value={campaignForm.destination_url} onChange={(event) => { setCampaignForm((current) => ({ ...current, destination_url: event.target.value })); setCampaignUrlErrors((current) => ({ ...current, destination_url: "" })); }} onBlur={() => normalizeCampaignUrlField("destination_url")} placeholder="https://contoh.id" />{campaignUrlErrors.destination_url ? <small className="ads-field-error" id="campaign-destination-help" role="alert">{campaignUrlErrors.destination_url}</small> : <small id="campaign-destination-help">Jika tidak mencantumkan https://, HTTPS akan ditambahkan otomatis.</small>}</label>
-            <div className="ads-campaign-image-field">
-              <label htmlFor="campaign-image-upload">Upload gambar materi</label>
-              <input id="campaign-image-upload" type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadCampaignImage} disabled={uploadingCampaignImage} />
-              <small>Rekomendasi: {imageRecommendation} Format JPG, PNG, atau WebP. Ukuran maksimum mengikuti pengaturan unggahan platform. Gambar dipotong agar mengisi area iklan, jadi tempatkan subjek utama di tengah.</small>
-              <div className="ads-form-actions">
-                {uploadingCampaignImage && <span className="ads-upload-progress"><LoaderCircle className="spin" size={15} /> Mengunggah gambar...</span>}
-                {campaignForm.image_url && <button className="admin-action-link" type="button" onClick={() => { setCampaignForm((current) => ({ ...current, image_url: "" })); setCampaignUrlErrors((current) => ({ ...current, image_url: "" })); }}><X size={15} /> Hapus gambar</button>}
-              </div>
-              {campaignForm.image_url && <Image className="ads-campaign-image-preview" src={campaignForm.image_url} alt="Pratinjau gambar materi kampanye" width={600} height={300} unoptimized />}
+            <div className="ads-responsive-images">
+              <p>Unggah materi terpisah untuk menyesuaikan tampilan di tiap perangkat. Jika salah satu ukuran tidak diisi, gambar desktop akan digunakan sebagai fallback.</p>
+              {([
+                { field: "image_url_mobile", label: "Mobile", recommendation: imageRecommendations.mobile },
+                { field: "image_url_tablet", label: "Tablet", recommendation: imageRecommendations.tablet },
+                { field: "image_url", label: "Desktop", recommendation: imageRecommendations.desktop },
+              ] as const).map(({ field, label, recommendation }) => (
+                <div className="ads-campaign-image-field" key={field}>
+                  <label htmlFor={`campaign-image-${label.toLowerCase()}`}>{label} · rekomendasi {recommendation}</label>
+                  <input
+                    id={`campaign-image-${label.toLowerCase()}`}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) => void uploadCampaignImage(event, field)}
+                    disabled={uploadingCampaignImage}
+                  />
+                  {field === "image_url" && campaignUrlErrors.image_url
+                    ? <small className="ads-field-error" role="alert">{campaignUrlErrors.image_url}</small>
+                    : <small>JPG, PNG, atau WebP. Maksimum mengikuti pengaturan unggahan platform.</small>}
+                  {uploadingCampaignImage && <span className="ads-upload-progress"><LoaderCircle className="spin" size={15} /> Mengunggah gambar...</span>}
+                  {campaignForm[field] && <div className="ads-image-preview-row">
+                    <Image className="ads-campaign-image-preview" src={campaignForm[field]} alt={`Pratinjau materi ${label}`} width={600} height={300} unoptimized />
+                    <button className="admin-action-link" type="button" onClick={() => {
+                      setCampaignForm((current) => ({ ...current, [field]: "" }));
+                      if (field === "image_url") setCampaignUrlErrors((current) => ({ ...current, image_url: "" }));
+                    }}><X size={15} /> Hapus {label.toLowerCase()}</button>
+                  </div>}
+                </div>
+              ))}
             </div>
-            <label>URL materi visual (opsional)<input type="text" inputMode="url" aria-invalid={Boolean(campaignUrlErrors.image_url)} aria-describedby="campaign-image-help" value={campaignForm.image_url} onChange={(event) => { setCampaignForm((current) => ({ ...current, image_url: event.target.value })); setCampaignUrlErrors((current) => ({ ...current, image_url: "" })); }} onBlur={() => normalizeCampaignUrlField("image_url")} placeholder="https://contoh.id/banner.jpg" />{campaignUrlErrors.image_url ? <small className="ads-field-error" id="campaign-image-help" role="alert">{campaignUrlErrors.image_url}</small> : <small id="campaign-image-help">Opsional. Unggah gambar di atas atau masukkan URL HTTPS secara manual.</small>}</label>
+            <label>URL gambar desktop (opsional)<input type="text" inputMode="url" aria-invalid={Boolean(campaignUrlErrors.image_url)} aria-describedby="campaign-image-help" value={campaignForm.image_url} onChange={(event) => { setCampaignForm((current) => ({ ...current, image_url: event.target.value })); setCampaignUrlErrors((current) => ({ ...current, image_url: "" })); }} onBlur={() => normalizeCampaignUrlField("image_url")} placeholder="https://contoh.id/banner.jpg" />{campaignUrlErrors.image_url ? <small className="ads-field-error" id="campaign-image-help" role="alert">{campaignUrlErrors.image_url}</small> : <small id="campaign-image-help">Opsional. URL ini menjadi gambar desktop dan fallback untuk perangkat lain.</small>}</label>
             <label>Target komik<select value={campaignForm.target_comic_id} onChange={(event) => setCampaignForm((current) => ({ ...current, target_comic_id: event.target.value, slot_id: event.target.value ? "" : current.slot_id, target_placement: event.target.value ? current.target_placement === "all" ? "comic_detail" : current.target_placement : "all" }))}><option value="">Semua komik / penempatan slot</option>{publishedComics.map((comic) => <option value={comic.id} key={comic.id}>{comic.title}</option>)}</select><small>Kosongkan untuk memakai slot umum. Pilih komik untuk menargetkan kampanye hanya ke judul tersebut.</small></label>
             {campaignForm.target_comic_id ? <label>Penempatan untuk komik ini<select value={campaignForm.target_placement} onChange={(event) => setCampaignForm((current) => ({ ...current, target_placement: event.target.value as TargetPlacement }))}><option value="comic_detail">Halaman detail komik</option><option value="reader">Halaman baca</option><option value="both">Detail dan halaman baca</option></select></label> : <label>Slot<select value={campaignForm.slot_id} onChange={(event) => setCampaignForm((current) => ({ ...current, slot_id: event.target.value }))}><option value="">Pilih slot aktif</option>{slots.filter((slot) => slot.is_active || slot.id === campaignForm.slot_id).map((slot) => <option value={slot.id} key={slot.id}>{slot.name}{slot.is_active ? "" : " (nonaktif)"}</option>)}</select></label>}
             <div className="ads-form-two-columns">

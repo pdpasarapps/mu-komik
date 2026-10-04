@@ -28,6 +28,13 @@ create table if not exists public.sponsor_campaigns (
 );
 
 alter table public.sponsor_campaigns
+  add column if not exists image_url_tablet text
+  check (image_url_tablet is null or image_url_tablet ~* '^https?://[^[:space:]]+$');
+alter table public.sponsor_campaigns
+  add column if not exists image_url_mobile text
+  check (image_url_mobile is null or image_url_mobile ~* '^https?://[^[:space:]]+$');
+
+alter table public.sponsor_campaigns
   add column if not exists target_comic_id uuid references public.comics(id) on delete cascade;
 alter table public.sponsor_campaigns
   add column if not exists target_placement text not null default 'all';
@@ -60,7 +67,7 @@ values
   ('Banner beranda', 'home_banner', 'banner', 'Tampil setelah area komik pilihan di beranda.'),
   ('Iklan native katalog', 'catalog_grid_native', 'native', 'Tampil selebar grid setelah 8 komik di Jelajah dan hasil pencarian (jika hasil lebih dari 8).'),
   ('Sponsor detail komik', 'comic_detail_sponsor', 'sponsor', 'Tampil di halaman detail komik sebelum daftar episode.'),
-  ('Iklan tengah bab', 'reader_mid_chapter', 'native', 'Tampil setelah halaman kelima pada halaman baca.')
+  ('Iklan tengah bab', 'reader_mid_chapter', 'native', 'Tampil setiap setelah 5 halaman di halaman baca, kecuali setelah halaman terakhir.')
 on conflict (slot_key) do nothing;
 
 alter table public.ad_slots enable row level security;
@@ -82,6 +89,7 @@ grant select, insert, update, delete on public.ad_slots to authenticated;
 grant select, insert, update, delete on public.sponsor_campaigns to authenticated;
 
 drop function if exists public.get_active_sponsor_campaign(text);
+drop function if exists public.get_active_sponsor_campaign(text, uuid);
 create or replace function public.get_active_sponsor_campaign(p_slot_key text, p_comic_id uuid default null)
 returns table (
   campaign_id uuid,
@@ -90,6 +98,8 @@ returns table (
   description text,
   destination_url text,
   image_url text,
+  image_url_tablet text,
+  image_url_mobile text,
   format text
 )
 language sql
@@ -104,6 +114,8 @@ as $$
     campaign.description,
     campaign.destination_url,
     campaign.image_url,
+    campaign.image_url_tablet,
+    campaign.image_url_mobile,
     slot.format
   from public.sponsor_campaigns as campaign
   join public.ad_slots as slot on slot.slot_key = p_slot_key
