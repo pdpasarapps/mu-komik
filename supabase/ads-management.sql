@@ -58,6 +58,7 @@ create index if not exists sponsor_campaigns_target_comic_idx on public.sponsor_
 insert into public.ad_slots (name, slot_key, format, description)
 values
   ('Banner beranda', 'home_banner', 'banner', 'Tampil setelah area komik pilihan di beranda.'),
+  ('Iklan native katalog', 'catalog_grid_native', 'native', 'Tampil selebar grid setelah 8 komik di Jelajah dan hasil pencarian (jika hasil lebih dari 8).'),
   ('Sponsor detail komik', 'comic_detail_sponsor', 'sponsor', 'Tampil di halaman detail komik sebelum daftar episode.'),
   ('Iklan tengah bab', 'reader_mid_chapter', 'native', 'Tampil setelah halaman kelima pada halaman baca.')
 on conflict (slot_key) do nothing;

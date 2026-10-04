@@ -527,7 +527,11 @@ button, input, select { font: inherit; }
 .reader-sponsored-ad-home { width: min(1440px, 100%); margin: 0 auto; padding: 0 clamp(20px, 5vw, 76px); border: 0; border-radius: 0; background: transparent; }
 .reader-sponsored-ad-home .reader-sponsored-ad-link { min-height: 150px; border: 1px solid var(--reader-border); border-radius: 11px; }
 .reader-sponsored-ad-comic { width: min(1080px, calc(100% - 40px)); margin: 4px auto 26px; }
+.reader-sponsored-ad-catalog { grid-column: 1 / -1; width: 100%; margin: 10px 0 14px; }
+.reader-sponsored-ad-catalog .reader-sponsored-ad-link { min-height: 150px; border: 1px solid var(--reader-border); border-radius: 11px; }
 .reader-sponsored-ad-reader { width: min(960px, calc(100% - 32px)); margin: 22px auto; }
+.reader-sponsored-ad-reader { scroll-margin-top: 62px; }
+.reader-controls-hidden .reader-sponsored-ad-reader { scroll-margin-top: 3px; }
 .reader-sponsored-ad-reader .reader-sponsored-ad-link { min-height: 130px; grid-template-columns: minmax(130px, .55fr) minmax(0, 1.45fr); }
 .reader-sponsored-ad-reader .reader-sponsored-ad-image { min-height: 130px; }
 .reader-sponsored-ad-reader .reader-sponsored-ad-copy { padding-top: 25px; padding-bottom: 22px; }

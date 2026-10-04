@@ -324,19 +324,19 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     if (loading || !pages.length) return;
     const pagesContainer = pagesContainerRef.current;
     if (!pagesContainer) return;
-    let start: { x: number; y: number; pageIndex: number } | null = null;
+    let start: { x: number; y: number; stopId: string } | null = null;
     const handleTouchStart = (event: globalThis.TouchEvent) => {
       if (event.touches.length !== 1 || !(event.target instanceof Element)) {
         start = null;
         return;
       }
-      const frame = event.target.closest<HTMLElement>("[data-reader-page]");
-      const pageIndex = Number(frame?.dataset.readerPage);
-      if (!Number.isInteger(pageIndex)) {
+      const stop = event.target.closest<HTMLElement>("[data-reader-stop]");
+      const stopId = stop?.dataset.readerStop;
+      if (!stopId) {
         start = null;
         return;
       }
-      start = { x: event.touches[0].clientX, y: event.touches[0].clientY, pageIndex };
+      start = { x: event.touches[0].clientX, y: event.touches[0].clientY, stopId };
     };
     const handleTouchMove = (event: globalThis.TouchEvent) => {
       if (!start || event.touches.length !== 1) return;
@@ -353,8 +353,10 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       const deltaX = event.changedTouches[0].clientX - touchStart.x;
       const deltaY = touchStart.y - event.changedTouches[0].clientY;
       if (Math.abs(deltaY) < 55 || Math.abs(deltaY) <= Math.abs(deltaX) * 1.2) return;
-      const targetIndex = Math.max(0, Math.min(pages.length - 1, touchStart.pageIndex + (deltaY > 0 ? 1 : -1)));
-      if (targetIndex !== touchStart.pageIndex) scrollToPage(targetIndex);
+      const stops = Array.from(pagesContainer.querySelectorAll<HTMLElement>("[data-reader-stop]"));
+      const startIndex = stops.findIndex((stop) => stop.dataset.readerStop === touchStart.stopId);
+      const targetStop = stops[startIndex + (deltaY > 0 ? 1 : -1)];
+      targetStop?.scrollIntoView({ behavior: "smooth", block: "start" });
     };
     const handleTouchCancel = () => { start = null; };
     pagesContainer.addEventListener("touchstart", handleTouchStart, { passive: true });
@@ -367,7 +369,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       pagesContainer.removeEventListener("touchend", handleTouchEnd);
       pagesContainer.removeEventListener("touchcancel", handleTouchCancel);
     };
-  }, [loading, pages.length, scrollToPage]);
+  }, [loading, pages.length]);
 
   if (loading) return (
     <main className="reader-loading">
@@ -438,6 +440,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                 <div
                   className="reader-page-frame"
                   data-reader-page={index}
+                  data-reader-stop={`page-${index}`}
                   aria-label={`Halaman ${page.page_number}, ${pageIsRead ? "sudah dibaca" : "belum dibaca"}`}
                 >
                   <span className={`reader-page-read-status${pageIsRead ? " reader-page-read-status-read" : ""}`} role="img" aria-label={pageIsRead ? "Sudah dibaca" : "Belum dibaca"}>
@@ -448,7 +451,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                     ? <img src={src} alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`} loading={index < 2 ? "eager" : "lazy"} onClick={() => setControlsVisible(true)} />
                     : <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div>}
                 </div>
-                {index === 4 && <SponsoredAd slotKey="reader_mid_chapter" placement="reader" comicId={comic.id} matchPageIndex={index} />}
+                {index === 4 && <SponsoredAd slotKey="reader_mid_chapter" placement="reader" comicId={comic.id} matchPageIndex={index} readerStopId="mid-chapter-ad" />}
               </Fragment>
             );
           })}

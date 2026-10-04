@@ -396,6 +396,8 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
         : "1200 × 600 px (2:1) sebagai ukuran kompromi untuk detail komik dan reader."
     : slots.find((slot) => slot.id === campaignForm.slot_id)?.slot_key === "home_banner"
       ? "1200 × 400 px (3:1) untuk banner beranda."
+      : slots.find((slot) => slot.id === campaignForm.slot_id)?.slot_key === "catalog_grid_native"
+        ? "1200 × 600 px (2:1) untuk kartu native selebar grid katalog."
       : "1200 × 600 px (2:1) untuk kartu sponsor detail komik atau reader.";
 
   if (loading) {
