@@ -13,6 +13,7 @@ export default function PwaSupport() {
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [isIosInstallable, setIsIosInstallable] = useState(false);
   const [isStandalone, setIsStandalone] = useState(true);
+  const [isAndroidInstallable, setIsAndroidInstallable] = useState(false);
   const [installInstructions, setInstallInstructions] = useState<"ios" | "android" | "android-manual" | "android-pending" | null>(null);
   const didInstallRef = useRef(false);
 
@@ -32,6 +33,7 @@ export default function PwaSupport() {
     const detectionFrame = window.requestAnimationFrame(() => {
       setIsStandalone(standalone);
       if (isIos && !standalone) setIsIosInstallable(true);
+      if (isAndroid && !standalone) setIsAndroidInstallable(true);
     });
 
     const handleBeforeInstallPrompt = (event: Event) => {
@@ -42,6 +44,7 @@ export default function PwaSupport() {
       didInstallRef.current = true;
       setInstallPrompt(null);
       setIsIosInstallable(false);
+      setIsAndroidInstallable(false);
       if (isAndroid) setInstallInstructions("android");
       setIsStandalone(true);
     };
@@ -69,7 +72,7 @@ export default function PwaSupport() {
     }
   };
 
-  if ((isStandalone && !installInstructions) || (!installPrompt && !isIosInstallable && !installInstructions)) return null;
+  if ((isStandalone && !installInstructions) || (!installPrompt && !isIosInstallable && !isAndroidInstallable && !installInstructions)) return null;
 
   return (
     <>
@@ -78,7 +81,7 @@ export default function PwaSupport() {
           <Image className="pwa-install-logo" src="/logo_mukomik.jpg" alt="" width={42} height={42} />
           <div className="pwa-install-copy"><strong>Baca lebih nyaman</strong><span>Pasang mu-komik di perangkatmu.</span></div>
           <button onClick={install}><Download size={16} /> Pasang</button>
-          <button className="pwa-install-dismiss" aria-label="Tutup ajakan pemasangan" onClick={() => { setInstallPrompt(null); setIsIosInstallable(false); }}><X size={17} /></button>
+          <button className="pwa-install-dismiss" aria-label="Tutup ajakan pemasangan" onClick={() => { setInstallPrompt(null); setIsIosInstallable(false); setIsAndroidInstallable(false); }}><X size={17} /></button>
         </aside>
       ) : (
         <div className="pwa-install-backdrop" role="presentation" onClick={() => setInstallInstructions(null)}>

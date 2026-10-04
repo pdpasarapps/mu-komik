@@ -2,7 +2,6 @@ const CACHE_PREFIX = "mu-komik-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}v3`;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [
-  OFFLINE_URL,
   "/pwa/icon.svg",
   "/pwa/icon-192.png",
   "/pwa/icon-512.png",
@@ -15,7 +14,18 @@ const PRECACHE_URLS = [
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
+      .then(async (cache) => {
+        await cache.add(OFFLINE_URL);
+        const results = await Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url)));
+        results.forEach((result, index) => {
+          if (result.status === "rejected") {
+            console.error("Unable to precache mu-komik PWA asset:", {
+              url: PRECACHE_URLS[index],
+              error: result.reason,
+            });
+          }
+        });
+      })
       .then(() => self.skipWaiting()),
   );
 });
