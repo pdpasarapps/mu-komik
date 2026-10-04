@@ -8,6 +8,7 @@ import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
 import { COMIC_LANGUAGES, ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES } from "@/lib/comic-metadata";
+import { createComicSharePreview } from "@/lib/comic-share-preview";
 
 type ComicContributor = { role: string; name: string };
 type Comic = {
@@ -26,6 +27,7 @@ type Comic = {
   source_info: string;
   status: string;
   cover_key: string | null;
+  share_preview_key: string | null;
 };
 type ComicForm = {
   title: string;
@@ -125,7 +127,7 @@ export default function CreatorComicPage() {
         router.replace("/account");
         return;
       }
-      const comicQuery = supabase.from("comics").select("id, title, slug, synopsis, contributor, contributors, genre, production_technique, story_status, target_audience, language, origin_type, source_info, status, cover_key").eq("id", comicId);
+      const comicQuery = supabase.from("comics").select("id, title, slug, synopsis, contributor, contributors, genre, production_technique, story_status, target_audience, language, origin_type, source_info, status, cover_key, share_preview_key").eq("id", comicId);
       const { data: comicData } = profile.role === "admin" ? await comicQuery.single() : await comicQuery.eq("creator_id", userData.user.id).single();
       if (!comicData) {
         router.replace("/creator");
@@ -244,6 +246,7 @@ export default function CreatorComicPage() {
     setMessage("");
     const previousCoverKey = comic.cover_key;
     let uploadedCoverKey: string | null = null;
+    let uploadedSharePreviewKey: string | null = null;
     let comicSaved = false;
 
     try {
@@ -252,6 +255,7 @@ export default function CreatorComicPage() {
       if (!token) throw new Error("Your session expired. Please log in again.");
 
       let coverKey = previousCoverKey;
+      let sharePreviewKey = comic.share_preview_key;
       if (coverFile) {
         const signResponse = await fetch("/api/r2/comic-cover", {
           method: "POST",
@@ -270,6 +274,30 @@ export default function CreatorComicPage() {
         });
         if (!uploadResponse.ok) throw new Error("Cover upload failed.");
         coverKey = uploadedCoverKey;
+
+        const preview = await createComicSharePreview(coverFile, comicForm.title.trim());
+        const previewSignResponse = await fetch("/api/r2/share-preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ comicId: comic.id, coverKey }),
+        });
+        const previewSignResult = await previewSignResponse.json() as {
+          uploadUrl?: string;
+          objectKey?: string;
+          headers?: Record<string, string>;
+          error?: string;
+        };
+        if (!previewSignResponse.ok || !previewSignResult.uploadUrl || !previewSignResult.objectKey || !previewSignResult.headers) {
+          throw new Error(previewSignResult.error || "Could not prepare comic share preview upload.");
+        }
+        uploadedSharePreviewKey = previewSignResult.objectKey;
+        const previewUploadResponse = await fetch(previewSignResult.uploadUrl, {
+          method: "PUT",
+          headers: previewSignResult.headers,
+          body: preview,
+        });
+        if (!previewUploadResponse.ok) throw new Error("Comic share preview upload failed.");
+        sharePreviewKey = uploadedSharePreviewKey;
       }
 
       const { data, error } = await supabase
@@ -287,10 +315,11 @@ export default function CreatorComicPage() {
           origin_type: comicForm.originType,
           source_info: comicForm.originType === "adaptation" ? comicForm.sourceInfo.trim() : "",
           cover_key: coverKey,
+          share_preview_key: sharePreviewKey,
           status: comic.status === "published" ? "pending_review" : comic.status,
         })
         .eq("id", comic.id)
-        .select("id, title, slug, synopsis, contributor, contributors, genre, production_technique, story_status, target_audience, language, origin_type, source_info, status, cover_key")
+        .select("id, title, slug, synopsis, contributor, contributors, genre, production_technique, story_status, target_audience, language, origin_type, source_info, status, cover_key, share_preview_key")
         .single();
       if (error) throw new Error(error.message);
 
@@ -327,6 +356,23 @@ export default function CreatorComicPage() {
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ comicId: comic.id, objectKey: uploadedCoverKey }),
           }).catch(() => undefined);
+        }
+      }
+      if (uploadedSharePreviewKey && coverFile && !comicSaved) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (token && uploadedCoverKey) {
+          await fetch("/api/r2/share-preview", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              comicId: comic.id,
+              coverKey: uploadedCoverKey,
+              previewKey: uploadedSharePreviewKey,
+            }),
+          }).catch((cleanupError: unknown) => {
+            console.error("Unable to clean up failed comic share preview upload:", cleanupError);
+          });
         }
       }
       setMessage(error instanceof Error ? error.message : "Could not update comic.");

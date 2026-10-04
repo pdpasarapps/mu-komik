@@ -8,6 +8,7 @@ type ComicMetadata = {
   genre: string;
   contributor: string | null;
   cover_key: string | null;
+  share_preview_key: string | null;
   profiles: { display_name: string } | { display_name: string }[] | null;
 };
 
@@ -26,7 +27,7 @@ export async function generateMetadata({
 
   const { data, error } = await supabase
     .from("comics")
-    .select("title, synopsis, genre, contributor, cover_key, profiles!comics_creator_id_fkey(display_name)")
+    .select("id, title, synopsis, genre, contributor, cover_key, share_preview_key, profiles!comics_creator_id_fkey(display_name)")
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle();
@@ -46,7 +47,8 @@ export async function generateMetadata({
   let image = new URL("/logo_mukomik.jpg", siteUrl).toString();
   if (comic.cover_key && imageBaseUrl) {
     const coverUrl = new URL(imageBaseUrl);
-    coverUrl.pathname = `${coverUrl.pathname.replace(/\/?$/, "/")}${comic.cover_key.split("/").map(encodeURIComponent).join("/")}`;
+    const imageKey = comic.share_preview_key || comic.cover_key;
+    coverUrl.pathname = `${coverUrl.pathname.replace(/\/?$/, "/")}${imageKey.split("/").map(encodeURIComponent).join("/")}`;
     image = coverUrl.toString();
   }
   const author = comic.contributor?.trim() || profile?.display_name || "Kreator independen";
@@ -65,7 +67,11 @@ export async function generateMetadata({
       title: `${comic.title} — Baca Komik Indonesia | MU Komik`,
       description,
       url: canonicalUrl,
-      images: [{ url: image, alt: `Preview komik ${comic.title} dengan logo mu-komik` }],
+      images: [{
+        url: image,
+        alt: `Preview komik ${comic.title}`,
+        ...(comic.share_preview_key ? { width: 1200, height: 630, type: "image/jpeg" } : {}),
+      }],
     },
     twitter: {
       card: "summary_large_image",
