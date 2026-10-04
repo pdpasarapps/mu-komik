@@ -1,9 +1,6 @@
 import { DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { createClient } from "@supabase/supabase-js";
-import { AwsClient } from "aws4fetch";
 import { NextRequest, NextResponse } from "next/server";
-
-const allowedContentTypes = ["image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"];
 
 async function authorize(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -52,54 +49,11 @@ function createStorageClient() {
   });
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const accountId = process.env.R2_ACCOUNT_ID;
-    const bucketName = process.env.R2_BUCKET_NAME;
-    const missing = ["R2_ACCOUNT_ID", "R2_BUCKET_NAME", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"]
-      .filter((name) => !process.env[name]);
-    if (missing.length) {
-      return NextResponse.json({ error: "R2 environment variables are missing", missing }, { status: 500 });
-    }
-
-    const auth = await authorize(request);
-    if ("response" in auth) return auth.response;
-
-    const body = await request.json() as { comicId?: string; filename?: string; contentType?: string };
-    if (!body.comicId || !body.filename || body.filename.length > 180 || !allowedContentTypes.includes(body.contentType || "")) {
-      return NextResponse.json({ error: "Invalid cover upload details" }, { status: 400 });
-    }
-
-    const { data: comic } = await auth.supabase
-      .from("comics")
-      .select("id")
-      .eq("id", body.comicId)
-      .eq("creator_id", auth.userId)
-      .maybeSingle();
-    if (!comic) {
-      return NextResponse.json({ error: "Comic not found" }, { status: 404 });
-    }
-
-    const safeName = body.filename.replace(/[^a-zA-Z0-9._-]/g, "-");
-    const objectKey = `comics/${comic.id}/cover/${crypto.randomUUID()}-${safeName}`;
-    const objectUrl = `https://${accountId}.r2.cloudflarestorage.com/${bucketName}/${objectKey}`;
-    const signer = new AwsClient({
-      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-      service: "s3",
-      region: "auto",
-    });
-    const signedRequest = await signer.sign(objectUrl, {
-      method: "PUT",
-      headers: { "Content-Type": body.contentType! },
-      aws: { signQuery: true },
-    });
-
-    return NextResponse.json({ uploadUrl: signedRequest.url, objectKey });
-  } catch (error) {
-    console.error("R2 comic cover upload URL error", error);
-    return NextResponse.json({ error: "Could not prepare comic cover upload" }, { status: 500 });
-  }
+export async function POST() {
+  return NextResponse.json(
+    { error: "Direct uploads are no longer supported. Use the validated image upload endpoint." },
+    { status: 410 },
+  );
 }
 
 export async function DELETE(request: NextRequest) {

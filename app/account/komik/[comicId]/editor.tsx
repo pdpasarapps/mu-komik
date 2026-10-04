@@ -8,6 +8,7 @@ import Link from "next/link";
 import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
 import { COMIC_LANGUAGES, ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES } from "@/lib/comic-metadata";
 import { createComicSharePreview } from "@/lib/comic-share-preview";
+import { usePlatformSettings } from "../../../platform-runtime";
 
 type ComicContributor = { role: string; name: string };
 type Comic = {
@@ -87,6 +88,7 @@ function getPageLabel(pageNumber: number) {
 }
 
 export default function CreatorComicPage() {
+  const { settings } = usePlatformSettings();
   const { comicId } = useParams<{ comicId: string }>();
   const router = useRouter();
   const [comic, setComic] = useState<Comic | null>(null);
@@ -262,46 +264,37 @@ export default function CreatorComicPage() {
       let coverKey = previousCoverKey;
       let sharePreviewKey = comic.share_preview_key;
       if (coverFile) {
-        const signResponse = await fetch("/api/r2/comic-cover", {
+        const uploadForm = new FormData();
+        uploadForm.set("kind", "cover");
+        uploadForm.set("comicId", comic.id);
+        uploadForm.set("file", coverFile);
+        const signResponse = await fetch("/api/r2/upload-image", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ comicId: comic.id, filename: coverFile.name, contentType: coverFile.type }),
+          headers: { Authorization: `Bearer ${token}` },
+          body: uploadForm,
         });
-        const signResult = await signResponse.json() as { uploadUrl?: string; objectKey?: string; error?: string };
-        if (!signResponse.ok || !signResult.uploadUrl || !signResult.objectKey) {
-          throw new Error(signResult.error || "Could not prepare cover upload.");
+        const uploadResult = await signResponse.json() as { objectKey?: string; error?: string };
+        if (!signResponse.ok || !uploadResult.objectKey) {
+          throw new Error(uploadResult.error || "Could not upload cover.");
         }
-        uploadedCoverKey = signResult.objectKey;
-        const uploadResponse = await fetch(signResult.uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": coverFile.type },
-          body: coverFile,
-        });
-        if (!uploadResponse.ok) throw new Error("Cover upload failed.");
+        uploadedCoverKey = uploadResult.objectKey;
         coverKey = uploadedCoverKey;
 
         const preview = await createComicSharePreview(coverFile, comicForm.title.trim());
+        const previewForm = new FormData();
+        previewForm.set("comicId", comic.id);
+        previewForm.set("coverKey", coverKey);
+        previewForm.set("file", preview, "share-preview.jpg");
         const previewSignResponse = await fetch("/api/r2/share-preview", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ comicId: comic.id, coverKey }),
+          headers: { Authorization: `Bearer ${token}` },
+          body: previewForm,
         });
-        const previewSignResult = await previewSignResponse.json() as {
-          uploadUrl?: string;
-          objectKey?: string;
-          headers?: Record<string, string>;
-          error?: string;
-        };
-        if (!previewSignResponse.ok || !previewSignResult.uploadUrl || !previewSignResult.objectKey || !previewSignResult.headers) {
-          throw new Error(previewSignResult.error || "Could not prepare comic share preview upload.");
+        const previewUploadResult = await previewSignResponse.json() as { objectKey?: string; error?: string };
+        if (!previewSignResponse.ok || !previewUploadResult.objectKey) {
+          throw new Error(previewUploadResult.error || "Could not upload comic share preview.");
         }
-        uploadedSharePreviewKey = previewSignResult.objectKey;
-        const previewUploadResponse = await fetch(previewSignResult.uploadUrl, {
-          method: "PUT",
-          headers: previewSignResult.headers,
-          body: preview,
-        });
-        if (!previewUploadResponse.ok) throw new Error("Comic share preview upload failed.");
+        uploadedSharePreviewKey = previewUploadResult.objectKey;
         sharePreviewKey = uploadedSharePreviewKey;
       }
 
@@ -421,7 +414,7 @@ export default function CreatorComicPage() {
   };
 
   const uploadPages = async (event: React.ChangeEvent<HTMLInputElement>, selectedChapter?: Chapter) => {
-    const files = Array.from(event.target.files || []).filter((file) => file.type.startsWith("image/"));
+    const files = Array.from(event.target.files || []);
     const chapter = selectedChapter || uploadChapterRef.current || chapters.find((item) => item.id === event.target.dataset.chapterId);
     if (!comic || !chapter || !files.length) return;
     setUploadChapter(chapter);
@@ -431,26 +424,21 @@ export default function CreatorComicPage() {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) throw new Error("Your session expired. Please log in again.");
-      const existing = await supabase.from("pages").select("page_number").eq("chapter_id", chapter.id).order("page_number", { ascending: false }).limit(1).maybeSingle();
-      let pageNumber = (existing.data?.page_number || 0) + 1;
       for (const file of files) {
-        const urlResponse = await fetch("/api/r2/upload-url", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ comicId: comic.id, chapterId: chapter.id, filename: file.name, contentType: file.type }) });
-        const urlData = await urlResponse.json() as { uploadUrl?: string; objectKey?: string; error?: string; detail?: string; missing?: string[] };
-        if (urlData.error === "R2 environment variables are missing") {
-          const missing = urlData.missing?.join(", ");
-          throw new Error(`Server storage is not configured${missing ? ` (${missing})` : ""}. Ask an admin to configure the production Worker.`);
-        }
-        if (!urlResponse.ok || !urlData.uploadUrl || !urlData.objectKey) throw new Error(urlData.error ? `${urlData.error}${urlData.missing ? `: ${urlData.missing.join(", ")}` : ""}${urlData.detail ? ` (${urlData.detail})` : ""}` : "Could not prepare upload.");
-        const uploadResponse = await fetch(urlData.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-        if (!uploadResponse.ok) throw new Error(`Upload failed for ${file.name}.`);
-        const { data: page, error } = await supabase
-          .from("pages")
-          .insert({ chapter_id: chapter.id, page_number: pageNumber, object_key: urlData.objectKey })
-          .select("id, chapter_id, page_number, object_key")
-          .single();
-        if (error) throw new Error(error.message);
+        const uploadForm = new FormData();
+        uploadForm.set("kind", "page");
+        uploadForm.set("comicId", comic.id);
+        uploadForm.set("chapterId", chapter.id);
+        uploadForm.set("file", file);
+        const uploadResponse = await fetch("/api/r2/upload-image", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: uploadForm,
+        });
+        const uploadResult = await uploadResponse.json() as { page?: ChapterPage; error?: string };
+        if (!uploadResponse.ok || !uploadResult.page) throw new Error(uploadResult.error || `Upload failed for ${file.name}.`);
+        const page = uploadResult.page;
         setPagesByChapter((current) => ({ ...current, [chapter.id]: [...(current[chapter.id] ?? []), page] }));
-        pageNumber += 1;
       }
       setMessage(`${files.length} page${files.length > 1 ? "s" : ""} uploaded successfully.`);
       setUploadChapter(null);
@@ -633,8 +621,8 @@ export default function CreatorComicPage() {
           {comicForm.originType === "adaptation" && <label>Sumber adaptasi<input required maxLength={500} value={comicForm.sourceInfo} onChange={(event) => setComicForm({ ...comicForm, sourceInfo: event.target.value })} placeholder="Judul dan pencipta karya sumber" /></label>}
           <p className="comic-form-note">Semua komik di mu-komik gratis untuk dibaca.</p>
           <label className="cover-upload-field">Cover komik
-            <input type="file" accept="image/avif,image/gif,image/jpeg,image/png,image/webp" onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)} />
-            <span>{coverFile ? `Dipilih: ${coverFile.name}` : comic.cover_key ? "Cover saat ini dipertahankan jika tidak memilih file baru." : "Belum ada cover."}</span>
+            <input type="file" accept={settings.allowed_image_types.join(",")} onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)} />
+            <span>{coverFile ? `Dipilih: ${coverFile.name}` : comic.cover_key ? "Cover saat ini dipertahankan jika tidak memilih file baru." : "Belum ada cover."} Maks. {settings.max_upload_size_mb} MB.</span>
           </label>
           <div className="comic-form-actions">
             <button className="button button-dark" type="submit" disabled={savingComic}>
@@ -690,7 +678,8 @@ export default function CreatorComicPage() {
                     {deletingChapterId === chapter.id ? <LoaderCircle className="spin" size={16} /> : <Trash2 size={16} />}
                   </button>
                   <label className="page-upload-button">
-                    <input type="file" accept="image/*" multiple disabled={uploading || deletingChapterId !== null} onChange={(event) => { setUploadChapter(chapter); void uploadPages(event); }} />
+                    <input type="file" accept={settings.allowed_image_types.join(",")} multiple disabled={uploading || deletingChapterId !== null || (pagesByChapter[chapter.id]?.length ?? 0) >= settings.max_pages_per_chapter} onChange={(event) => { setUploadChapter(chapter); void uploadPages(event); }} />
+                    <small>Maks. {settings.max_pages_per_chapter} halaman per bab, {settings.max_upload_size_mb} MB per gambar.</small>
                     Upload pages
                   </label>
                   <Link className="round-arrow" href={`/comic/${comic.slug}/chapter/${chapter.id}`} aria-label={`Preview ${chapter.title}`}><ArrowUpRight size={17} /></Link>

@@ -780,6 +780,14 @@ button, input, select { font: inherit; }
 .platform-state-page .eyebrow, .platform-state-page h1, .platform-state-page p { margin: 0; }
 .platform-state-page h1 { max-width: 760px; font-size: clamp(2.5rem, 7vw, 5rem); line-height: .98; letter-spacing: -.075em; }
 .platform-state-page > p:last-child { max-width: 520px; color: #77827b; font-size: .95rem; line-height: 1.7; }
+.platform-maintenance-page { background: var(--reader-bg); }
+.platform-maintenance-page .reader-detail-not-found { min-height: calc(100vh - 104px); padding: clamp(30px, 5vh, 58px) 20px 20px; }
+.platform-maintenance-illustration { width: min(100%, 760px); max-height: min(48vh, 500px); }
+.platform-maintenance-page .reader-detail-not-found h1 { margin-top: 3px; }
+.platform-maintenance-page .reader-detail-not-found p { margin: 0; color: #657069; }
+.platform-maintenance-page .platform-links { justify-content: center; gap: 10px 18px; margin-top: 2px; }
+.platform-maintenance-status { color: #a8492f; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.platform-maintenance-page .reader-primary-button { min-height: 46px; padding: 0 17px; }
 .admin-platform-settings { display: grid; gap: 15px; }
 .admin-setting-card { padding: 23px; border: 1px solid var(--line); border-radius: 10px; background: #fffdf8; }
 .admin-setting-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; }
@@ -787,6 +795,20 @@ button, input, select { font: inherit; }
 .admin-setting-heading p { max-width: 650px; margin: 6px 0 0; color: #77827b; font-size: .78rem; line-height: 1.55; }
 .admin-setting-field { display: grid; gap: 8px; margin-top: 18px; color: #59655d; font-size: .75rem; font-weight: 750; }
 .admin-setting-field textarea { width: 100%; resize: vertical; padding: 11px 12px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--ink); font: inherit; font-weight: 500; line-height: 1.5; }
+.admin-setting-checks { display: grid; gap: 8px; margin-top: 16px; }
+.admin-setting-note { margin: 12px 0 0; color: #77827b; font-size: .72rem; line-height: 1.55; }
+.admin-setting-number-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 17px; }
+.admin-setting-number-grid label { display: grid; gap: 7px; color: #59655d; font-size: .72rem; font-weight: 750; }
+.admin-setting-number-grid input { width: 100%; min-height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--ink); font: inherit; }
+.admin-image-types { display: flex; gap: 18px; flex-wrap: wrap; margin: 17px 0 0; padding: 12px; border: 1px solid var(--line); border-radius: 7px; }
+.admin-image-types legend { padding: 0 5px; color: #59655d; font-size: .72rem; font-weight: 750; }
+.admin-image-types label { display: inline-flex; align-items: center; gap: 6px; color: #59655d; font-size: .75rem; }
+.admin-image-types input { accent-color: var(--orange); }
+.admin-settings-audit ol { display: grid; gap: 0; margin: 15px 0 0; padding: 0; list-style: none; }
+.admin-settings-audit li { display: flex; align-items: start; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid var(--line); }
+.admin-settings-audit li > span { display: grid; gap: 4px; }
+.admin-settings-audit li strong { color: #59655d; font-size: .73rem; }
+.admin-settings-audit li small, .admin-settings-audit time { color: #838d85; font-size: .67rem; }
 .admin-switch { position: relative; flex: 0 0 auto; width: 44px; height: 26px; }
 .admin-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .admin-switch span { position: absolute; inset: 0; border-radius: 999px; background: #d6dad5; cursor: pointer; transition: background .15s ease; }
@@ -803,7 +825,11 @@ button, input, select { font: inherit; }
 @media (max-width: 600px) {
   .admin-setting-card { padding: 17px; }
   .admin-feature-toggles { grid-template-columns: minmax(0, 1fr); }
+  .admin-setting-number-grid { grid-template-columns: minmax(0, 1fr); }
+  .admin-settings-audit li { flex-direction: column; gap: 6px; }
   .platform-announcement { padding-right: 16px; padding-left: 16px; font-size: .72rem; }
+  .platform-maintenance-page .reader-detail-not-found { min-height: calc(100vh - 82px); padding: 32px 0 12px; }
+  .platform-maintenance-illustration { max-height: 35vh; }
 }
 
 .account-shell { min-height: 100vh; padding: 0; }

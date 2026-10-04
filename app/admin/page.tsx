@@ -17,6 +17,7 @@ type CreatorRequest = { id: string; user_id: string; note: string; portfolio_url
 type ComicReview = { id: string; title: string; slug: string; synopsis: string; contributor: string; created_at: string; creator_id: string; creator: string };
 type AdminUser = { id: string; display_name: string; role: "reader" | "creator" | "admin"; created_at: string };
 type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string };
+type SettingsAuditEntry = { id: number; changed_by: string | null; changed_at: string; previous_values: Record<string, unknown>; new_values: Record<string, unknown> };
 type AdminSection = "overview" | "analytics" | "comic-review" | "creator-requests" | "users" | "comics" | "share-previews" | "ads-management" | "platform-settings";
 
 const supabase = createClient();
@@ -34,6 +35,19 @@ const adminSections: Record<AdminSection, { label: string; description: string }
 const roleLabels = { reader: "Pembaca", creator: "Kreator", admin: "Admin" };
 const comicStatusLabels = { draft: "Draf", pending_review: "Menunggu kurasi", published: "Terbit", archived: "Diarsipkan" };
 const requestStatusLabels = { pending: "Menunggu", approved: "Disetujui", rejected: "Ditolak" };
+const platformSettingLabels: Record<string, string> = {
+  maintenance_enabled: "Mode maintenance",
+  maintenance_message: "Pesan maintenance",
+  announcement_enabled: "Banner pengumuman",
+  announcement_message: "Isi pengumuman",
+  require_comic_review: "Wajib kurasi sebelum terbit",
+  creator_applications_enabled: "Pengajuan kreator",
+  max_comics_per_creator: "Batas komik per kreator",
+  max_upload_size_mb: "Ukuran file maksimum",
+  max_pages_per_chapter: "Batas halaman per bab",
+  allowed_image_types: "Format gambar",
+  feature_flags: "Status fitur",
+};
 
 export default function AdminPage() {
   const router = useRouter();
@@ -62,6 +76,7 @@ export default function AdminPage() {
   const [platformSettingsError, setPlatformSettingsError] = useState("");
   const [savingPlatformSettings, setSavingPlatformSettings] = useState(false);
   const [platformSettingsMessage, setPlatformSettingsMessage] = useState("");
+  const [settingsAudit, setSettingsAudit] = useState<SettingsAuditEntry[]>([]);
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
 
   const loadRequests = useEffectEvent(async () => {
@@ -76,27 +91,6 @@ export default function AdminPage() {
       return;
     }
     setAdminUserId(userData.user.id);
-    if (section === "platform-settings") {
-      const { data: settingsData, error: settingsError } = await supabase
-        .from("platform_settings")
-        .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_message, feature_flags")
-        .eq("id", true)
-        .maybeSingle();
-      if (settingsError) {
-        console.error("Unable to load platform settings:", settingsError);
-        setPlatformSettingsError("Pengaturan belum dapat dimuat. Jalankan supabase/platform-settings.sql di Supabase SQL Editor, lalu muat ulang halaman.");
-      } else if (settingsData) {
-        setPlatformSettings({
-          ...defaultPlatformSettings,
-          ...settingsData,
-          feature_flags: { ...defaultPlatformSettings.feature_flags, ...settingsData.feature_flags },
-        });
-        setPlatformSettingsError("");
-      } else {
-        setPlatformSettings(defaultPlatformSettings);
-        setPlatformSettingsError("");
-      }
-    }
     const [requestResult, profileResult, comicResult] = await Promise.all([
       supabase.from("creator_requests").select("id, user_id, note, portfolio_url, instagram_url, other_url, status, created_at").eq("status", "pending").order("created_at", { ascending: false }),
       supabase.from("profiles").select("id, display_name, role, created_at").order("created_at", { ascending: false }),
@@ -137,10 +131,49 @@ export default function AdminPage() {
     setLoading(false);
   });
 
+  const loadPlatformSettings = useEffectEvent(async () => {
+    const { data: settingsData, error: settingsError } = await supabase
+      .from("platform_settings")
+      .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_message, feature_flags, require_comic_review, creator_applications_enabled, max_comics_per_creator, max_upload_size_mb, max_pages_per_chapter, allowed_image_types")
+      .eq("id", true)
+      .maybeSingle();
+    const { data: auditData, error: auditError } = await supabase
+      .from("platform_settings_audit")
+      .select("id, changed_by, changed_at, previous_values, new_values")
+      .order("changed_at", { ascending: false })
+      .limit(10);
+    if (auditError && auditError.code !== "42P01" && auditError.code !== "PGRST205") {
+      console.error("Unable to load platform settings audit:", auditError);
+    } else {
+      setSettingsAudit((auditData ?? []) as SettingsAuditEntry[]);
+    }
+    if (settingsError) {
+      console.error("Unable to load platform settings:", settingsError);
+      setPlatformSettingsError("Pengaturan belum dapat dimuat. Jalankan supabase/platform-settings.sql di Supabase SQL Editor, lalu muat ulang halaman.");
+    } else if (settingsData) {
+      setPlatformSettings({
+        ...defaultPlatformSettings,
+        ...settingsData,
+        feature_flags: { ...defaultPlatformSettings.feature_flags, ...settingsData.feature_flags },
+        allowed_image_types: Array.isArray(settingsData.allowed_image_types) ? settingsData.allowed_image_types : defaultPlatformSettings.allowed_image_types,
+      });
+      setPlatformSettingsError("");
+    } else {
+      setPlatformSettings(defaultPlatformSettings);
+      setPlatformSettingsError("");
+    }
+  });
+
   useEffect(() => {
     const timer = window.setTimeout(() => loadRequests(), 0);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (section !== "platform-settings") return;
+    const timer = window.setTimeout(() => loadPlatformSettings(), 0);
+    return () => window.clearTimeout(timer);
+  }, [section]);
 
   const generateSharePreviews = async () => {
     if (generatingSharePreviews) return;
@@ -170,21 +203,19 @@ export default function AdminPage() {
           const coverResponse = await fetch(`/api/share-cover?key=${encodeURIComponent(comic.cover_key!)}`);
           if (!coverResponse.ok) throw new Error(`Cover gagal diunduh (${coverResponse.status}).`);
           const preview = await createComicSharePreview(await coverResponse.blob(), comic.title);
+          const previewForm = new FormData();
+          previewForm.set("comicId", comic.id);
+          previewForm.set("coverKey", comic.cover_key!);
+          previewForm.set("file", preview, "share-preview.jpg");
           const signResponse = await fetch("/api/r2/share-preview", {
             method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ comicId: comic.id, coverKey: comic.cover_key }),
+            headers: { Authorization: `Bearer ${token}` },
+            body: previewForm,
           });
-          const signResult = await signResponse.json() as { uploadUrl?: string; objectKey?: string; headers?: Record<string, string>; error?: string };
-          if (!signResponse.ok || !signResult.uploadUrl || !signResult.objectKey || !signResult.headers) {
-            throw new Error(signResult.error || "URL upload preview tidak tersedia.");
+          const signResult = await signResponse.json() as { objectKey?: string; error?: string };
+          if (!signResponse.ok || !signResult.objectKey) {
+            throw new Error(signResult.error || "Preview share gagal diunggah.");
           }
-          const uploadResponse = await fetch(signResult.uploadUrl, {
-            method: "PUT",
-            headers: signResult.headers,
-            body: preview,
-          });
-          if (!uploadResponse.ok) throw new Error(`Upload preview gagal (${uploadResponse.status}).`);
           const { error: savePreviewError } = await supabase
             .from("comics")
             .update({ share_preview_key: signResult.objectKey })
@@ -215,6 +246,30 @@ export default function AdminPage() {
 
   const savePlatformSettings = async () => {
     if (savingPlatformSettings) return;
+    if (!Number.isInteger(platformSettings.max_comics_per_creator) || platformSettings.max_comics_per_creator < 1 || platformSettings.max_comics_per_creator > 100) {
+      setPlatformSettingsMessage("Batas komik harus berupa bilangan bulat antara 1 dan 100.");
+      return;
+    }
+    if (!Number.isInteger(platformSettings.max_upload_size_mb) || platformSettings.max_upload_size_mb < 1 || platformSettings.max_upload_size_mb > 50) {
+      setPlatformSettingsMessage("Ukuran file harus berupa bilangan bulat antara 1 dan 50 MB.");
+      return;
+    }
+    if (!Number.isInteger(platformSettings.max_pages_per_chapter) || platformSettings.max_pages_per_chapter < 1 || platformSettings.max_pages_per_chapter > 500) {
+      setPlatformSettingsMessage("Batas halaman harus berupa bilangan bulat antara 1 dan 500.");
+      return;
+    }
+    if (platformSettings.announcement_enabled && !platformSettings.announcement_message.trim()) {
+      setPlatformSettingsMessage("Isi banner pengumuman sebelum mengaktifkannya.");
+      return;
+    }
+    if (platformSettings.maintenance_enabled && !platformSettings.maintenance_message.trim()) {
+      setPlatformSettingsMessage("Isi pesan maintenance sebelum mengaktifkannya.");
+      return;
+    }
+    if (!platformSettings.allowed_image_types.length) {
+      setPlatformSettingsMessage("Pilih minimal satu format gambar yang diizinkan.");
+      return;
+    }
     setSavingPlatformSettings(true);
     setPlatformSettingsMessage("");
     const { error } = await supabase.from("platform_settings").upsert({
@@ -231,6 +286,8 @@ export default function AdminPage() {
     } else {
       updateSettings(platformSettings);
       setPlatformSettingsMessage("Pengaturan platform berhasil disimpan.");
+      const { data: auditData } = await supabase.from("platform_settings_audit").select("id, changed_by, changed_at, previous_values, new_values").order("changed_at", { ascending: false }).limit(10);
+      setSettingsAudit((auditData ?? []) as SettingsAuditEntry[]);
     }
     setSavingPlatformSettings(false);
   };
@@ -417,10 +474,41 @@ export default function AdminPage() {
                 ))}
               </div>
             </article>
+            <article className="admin-setting-card">
+              <div className="admin-setting-heading"><div><h3>Moderasi & publikasi</h3><p>Atur proses peninjauan komik dan penerimaan kreator baru.</p></div></div>
+              <div className="admin-setting-checks">
+                <label className="admin-feature-toggle"><span>Wajib kurasi admin sebelum komik tayang</span><input type="checkbox" checked={platformSettings.require_comic_review} onChange={(event) => setPlatformSettings((current) => ({ ...current, require_comic_review: event.target.checked }))} /></label>
+                <label className="admin-feature-toggle"><span>Terima pengajuan kreator baru</span><input type="checkbox" checked={platformSettings.creator_applications_enabled} onChange={(event) => setPlatformSettings((current) => ({ ...current, creator_applications_enabled: event.target.checked }))} /></label>
+              </div>
+              <p className="admin-setting-note">{platformSettings.require_comic_review ? "Kreator mengajukan komik untuk ditinjau admin sebelum tayang." : "Kreator dapat menerbitkan komik secara langsung."}</p>
+            </article>
+            <article className="admin-setting-card">
+              <div className="admin-setting-heading"><div><h3>Batas unggahan</h3><p>Batasi jumlah karya dan ukuran konten untuk mengendalikan kapasitas serta biaya penyimpanan.</p></div></div>
+              <div className="admin-setting-number-grid">
+                <label>Komik maksimum per kreator<input type="number" min={1} max={100} value={platformSettings.max_comics_per_creator} onChange={(event) => setPlatformSettings((current) => ({ ...current, max_comics_per_creator: Number(event.target.value) }))} /></label>
+                <label>Ukuran maksimum per gambar (MB)<input type="number" min={1} max={50} value={platformSettings.max_upload_size_mb} onChange={(event) => setPlatformSettings((current) => ({ ...current, max_upload_size_mb: Number(event.target.value) }))} /></label>
+                <label>Halaman maksimum per bab<input type="number" min={1} max={500} value={platformSettings.max_pages_per_chapter} onChange={(event) => setPlatformSettings((current) => ({ ...current, max_pages_per_chapter: Number(event.target.value) }))} /></label>
+              </div>
+              <fieldset className="admin-image-types"><legend>Format gambar yang diizinkan</legend>
+                {([["image/jpeg", "JPG / JPEG"], ["image/png", "PNG"], ["image/webp", "WebP"]] as const).map(([type, label]) => (
+                  <label key={type}><input type="checkbox" checked={platformSettings.allowed_image_types.includes(type)} onChange={(event) => setPlatformSettings((current) => ({ ...current, allowed_image_types: event.target.checked ? [...current.allowed_image_types, type] : current.allowed_image_types.filter((item) => item !== type) }))} /> {label}</label>
+                ))}
+              </fieldset>
+              <p className="admin-setting-note">Batas yang sudah tercapai tidak menghapus konten lama, tetapi mencegah penambahan komik atau halaman baru.</p>
+            </article>
             <div className="admin-settings-actions">
               <button className="approve-button" type="button" onClick={() => void savePlatformSettings()} disabled={savingPlatformSettings}>{savingPlatformSettings ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />}{savingPlatformSettings ? "Menyimpan..." : "Simpan pengaturan"}</button>
               {platformSettingsMessage && <p role={platformSettingsMessage.startsWith("Pengaturan platform berhasil") ? "status" : "alert"}>{platformSettingsMessage}</p>}
             </div>
+            <article className="admin-setting-card admin-settings-audit">
+              <div className="admin-setting-heading"><div><h3>Riwayat perubahan</h3><p>Perubahan pengaturan platform terbaru.</p></div></div>
+              {settingsAudit.length ? <ol>{settingsAudit.map((entry) => {
+                const changed = Object.keys(platformSettingLabels).filter((key) =>
+                  JSON.stringify(entry.previous_values[key]) !== JSON.stringify(entry.new_values[key]));
+                const actor = users.find((user) => user.id === entry.changed_by)?.display_name || "Admin";
+                return <li key={entry.id}><span><strong>{changed.map((key) => platformSettingLabels[key]).join(", ") || "Pengaturan platform"}</strong><small>Oleh {actor}</small></span><time dateTime={entry.changed_at}>{new Date(entry.changed_at).toLocaleString("id-ID")}</time></li>;
+              })}</ol> : <p className="admin-setting-note">Belum ada perubahan yang tercatat.</p>}
+            </article>
           </>}
         </section>}
         {section === "analytics" && <AdminAnalyticsPanel />}

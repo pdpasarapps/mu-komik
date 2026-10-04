@@ -377,6 +377,10 @@ export default function AccountContent({ section, children }: { section: Account
   };
 
   const handleCreatorRequest = async () => {
+    if (!settings.feature_flags.creators || !settings.creator_applications_enabled) {
+      setRequestMessage("Pengajuan kreator sedang ditutup sementara.");
+      return;
+    }
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) return;
     setRequestingCreator(true);
@@ -634,16 +638,16 @@ export default function AccountContent({ section, children }: { section: Account
           {profile?.role === "reader" && settings.feature_flags.creators && (
             <div className="creator-request">
               <div className="creator-request-title"><Sparkles size={16} /> Jadi kreator</div>
-              <p>{creatorRequest?.status === "rejected" ? "Pengajuanmu ditolak. Perbarui dan kirim kembali pengajuan." : "Ceritakan kepada admin komik yang ingin kamu terbitkan dan alasan karyamu layak hadir di sini."}</p>
+              <p>{!settings.creator_applications_enabled ? "Pengajuan kreator sedang ditutup sementara. Silakan coba lagi nanti." : creatorRequest?.status === "rejected" ? "Pengajuanmu ditolak. Perbarui dan kirim kembali pengajuan." : "Ceritakan kepada admin komik yang ingin kamu terbitkan dan alasan karyamu layak hadir di sini."}</p>
               {creatorRequest?.status === "pending" || creatorRequest?.status === "approved"
                 ? <span className={`request-status request-${creatorRequest.status}`}>{requestStatusLabels[creatorRequest.status]}</span>
-                : <>
+                : settings.creator_applications_enabled ? <>
                     <textarea className="creator-note" value={applicationNote} onChange={(event) => setApplicationNote(event.target.value)} placeholder="Ceritakan pengajuan kreatormu..." maxLength={1000} rows={4} />
                     <input className="creator-link-input" type="url" value={portfolioUrl} onChange={(event) => setPortfolioUrl(event.target.value)} placeholder="Portofolio komik (https://...)" />
                     <input className="creator-link-input" type="url" value={instagramUrl} onChange={(event) => setInstagramUrl(event.target.value)} placeholder="Instagram (https://instagram.com/...)" />
                     <input className="creator-link-input" type="url" value={otherUrl} onChange={(event) => setOtherUrl(event.target.value)} placeholder="Situs web atau media sosial lain (opsional)" />
                     <button className="text-link request-button" onClick={handleCreatorRequest} disabled={requestingCreator || !applicationNote.trim()}>{requestingCreator ? "Mengirim..." : creatorRequest?.status === "rejected" ? "Kirim ulang pengajuan" : "Ajukan akses kreator"} <span>↗</span></button>
-                  </>}
+                  </> : null}
               {requestMessage && <small>{requestMessage}</small>}
             </div>
           )}

@@ -2,6 +2,10 @@
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
+import BrandLogo from "@/components/brand-logo";
+import PlatformLinks from "@/components/platform-links";
 import type { PlatformSettings } from "@/lib/platform-settings";
 
 const PlatformSettingsContext = createContext<{ settings: PlatformSettings; updateSettings: (settings: PlatformSettings) => void } | null>(null);
@@ -41,10 +45,26 @@ export default function PlatformRuntime({
   let content = children;
   if (settings.maintenance_enabled && !adminOrLoginRoute) {
     content = (
-      <main className="platform-state-page">
-        <p className="eyebrow">MU-Komik</p>
-        <h1>Kami sedang berbenah.</h1>
-        <p>{settings.maintenance_message}</p>
+      <main className="reader-detail-page reader-not-found-page platform-maintenance-page">
+        <nav className="reader-subnav">
+          <BrandLogo className="wordmark reader-wordmark" />
+          <span className="platform-maintenance-status">Pemeliharaan</span>
+        </nav>
+        <section className="reader-detail-not-found">
+          <Image
+            className="reader-not-found-illustration platform-maintenance-illustration"
+            src="/pemelihraan.png"
+            alt="Kreator MU-Komik sedang memperbaiki platform"
+            width={1536}
+            height={1024}
+            priority
+            unoptimized
+          />
+          <h1>Kami sedang berbenah.</h1>
+          <p>{settings.maintenance_message}</p>
+          <Link className="reader-primary-button" href="/">Kembali lagi nanti</Link>
+          <PlatformLinks includeEmail={false} />
+        </section>
       </main>
     );
   } else if (gatedFeature) {

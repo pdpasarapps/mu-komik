@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
 import { COMIC_LANGUAGES, ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES } from "@/lib/comic-metadata";
+import { usePlatformSettings } from "../platform-runtime";
 
 export type CreatorArea = "creator" | "komiku" | "terbitkan-komik";
 
@@ -23,8 +24,10 @@ const comicStatusLabel: Record<ComicStatus, string> = {
 
 export default function CreatorContent({ area }: { area: CreatorArea }) {
   const router = useRouter();
+  const { settings } = usePlatformSettings();
   const [comics, setComics] = useState<Comic[]>([]);
   const [displayName, setDisplayName] = useState("Kreator");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [submittingComicId, setSubmittingComicId] = useState<string | null>(null);
@@ -55,6 +58,7 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
       return;
     }
     setDisplayName(profile.display_name || "Kreator");
+    setIsAdmin(profile.role === "admin");
     const query = supabase.from("comics").select("id, title, slug, genre, synopsis, contributor, cover_key, status, created_at").order("created_at", { ascending: false });
     const { data } = profile.role === "admin" ? await query : await query.eq("creator_id", userData.user.id);
     const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL;
@@ -72,6 +76,10 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
 
   const createComic = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!isAdmin && comics.length >= settings.max_comics_per_creator) {
+      setMessage(`Batas ${settings.max_comics_per_creator} komik per kreator sudah tercapai.`);
+      return;
+    }
     const language = form.language === "other" ? form.otherLanguage.trim() : form.language;
     if (!language) {
       setMessage("Masukkan bahasa komik.");
@@ -145,9 +153,10 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
   const submitForReview = async (comic: Comic) => {
     setSubmittingComicId(comic.id);
     setMessage("");
+    const nextStatus = settings.require_comic_review ? "pending_review" : "published";
     const { data, error } = await supabase
       .from("comics")
-      .update({ status: "pending_review" })
+      .update({ status: nextStatus })
       .eq("id", comic.id)
       .eq("status", "draft")
       .select("id, status")
@@ -155,8 +164,8 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
     if (error) {
       setMessage(error.message);
     } else {
-      setComics((current) => current.map((item) => item.id === data.id ? { ...item, status: "pending_review" } : item));
-      setMessage("Komik diajukan dan menunggu kurasi admin.");
+      setComics((current) => current.map((item) => item.id === data.id ? { ...item, status: nextStatus } : item));
+      setMessage(settings.require_comic_review ? "Komik diajukan dan menunggu kurasi admin." : "Komik berhasil diterbitkan.");
     }
     setSubmittingComicId(null);
   };
@@ -175,6 +184,7 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
         {area === "komiku" && <Link className="button button-dark" href="/account/terbitkan-komik"><Plus size={17} /> Komik baru</Link>}
       </header>
       {message && <p className="creator-message">{message}</p>}
+      {area === "terbitkan-komik" && !isAdmin && comics.length >= settings.max_comics_per_creator && <p className="creator-message">Batas {settings.max_comics_per_creator} komik per kreator sudah tercapai. Kamu tetap bisa mengelola komik yang sudah ada.</p>}
       {area === "creator" && (
         <section className="creator-overview-cards">
           <Link href="/account/komiku"><BookOpen size={20} /><span><strong>{comics.length} komik</strong><small>Lihat dan kelola semua karyamu</small></span><ArrowUpRight size={17} /></Link>
@@ -205,7 +215,7 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
           <label>Asal karya<select value={form.originType} onChange={(event) => setForm({ ...form, originType: event.target.value })}>{ORIGIN_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
           {form.originType === "adaptation" && <label>Sumber adaptasi<input required maxLength={500} value={form.sourceInfo} onChange={(event) => setForm({ ...form, sourceInfo: event.target.value })} placeholder="Judul dan pencipta karya sumber" /></label>}
           <p className="comic-form-note">Semua komik di mu-komik gratis untuk dibaca.</p>
-          <button className="button button-dark" type="submit" disabled={saving}>{saving ? <><LoaderCircle className="spin" size={16} /> Menyimpan...</> : <>Buat komik <ArrowUpRight size={16} /></>}</button>
+          <button className="button button-dark" type="submit" disabled={saving || (!isAdmin && comics.length >= settings.max_comics_per_creator)}>{saving ? <><LoaderCircle className="spin" size={16} /> Menyimpan...</> : <>Buat komik <ArrowUpRight size={16} /></>}</button>
         </form>
       )}
       {area === "komiku" && <section className="creator-library">
@@ -236,7 +246,7 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
                   <Link className="creator-comic-action" href={`/comic/${comic.slug}`} aria-label={`Lihat komik: ${comic.title}`} title="Lihat komik"><Eye size={16} /></Link>
                   <Link className="creator-comic-action" href={`/account/komik/${comic.id}?edit=comic`} aria-label={`Edit detail: ${comic.title}`} title="Edit detail"><Pencil size={16} /></Link>
                   <Link className="creator-comic-action" href={`/account/komik/${comic.id}`} aria-label={`Kelola bab: ${comic.title}`} title="Kelola bab"><BookOpen size={16} /></Link>
-                  {comic.status === "draft" && <button type="button" className="button button-dark comic-submit-button" onClick={() => submitForReview(comic)} disabled={submittingComicId === comic.id}>{submittingComicId === comic.id && <LoaderCircle className="spin" size={14} />} Ajukan kurasi</button>}
+                  {comic.status === "draft" && <button type="button" className="button button-dark comic-submit-button" onClick={() => submitForReview(comic)} disabled={submittingComicId === comic.id}>{submittingComicId === comic.id && <LoaderCircle className="spin" size={14} />} {settings.require_comic_review ? "Ajukan kurasi" : "Terbitkan komik"}</button>}
                   {comic.status === "pending_review" && <span className="comic-review-waiting">Menunggu kurasi</span>}
                 </div>
               </article>
