@@ -623,7 +623,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
           <div className="reader-detail-episode-skeletons" aria-label="Memuat episode">{[0, 1, 2].map((item) => <span className="reader-detail-skeleton" key={item} />)}</div>
         ) : chapters.length ? (
           <div className="reader-episode-list">
-            {[...chapters].reverse().map((chapter) => {
+            {chapters.map((chapter) => {
               const index = chapters.findIndex((item) => item.id === chapter.id);
               const unlocked = isChapterUnlocked(index);
               const rowClass = `reader-episode-row${chapter.id === lastReadChapterId ? " reader-episode-last-read" : ""}${unlocked ? "" : " reader-episode-row-locked"}`;
