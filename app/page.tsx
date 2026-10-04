@@ -5,6 +5,8 @@ import { ArrowRight, ArrowUpRight, BookOpen, Eye, Heart, Menu, Search, Share2, S
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
+import BrandLogo from "@/components/brand-logo";
+import PlatformLinks from "@/components/platform-links";
 
 const supabase = createClient();
 
@@ -335,7 +337,7 @@ export default function Home() {
         <button className="reader-menu-toggle" aria-label={menuOpen ? "Tutup navigasi" : "Buka navigasi"} onClick={() => setMenuOpen((open) => !open)}>
           {menuOpen ? <X size={21} /> : <Menu size={21} />}
         </button>
-        <Link className="wordmark reader-wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></Link>
+        <BrandLogo className="wordmark reader-wordmark" />
         <nav className={`reader-nav-links${menuOpen ? " reader-nav-links-open" : ""}`} aria-label="Navigasi utama">
           <a href="#jelajah" onClick={() => setMenuOpen(false)}>Jelajah</a>
           <a href="#genre" onClick={() => setMenuOpen(false)}>Genre</a>
@@ -449,8 +451,9 @@ export default function Home() {
         <Link className="reader-primary-button" href={signedIn ? "/account" : "/login"}>Jadi kreator <ArrowRight size={17} /></Link>
       </section>
       <footer className="reader-footer">
-        <Link className="wordmark reader-wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></Link>
+        <BrandLogo className="wordmark reader-wordmark" />
         <p>Tempat cerita Indonesia menemukan pembacanya.</p>
+        <PlatformLinks />
         <nav className="reader-footer-links" aria-label="Tautan footer"><a href="#jelajah">Jelajah</a><a href="#genre">Genre</a><a href="#creator">Kreator</a></nav>
         <span>© 2026 mu-komik</span>
       </footer>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Download, Share, X } from "lucide-react";
 
 type InstallPromptEvent = Event & {
@@ -66,6 +67,7 @@ export default function PwaSupport() {
     <>
       {!showInstructions ? (
         <aside className="pwa-install-card" aria-label="Pasang aplikasi mu-komik">
+          <Image className="pwa-install-logo" src="/logo_mukomik.jpg" alt="" width={42} height={42} />
           <div className="pwa-install-copy"><strong>Baca lebih nyaman</strong><span>Pasang mu-komik di perangkatmu.</span></div>
           <button onClick={install}><Download size={16} /> Pasang</button>
           <button className="pwa-install-dismiss" aria-label="Tutup ajakan pemasangan" onClick={() => { setInstallPrompt(null); setIsIosInstallable(false); }}><X size={17} /></button>
@@ -74,7 +76,7 @@ export default function PwaSupport() {
         <div className="pwa-install-backdrop" role="presentation" onClick={() => setShowInstructions(false)}>
           <section className="pwa-install-dialog" role="dialog" aria-modal="true" aria-labelledby="pwa-install-title" onClick={(event) => event.stopPropagation()}>
             <button className="pwa-install-dialog-close" onClick={() => setShowInstructions(false)} aria-label="Tutup petunjuk"><X size={19} /></button>
-            <div className="pwa-install-dialog-icon"><Download size={23} /></div>
+            <Image className="pwa-install-dialog-logo" src="/logo_mukomik.jpg" alt="Logo mu-komik" width={72} height={72} />
             <h2 id="pwa-install-title">Pasang mu-komik</h2>
             <p>Untuk membaca seperti aplikasi, tambahkan mu-komik ke Layar Utama:</p>
             <ol><li>Ketuk tombol <Share size={15} aria-label="Bagikan" /> <strong>Bagikan</strong> di Safari.</li><li>Pilih <strong>Tambahkan ke Layar Utama</strong>, lalu ketuk <strong>Tambah</strong>.</li></ol>

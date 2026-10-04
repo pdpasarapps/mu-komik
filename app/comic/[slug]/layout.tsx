@@ -42,10 +42,7 @@ export async function generateMetadata({
   const description = descriptionText.length > 160
     ? `${descriptionText.slice(0, 157).trimEnd()}...`
     : descriptionText || `Baca komik ${comic.title}, genre ${getComicGenreLabel(comic.genre)}, di mu-komik.`;
-  const imageBaseUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL;
-  const image = comic.cover_key && imageBaseUrl
-    ? `${imageBaseUrl.replace(/\/$/, "")}/${comic.cover_key}`
-    : undefined;
+  const image = new URL(`/comic/${encodeURIComponent(slug)}/opengraph-image`, siteUrl).toString();
   const author = comic.contributor?.trim() || profile?.display_name || "Kreator independen";
   const canonicalUrl = new URL(`/comic/${encodeURIComponent(slug)}`, siteUrl).toString();
 
@@ -62,13 +59,13 @@ export async function generateMetadata({
       title: `${comic.title} - Baca Komik Indonesia`,
       description,
       url: canonicalUrl,
-      ...(image ? { images: [{ url: image, alt: `Sampul komik ${comic.title}` }] } : {}),
+      images: [{ url: image, alt: `Preview komik ${comic.title} dengan logo mu-komik` }],
     },
     twitter: {
-      card: image ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title: comic.title,
       description,
-      ...(image ? { images: [image] } : {}),
+      images: [image],
     },
   };
 }

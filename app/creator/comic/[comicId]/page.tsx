@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowUpRight, BookOpen, ChevronLeft, ChevronRight, LoaderCir
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import BrandLogo from "@/components/brand-logo";
 import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
 import { COMIC_LANGUAGES, ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES } from "@/lib/comic-metadata";
 
@@ -480,7 +481,7 @@ export default function CreatorComicPage() {
   return (
     <main className="creator-shell">
       <nav className="creator-nav">
-        <Link className="wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></Link>
+        <BrandLogo />
         <Link className="auth-back" href="/creator"><ArrowLeft size={16} /> Creator space</Link>
       </nav>
       <header className="chapter-manager-header">

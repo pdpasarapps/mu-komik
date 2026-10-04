@@ -5,6 +5,7 @@ import { ArrowLeft, Archive, BookOpen, ChartNoAxesColumn, Check, ClipboardList, 
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import BrandLogo from "@/components/brand-logo";
 import AdminAnalyticsPanel from "./analytics-panel";
 
 type RequestStatus = "pending" | "approved" | "rejected";
@@ -198,7 +199,7 @@ export default function AdminPage() {
   return (
     <main className="admin-shell">
       <nav className="admin-nav">
-        <Link className="wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></Link>
+        <BrandLogo />
         <Link className="auth-back" href="/account"><ArrowLeft size={16} /> Kembali ke akun</Link>
       </nav>
       <div className="admin-layout">

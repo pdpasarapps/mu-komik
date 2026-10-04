@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Bookmark, LogOut, Settin
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import BrandLogo from "@/components/brand-logo";
 import { getComicGenreLabel } from "@/lib/comic-genres";
 
 type Profile = { display_name: string; role: "reader" | "creator" | "admin" };
@@ -102,7 +103,7 @@ export default function AccountPage() {
 
   return (
     <main className="account-shell">
-      <nav className="account-nav"><Link className="wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></Link><button className="account-logout" onClick={handleLogout} disabled={loggingOut}><LogOut size={16} /> {loggingOut ? "Keluar..." : "Keluar"}</button></nav>
+      <nav className="account-nav"><BrandLogo /><button className="account-logout" onClick={handleLogout} disabled={loggingOut}><LogOut size={16} /> {loggingOut ? "Keluar..." : "Keluar"}</button></nav>
       <section className="account-header"><Link className="auth-back" href="/"><ArrowLeft size={16} /> Kembali ke beranda</Link><div className="account-heading"><div className="account-avatar"><UserRound size={30} /></div><div><p className="eyebrow"><span /> Ruang bacamu</p><h1>Hai, {profile?.display_name || "Pembaca"}.</h1><p>{email}</p></div></div></section>
       <section className="account-grid">
         <article className="account-panel account-panel-wide"><div className="panel-heading"><div><p className="eyebrow">Lanjutkan dari sini</p><h2>Lanjutkan membaca</h2></div><BookOpen size={22} /></div><div className="account-empty"><div className="empty-icon"><BookOpen size={23} /></div><h3>Koleksimu menanti.</h3><p>Mulai baca komik dan bab terakhirmu akan muncul di sini.</p><Link className="button button-dark" href="/#discover">Jelajahi komik</Link></div></article>

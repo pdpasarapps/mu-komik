@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowUpRight, BookOpen, Eye, LoaderCircle, Pencil, Plus, Spa
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import BrandLogo from "@/components/brand-logo";
 import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
 import { COMIC_LANGUAGES, ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES } from "@/lib/comic-metadata";
 
@@ -166,7 +167,7 @@ export default function CreatorPage() {
   return (
     <main className="creator-shell">
       <nav className="creator-nav">
-        <Link className="wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></Link>
+        <BrandLogo />
         <div className="creator-nav-actions">
           <span className="creator-identity"><Sparkles size={15} /> {displayName}</span>
           <Link className="auth-back" href="/account"><ArrowLeft size={16} /> Akun</Link>

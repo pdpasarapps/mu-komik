@@ -5,6 +5,8 @@ import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, CheckCircle2, Che
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import BrandLogo from "@/components/brand-logo";
+import PlatformLinks from "@/components/platform-links";
 import { getComicGenreLabel } from "@/lib/comic-genres";
 import { ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES, getMetadataLabel } from "@/lib/comic-metadata";
 
@@ -118,7 +120,7 @@ export default function ComicDetailPage() {
   const [stickyReadVisible, setStickyReadVisible] = useState(false);
   const [stickyReadDismissed, setStickyReadDismissed] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
-  const [shareCover, setShareCover] = useState<{ coverKey: string; file: File } | null>(null);
+  const [shareImage, setShareImage] = useState<{ slug: string; file: File } | null>(null);
   const shareUrlRef = useRef<HTMLTextAreaElement>(null);
   const primaryReadRef = useRef<HTMLAnchorElement>(null);
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
@@ -384,24 +386,24 @@ export default function ComicDetailPage() {
   }, [slug]);
 
   useEffect(() => {
-    if (!comic?.cover_key || !publicUrl) return;
-    const coverKey = comic.cover_key;
+    if (!comic?.slug) return;
+    const comicSlug = comic.slug;
     const controller = new AbortController();
-    const imageUrl = `/api/share-cover?key=${encodeURIComponent(coverKey)}`;
+    const imageUrl = `/comic/${encodeURIComponent(comicSlug)}/opengraph-image`;
     void fetch(imageUrl, { signal: controller.signal })
       .then(async (response) => {
-        if (!response.ok) throw new Error(`Cover request failed with status ${response.status}.`);
+        if (!response.ok) throw new Error(`Branded share image request failed with status ${response.status}.`);
         const blob = await response.blob();
-        if (!blob.type.startsWith("image/")) throw new Error("Comic cover response is not an image.");
-        const filename = coverKey.split("/").pop() || `${comic.slug}-cover`;
-        setShareCover({ coverKey, file: new File([blob], filename, { type: blob.type }) });
+        if (!blob.type.startsWith("image/")) throw new Error("Branded share image response is not an image.");
+        setShareImage({ slug: comicSlug, file: new File([blob], `${comicSlug}-mu-komik.png`, { type: blob.type }) });
       })
       .catch((error: unknown) => {
         if (error instanceof Error && error.name === "AbortError") return;
-        setShareCover((current) => current?.coverKey === coverKey ? current : null);
+        console.error("Unable to prepare branded comic share image:", error);
+        setShareImage((current) => current?.slug === comicSlug ? current : null);
       });
     return () => controller.abort();
-  }, [comic?.cover_key, comic?.slug, publicUrl]);
+  }, [comic?.slug]);
 
   const toggleBookmark = async () => {
     if (!comic || !userId || bookmarkBusy) return;
@@ -447,9 +449,9 @@ export default function ComicDetailPage() {
         const synopsis = comic ? cleanSynopsis(comic.synopsis) : "";
         const shareText = [synopsis, `Baca ${comic?.title} di mu-komik`].filter(Boolean).join("\n\n");
         const shareData: ShareData = { title: comic?.title, text: shareText, url };
-        const coverFile = shareCover && comic?.cover_key === shareCover.coverKey ? shareCover.file : null;
-        if (coverFile && navigator.canShare?.({ files: [coverFile] })) {
-          shareData.files = [coverFile];
+        const imageFile = shareImage && comic && shareImage.slug === comic.slug ? shareImage.file : null;
+        if (imageFile && navigator.canShare?.({ files: [imageFile] })) {
+          shareData.files = [imageFile];
         }
         await navigator.share(shareData);
         return;
@@ -479,7 +481,7 @@ export default function ComicDetailPage() {
 
   if (loading) return (
     <main className="reader-detail-page" aria-busy="true">
-      <nav className="reader-subnav"><span className="wordmark reader-wordmark"><span className="wordmark-dot" />mu<span>komik</span></span><span className="reader-detail-skeleton reader-detail-skeleton-nav" /></nav>
+      <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" linked={false} /><span className="reader-detail-skeleton reader-detail-skeleton-nav" /></nav>
       <div className="reader-comic-detail reader-detail-loading">
         <span className="reader-detail-skeleton reader-detail-cover-skeleton" />
         <div className="reader-detail-skeleton-copy">
@@ -500,7 +502,7 @@ export default function ComicDetailPage() {
   if (!comic) {
     return (
       <main className="reader-detail-page">
-        <nav className="reader-subnav"><Link className="wordmark reader-wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></Link><Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi komik</Link></nav>
+        <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" /><Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi komik</Link></nav>
         <div className="reader-detail-not-found"><h1>{loadError ? "Komik belum bisa dibuka." : "Komik tidak ditemukan."}</h1><p>{loadError || "Cerita ini mungkin telah dipindahkan atau belum diterbitkan."}</p>{loadError && <button className="reader-primary-button" type="button" onClick={() => window.location.reload()}>Coba lagi <ArrowRight size={17} /></button>}<Link className="reader-detail-secondary-link" href="/">Jelajahi komik</Link></div>
       </main>
     );
@@ -529,7 +531,7 @@ export default function ComicDetailPage() {
   return (
     <main className="reader-detail-page">
       <nav className="reader-subnav">
-        <Link className="wordmark reader-wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></Link>
+        <BrandLogo className="wordmark reader-wordmark" />
         <Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi</Link>
       </nav>
       <section className="reader-comic-detail">
@@ -645,8 +647,9 @@ export default function ComicDetailPage() {
         </dl>
       </section>
       <footer className="reader-footer">
-        <Link className="wordmark reader-wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></Link>
+        <BrandLogo className="wordmark reader-wordmark" />
         <p>Tempat cerita Indonesia menemukan pembacanya.</p>
+        <PlatformLinks />
         <Link href="/">Jelajahi komik <ArrowRight size={15} /></Link>
       </footer>
       {stickyReadVisible && firstChapter && (

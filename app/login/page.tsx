@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowUpRight, CheckCircle2, LoaderCircle, LockKeyhole, Mail, UserRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import BrandLogo from "@/components/brand-logo";
 
 const supabase = createClient();
 
@@ -69,7 +70,7 @@ export default function LoginPage() {
       <Link className="auth-back" href="/"><ArrowLeft size={16} /> Back to discovery</Link>
       <section className="auth-layout">
         <div className="auth-intro">
-          <Link className="wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></Link>
+          <BrandLogo />
           <p className="eyebrow"><span /> Your shelf, your pace</p>
           <h1>Keep the stories<br /><em>close.</em></h1>
           <p>Sign in to keep your reading history, bookmarks, and preferences with you wherever you read.</p>
