@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useEffectEvent, useState } from "react";
-import { ArrowLeft, Archive, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, Image as ImageIcon, LayoutDashboard, LoaderCircle, Megaphone, Search, Settings2, ShieldCheck, UserRound, Users, X } from "lucide-react";
+import { ArrowLeft, Archive, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Megaphone, Search, Settings2, ShieldCheck, UserRound, Users, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import AdminAnalyticsPanel from "./analytics-panel";
+import AdsManagementPanel from "./ads-management-panel";
 import { createComicSharePreview } from "@/lib/comic-share-preview";
 import { defaultPlatformSettings, type PlatformSettings } from "@/lib/platform-settings";
 import { usePlatformSettings } from "../platform-runtime";
@@ -18,7 +19,7 @@ type ComicReview = { id: string; title: string; slug: string; synopsis: string; 
 type AdminUser = { id: string; display_name: string; role: "reader" | "creator" | "admin"; created_at: string };
 type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string };
 type SettingsAuditEntry = { id: number; changed_by: string | null; changed_at: string; previous_values: Record<string, unknown>; new_values: Record<string, unknown> };
-type AdminSection = "overview" | "analytics" | "comic-review" | "creator-requests" | "users" | "comics" | "share-previews" | "ads-management" | "platform-settings";
+type AdminSection = "overview" | "analytics" | "comic-review" | "creator-requests" | "users" | "comics" | "share-previews" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "platform-settings";
 
 const supabase = createClient();
 const adminSections: Record<AdminSection, { label: string; description: string }> = {
@@ -29,7 +30,10 @@ const adminSections: Record<AdminSection, { label: string; description: string }
   users: { label: "Manajemen pengguna", description: "Kelola akun dan peran pengguna." },
   comics: { label: "Katalog komik", description: "Cari komik dan kelola status publikasinya." },
   "share-previews": { label: "Preview share komik", description: "Buat gambar preview statis di R2 untuk dibaca WhatsApp dan platform sosial." },
-  "ads-management": { label: "Iklan & sponsor", description: "Siapkan monetisasi platform melalui iklan dan kerja sama sponsor." },
+  "ads-management": { label: "Kampanye sponsor", description: "Kelola kampanye, materi, target, dan periode tayang sponsor." },
+  "ads-list": { label: "Slot iklan", description: "Kelola inventaris penempatan iklan di MU-Komik." },
+  "sponsor-campaigns": { label: "Kampanye sponsor", description: "Kelola kampanye, materi, target, dan periode tayang sponsor." },
+  "ad-slots": { label: "Slot iklan", description: "Kelola inventaris penempatan iklan di MU-Komik." },
   "platform-settings": { label: "Pengaturan platform", description: "Atur status operasional dan fitur yang tersedia di MU-Komik." },
 };
 const roleLabels = { reader: "Pembaca", creator: "Kreator", admin: "Admin" };
@@ -408,7 +412,8 @@ export default function AdminPage() {
             </div>
             <div className="admin-sidebar-group" aria-label="Ads Management">
               <p className="admin-sidebar-group-label">Ads Management</p>
-              <Link href="/admin/ads-management" aria-current={section === "ads-management" ? "page" : undefined}><Megaphone size={18} /><span>Iklan & sponsor</span></Link>
+              <Link href="/admin/sponsor-campaigns" aria-current={section === "sponsor-campaigns" || section === "ads-management" ? "page" : undefined}><Megaphone size={18} /><span>Kampanye sponsor</span></Link>
+              <Link href="/admin/ad-slots" aria-current={section === "ad-slots" || section === "ads-list" ? "page" : undefined}><List size={18} /><span>Slot iklan</span></Link>
             </div>
             <div className="admin-sidebar-group" aria-label="Pengaturan">
               <p className="admin-sidebar-group-label">Pengaturan</p>
@@ -437,15 +442,17 @@ export default function AdminPage() {
           <article className="admin-stat"><span>Komik terbit</span><strong>{publishedComics}</strong><Eye size={20} /></article>
           <article className="admin-stat"><span>Perlu ditinjau</span><strong>{comicReviews.length + pendingRequests}</strong><ShieldCheck size={20} /></article>
         </section>}
-        {section === "ads-management" && <section className="admin-management-section">
+        {(section === "ads-management" || section === "sponsor-campaigns") && <section className="admin-management-section">
           <div className="admin-section-heading">
-            <div><p className="eyebrow">Monetisasi platform</p><h2>Iklan & sponsor</h2></div>
+            <div><p className="eyebrow">Monetisasi platform</p><h2>Kampanye sponsor</h2><p>Kelola kampanye, materi, target komik, dan periode tayang. Kampanye di sini belum ditayangkan sebelum diaktifkan.</p></div>
           </div>
-          <div className="admin-empty">
-            <Megaphone size={28} />
-            <h2>Ruang iklan dan sponsor sedang disiapkan.</h2>
-            <p>Pengelolaan kampanye, penempatan iklan, dan kerja sama sponsor akan tersedia di sini.</p>
+          <AdsManagementPanel key="campaigns" mode="campaigns" />
+        </section>}
+        {(section === "ads-list" || section === "ad-slots") && <section className="admin-management-section">
+          <div className="admin-section-heading">
+            <div><p className="eyebrow">Monetisasi platform</p><h2>Slot iklan</h2><p>Kelola lokasi penayangan, format, kode, serta status aktif setiap slot.</p></div>
           </div>
+          <AdsManagementPanel key="slots" mode="slots" />
         </section>}
         {section === "platform-settings" && <section className="admin-management-section admin-platform-settings">
           <div className="admin-section-heading">

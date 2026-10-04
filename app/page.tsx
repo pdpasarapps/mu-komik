@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
 import BrandLogo from "@/components/brand-logo";
 import PlatformLinks from "@/components/platform-links";
+import SponsoredAd from "@/components/sponsored-ad";
 import { usePlatformSettings } from "./platform-runtime";
 
 const supabase = createClient();
@@ -415,6 +416,8 @@ export default function Home() {
           <Link className="reader-primary-button" href="#jelajah">Jelajahi komik <ArrowRight size={17} /></Link>
         </section>
       )}
+
+      <SponsoredAd slotKey="home_banner" placement="home" />
 
       <div className="reader-home-content">
         {signedIn && continueReading && (

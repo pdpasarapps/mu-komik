@@ -38,6 +38,7 @@ export default async function ChapterPage({
       comic_id: data.comic_id,
     },
     comic: {
+      id: data.comic_id,
       title: linkedComic.title,
       slug: linkedComic.slug,
     },

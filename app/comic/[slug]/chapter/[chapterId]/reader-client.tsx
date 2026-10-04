@@ -1,16 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, List, LoaderCircle, LockKeyhole, Maximize2, Minimize2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import SponsoredAd from "@/components/sponsored-ad";
 
 const supabase = createClient();
 
 type Page = { id: string; page_number: number; object_key: string };
 type Chapter = { id: string; title: string; chapter_number: number; comic_id: string };
-type Comic = { title: string; slug: string };
+type Comic = { id: string; title: string; slug: string };
 export type ChapterReaderSeed = { chapter: Chapter; comic: Comic };
 
 export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed }) {
@@ -56,7 +57,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       }
       const { data: comicData, error: comicError } = await supabase
         .from("comics")
-        .select("title, slug")
+        .select("id, title, slug")
         .eq("id", chapterData.comic_id)
         .eq("slug", slug)
         .maybeSingle();
@@ -433,20 +434,22 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
             const src = pageUrl(page);
             const pageIsRead = readPageIds.has(page.id);
             return (
-              <div
-                className="reader-page-frame"
-                data-reader-page={index}
-                key={page.id}
-                aria-label={`Halaman ${page.page_number}, ${pageIsRead ? "sudah dibaca" : "belum dibaca"}`}
-              >
-                <span className={`reader-page-read-status${pageIsRead ? " reader-page-read-status-read" : ""}`} role="img" aria-label={pageIsRead ? "Sudah dibaca" : "Belum dibaca"}>
-                  {pageIsRead ? <Check size={14} strokeWidth={3} /> : <Circle size={12} />}
-                  <span>{pageIsRead ? "Dibaca" : "Belum dibaca"}</span>
-                </span>
-                {src
-                  ? <img src={src} alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`} loading={index < 2 ? "eager" : "lazy"} onClick={() => setControlsVisible(true)} />
-                  : <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div>}
-              </div>
+              <Fragment key={page.id}>
+                <div
+                  className="reader-page-frame"
+                  data-reader-page={index}
+                  aria-label={`Halaman ${page.page_number}, ${pageIsRead ? "sudah dibaca" : "belum dibaca"}`}
+                >
+                  <span className={`reader-page-read-status${pageIsRead ? " reader-page-read-status-read" : ""}`} role="img" aria-label={pageIsRead ? "Sudah dibaca" : "Belum dibaca"}>
+                    {pageIsRead ? <Check size={14} strokeWidth={3} /> : <Circle size={12} />}
+                    <span>{pageIsRead ? "Dibaca" : "Belum dibaca"}</span>
+                  </span>
+                  {src
+                    ? <img src={src} alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`} loading={index < 2 ? "eager" : "lazy"} onClick={() => setControlsVisible(true)} />
+                    : <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div>}
+                </div>
+                {index === 4 && <SponsoredAd slotKey="reader_mid_chapter" placement="reader" comicId={comic.id} />}
+              </Fragment>
             );
           })}
         </section>

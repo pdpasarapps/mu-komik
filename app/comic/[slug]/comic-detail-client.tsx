@@ -9,6 +9,7 @@ import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import PlatformLinks from "@/components/platform-links";
 import { getComicGenreLabel } from "@/lib/comic-genres";
+import SponsoredAd from "@/components/sponsored-ad";
 import { ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES, getMetadataLabel } from "@/lib/comic-metadata";
 
 const supabase = createClient();
@@ -577,6 +578,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
           </section>
         </div>
       )}
+      <SponsoredAd slotKey="comic_detail_sponsor" placement="comic" comicId={comic.id} />
       <section className="reader-episodes">
         <div className="reader-section-heading"><div><p className="reader-section-kicker">LANJUTKAN CERITA</p><h2>Episode</h2></div><span className="reader-result-count">{chapters.length} episode</span></div>
         {chapterProgressError && <p className="reader-episode-progress-error" role="status">Progres episode belum dapat diverifikasi. Muat ulang halaman untuk mencoba lagi; episode berikutnya dikunci sementara.</p>}
