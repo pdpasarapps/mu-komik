@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
+import { COMIC_LANGUAGES, ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES } from "@/lib/comic-metadata";
 
 type ComicStatus = "draft" | "pending_review" | "published" | "archived";
 type Comic = { id: string; title: string; slug: string; genre: string; synopsis: string; contributor: string; cover_key: string | null; coverUrl: string | null; status: ComicStatus; created_at: string };
@@ -27,7 +28,19 @@ export default function CreatorPage() {
   const [submittingComicId, setSubmittingComicId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState("");
-  const [form, setForm] = useState({ title: "", genre: "Fantasy", synopsis: "", contributor: "" });
+  const [form, setForm] = useState({
+    title: "",
+    genre: "Fantasy",
+    synopsis: "",
+    technique: "traditional_drawing",
+    storyStatus: "ongoing",
+    targetAudience: "all_ages",
+    language: "id",
+    otherLanguage: "",
+    originType: "original",
+    sourceInfo: "",
+    credits: { writer: "", illustrator: "", colorist: "", translator: "" },
+  });
 
   const loadCreator = useEffectEvent(async () => {
     const { data: userData } = await supabase.auth.getUser();
@@ -58,17 +71,71 @@ export default function CreatorPage() {
 
   const createComic = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const language = form.language === "other" ? form.otherLanguage.trim() : form.language;
+    if (!language) {
+      setMessage("Masukkan bahasa komik.");
+      return;
+    }
+    if (form.originType === "adaptation" && !form.sourceInfo.trim()) {
+      setMessage("Cantumkan sumber karya yang diadaptasi.");
+      return;
+    }
     setSaving(true);
     setMessage("");
     const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) return;
+    if (!userData.user) {
+      setMessage("Sesi berakhir. Silakan masuk kembali.");
+      setSaving(false);
+      return;
+    }
     const slug = form.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-    const { data, error } = await supabase.from("comics").insert({ creator_id: userData.user.id, title: form.title.trim(), slug, genre: form.genre, synopsis: form.synopsis.trim(), contributor: form.contributor.trim(), status: "draft" }).select("id, title, slug, genre, synopsis, contributor, cover_key, status, created_at").single();
+    if (!slug) {
+      setMessage("Judul harus memuat huruf atau angka agar dapat dibuat menjadi tautan komik.");
+      setSaving(false);
+      return;
+    }
+    const credits = [
+      { role: "Penulis", name: form.credits.writer.trim() },
+      { role: "Ilustrator", name: form.credits.illustrator.trim() },
+      { role: "Pewarna", name: form.credits.colorist.trim() },
+      { role: "Penerjemah", name: form.credits.translator.trim() },
+    ];
+    const contributors = credits.filter((item) => item.name);
+    const storedContributors = contributors.length ? contributors : [{ role: "Penulis", name: "" }];
+    const contributor = contributors.map((item) => `${item.role}: ${item.name}`).join(" · ");
+    const { data, error } = await supabase.from("comics").insert({
+      creator_id: userData.user.id,
+      title: form.title.trim(),
+      slug,
+      genre: form.genre,
+      synopsis: form.synopsis.trim(),
+      contributor,
+      contributors: storedContributors,
+      production_technique: form.technique,
+      story_status: form.storyStatus,
+      target_audience: form.targetAudience,
+      language,
+      origin_type: form.originType,
+      source_info: form.originType === "adaptation" ? form.sourceInfo.trim() : "",
+      status: "draft",
+    }).select("id, title, slug, genre, synopsis, contributor, cover_key, status, created_at").single();
     if (error) {
       setMessage(error.code === "23505" ? "Komik dengan judul ini sudah ada." : error.message);
     } else {
       setComics((current) => [{ ...data, coverUrl: null }, ...current]);
-      setForm({ title: "", genre: "Fantasy", synopsis: "", contributor: "" });
+      setForm({
+        title: "",
+        genre: "Fantasy",
+        synopsis: "",
+        technique: "traditional_drawing",
+        storyStatus: "ongoing",
+        targetAudience: "all_ages",
+        language: "id",
+        otherLanguage: "",
+        originType: "original",
+        sourceInfo: "",
+        credits: { writer: "", illustrator: "", colorist: "", translator: "" },
+      });
       setShowForm(false);
       setMessage("Komik berhasil dibuat.");
     }
@@ -121,9 +188,23 @@ export default function CreatorPage() {
             <button type="button" className="form-close" onClick={() => setShowForm(false)}>×</button>
           </div>
           <label>Judul<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Judul komik" /></label>
-          <label>Penulis atau kontributor<input maxLength={120} value={form.contributor} onChange={(event) => setForm({ ...form, contributor: event.target.value })} placeholder="Nama penulis atau kontributor" /></label>
           <label>Genre<select value={form.genre} onChange={(event) => setForm({ ...form, genre: event.target.value })}>{COMIC_GENRES.map((genre) => <option key={genre} value={genre}>{getComicGenreLabel(genre)}</option>)}</select></label>
           <label>Sinopsis<textarea required value={form.synopsis} onChange={(event) => setForm({ ...form, synopsis: event.target.value })} placeholder="Ceritakan tentang komik ini" rows={4} /></label>
+          <fieldset className="comic-contributors-fieldset">
+            <legend>Kredit kreator</legend>
+            <label>Penulis<input maxLength={120} value={form.credits.writer} onChange={(event) => setForm({ ...form, credits: { ...form.credits, writer: event.target.value } })} placeholder="Nama penulis" /></label>
+            <label>Ilustrator<input maxLength={120} value={form.credits.illustrator} onChange={(event) => setForm({ ...form, credits: { ...form.credits, illustrator: event.target.value } })} placeholder="Nama ilustrator" /></label>
+            <label>Pewarna<input maxLength={120} value={form.credits.colorist} onChange={(event) => setForm({ ...form, credits: { ...form.credits, colorist: event.target.value } })} placeholder="Nama pewarna" /></label>
+            <label>Penerjemah<input maxLength={120} value={form.credits.translator} onChange={(event) => setForm({ ...form, credits: { ...form.credits, translator: event.target.value } })} placeholder="Nama penerjemah" /></label>
+          </fieldset>
+          <label>Teknik produksi<select value={form.technique} onChange={(event) => setForm({ ...form, technique: event.target.value })}>{PRODUCTION_TECHNIQUES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+          <label>Status cerita<select value={form.storyStatus} onChange={(event) => setForm({ ...form, storyStatus: event.target.value })}>{STORY_STATUSES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+          <label>Target pembaca<select value={form.targetAudience} onChange={(event) => setForm({ ...form, targetAudience: event.target.value })}>{TARGET_AUDIENCES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+          <label>Bahasa<select value={form.language} onChange={(event) => setForm({ ...form, language: event.target.value })}>{COMIC_LANGUAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}<option value="other">Bahasa lainnya</option></select></label>
+          {form.language === "other" && <label>Nama bahasa<input required maxLength={80} value={form.otherLanguage} onChange={(event) => setForm({ ...form, otherLanguage: event.target.value })} placeholder="Contoh: Bahasa Jawa" /></label>}
+          <label>Asal karya<select value={form.originType} onChange={(event) => setForm({ ...form, originType: event.target.value })}>{ORIGIN_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+          {form.originType === "adaptation" && <label>Sumber adaptasi<input required maxLength={500} value={form.sourceInfo} onChange={(event) => setForm({ ...form, sourceInfo: event.target.value })} placeholder="Judul dan pencipta karya sumber" /></label>}
+          <p className="comic-form-note">Semua komik di mu-komik gratis untuk dibaca.</p>
           <button className="button button-dark" type="submit" disabled={saving}>{saving ? <><LoaderCircle className="spin" size={16} /> Menyimpan...</> : <>Buat komik <ArrowUpRight size={16} /></>}</button>
         </form>
       )}

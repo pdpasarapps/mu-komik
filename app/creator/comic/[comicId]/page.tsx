@@ -6,13 +6,78 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
+import { COMIC_LANGUAGES, ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES } from "@/lib/comic-metadata";
 
 type ComicContributor = { role: string; name: string };
-type Comic = { id: string; title: string; slug: string; synopsis: string; contributor: string; contributors: ComicContributor[]; genre: string; status: string; cover_key: string | null };
+type Comic = {
+  id: string;
+  title: string;
+  slug: string;
+  synopsis: string;
+  contributor: string;
+  contributors: ComicContributor[];
+  genre: string;
+  production_technique: string;
+  story_status: string;
+  target_audience: string;
+  language: string;
+  origin_type: string;
+  source_info: string;
+  status: string;
+  cover_key: string | null;
+};
+type ComicForm = {
+  title: string;
+  synopsis: string;
+  genre: string;
+  contributors: ComicContributor[];
+  technique: string;
+  storyStatus: string;
+  targetAudience: string;
+  language: string;
+  otherLanguage: string;
+  originType: string;
+  sourceInfo: string;
+};
 type Chapter = { id: string; title: string; chapter_number: number; published_at: string | null };
 type ChapterPage = { id: string; chapter_id: string; page_number: number; object_key: string };
 
 const supabase = createClient();
+const initialComicForm: ComicForm = {
+  title: "",
+  synopsis: "",
+  genre: "Fantasy",
+  contributors: [{ role: "Penulis", name: "" }],
+  technique: "traditional_drawing",
+  storyStatus: "ongoing",
+  targetAudience: "all_ages",
+  language: "id",
+  otherLanguage: "",
+  originType: "original",
+  sourceInfo: "",
+};
+
+function getComicForm(comic: Comic): ComicForm {
+  const storedContributors = Array.isArray(comic.contributors) ? comic.contributors : [];
+  const namedContributors = storedContributors.filter((item) => item.name?.trim());
+  const knownLanguages = COMIC_LANGUAGES.map((item) => item.value);
+  const hasKnownLanguage = knownLanguages.some((language) => language === comic.language);
+  return {
+    title: comic.title,
+    synopsis: comic.synopsis,
+    genre: comic.genre,
+    contributors: namedContributors.length
+      ? namedContributors.map((item) => ({ role: item.role || "", name: item.name || "" }))
+      : [{ role: "Penulis", name: comic.contributor || "" }],
+    technique: comic.production_technique || "traditional_drawing",
+    storyStatus: comic.story_status || "ongoing",
+    targetAudience: comic.target_audience || "all_ages",
+    language: hasKnownLanguage ? comic.language : "other",
+    otherLanguage: hasKnownLanguage ? "" : comic.language || "",
+    originType: comic.origin_type || "original",
+    sourceInfo: comic.source_info || "",
+  };
+}
 
 function getPageLabel(pageNumber: number) {
   const label = `Page ${pageNumber}`;
@@ -37,7 +102,7 @@ export default function CreatorComicPage() {
   const reorderInFlightRef = useRef(false);
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({ title: "", chapterNumber: "", published: false });
-  const [comicForm, setComicForm] = useState({ title: "", synopsis: "", genre: "Fantasy", contributors: [{ role: "Penulis", name: "" }] as ComicContributor[] });
+  const [comicForm, setComicForm] = useState<ComicForm>(initialComicForm);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [, setUploadChapterState] = useState<Chapter | null>(null);
   const uploadChapterRef = useRef<Chapter | null>(null);
@@ -59,7 +124,7 @@ export default function CreatorComicPage() {
         router.replace("/account");
         return;
       }
-      const comicQuery = supabase.from("comics").select("id, title, slug, synopsis, contributor, contributors, genre, status, cover_key").eq("id", comicId);
+      const comicQuery = supabase.from("comics").select("id, title, slug, synopsis, contributor, contributors, genre, production_technique, story_status, target_audience, language, origin_type, source_info, status, cover_key").eq("id", comicId);
       const { data: comicData } = profile.role === "admin" ? await comicQuery.single() : await comicQuery.eq("creator_id", userData.user.id).single();
       if (!comicData) {
         router.replace("/creator");
@@ -67,15 +132,7 @@ export default function CreatorComicPage() {
       }
       setComic(comicData);
       if (new URLSearchParams(window.location.search).get("edit") === "comic") {
-        const storedContributors = Array.isArray(comicData.contributors) ? comicData.contributors : [];
-        setComicForm({
-          title: comicData.title,
-          synopsis: comicData.synopsis,
-          genre: comicData.genre,
-          contributors: storedContributors.length
-            ? storedContributors.map((item) => ({ role: item.role || "", name: item.name || "" }))
-            : [{ role: "Penulis", name: comicData.contributor || "" }],
-        });
+        setComicForm(getComicForm(comicData));
         setShowComicForm(true);
       }
       const { data: chapterData } = await supabase.from("chapters").select("id, title, chapter_number, published_at").eq("comic_id", comicId).order("chapter_number", { ascending: true });
@@ -143,15 +200,7 @@ export default function CreatorComicPage() {
 
   const startComicEdit = () => {
     if (!comic) return;
-    const storedContributors = Array.isArray(comic.contributors) ? comic.contributors : [];
-    setComicForm({
-      title: comic.title,
-      synopsis: comic.synopsis,
-      genre: comic.genre,
-      contributors: storedContributors.length
-        ? storedContributors.map((item) => ({ role: item.role || "", name: item.name || "" }))
-        : [{ role: "Penulis", name: comic.contributor || "" }],
-    });
+    setComicForm(getComicForm(comic));
     setCoverFile(null);
     setShowComicForm(true);
   };
@@ -179,6 +228,15 @@ export default function CreatorComicPage() {
     const contributors = comicForm.contributors.map((item) => ({ role: item.role.trim(), name: item.name.trim() }));
     if (!contributors.length || contributors.some((item) => !item.role || !item.name)) {
       setMessage("At least one contributor with a role and name is required.");
+      return;
+    }
+    const language = comicForm.language === "other" ? comicForm.otherLanguage.trim() : comicForm.language;
+    if (!language) {
+      setMessage("Masukkan bahasa komik.");
+      return;
+    }
+    if (comicForm.originType === "adaptation" && !comicForm.sourceInfo.trim()) {
+      setMessage("Cantumkan sumber karya yang diadaptasi.");
       return;
     }
     setSavingComic(true);
@@ -221,11 +279,17 @@ export default function CreatorComicPage() {
           genre: comicForm.genre,
           contributor: contributors.map((item) => `${item.role}: ${item.name}`).join(" · "),
           contributors,
+          production_technique: comicForm.technique,
+          story_status: comicForm.storyStatus,
+          target_audience: comicForm.targetAudience,
+          language,
+          origin_type: comicForm.originType,
+          source_info: comicForm.originType === "adaptation" ? comicForm.sourceInfo.trim() : "",
           cover_key: coverKey,
           status: comic.status === "published" ? "pending_review" : comic.status,
         })
         .eq("id", comic.id)
-        .select("id, title, slug, synopsis, contributor, contributors, genre, status, cover_key")
+        .select("id, title, slug, synopsis, contributor, contributors, genre, production_technique, story_status, target_audience, language, origin_type, source_info, status, cover_key")
         .single();
       if (error) throw new Error(error.message);
 
@@ -458,9 +522,12 @@ export default function CreatorComicPage() {
           <label>Genre<select value={comicForm.genre} onChange={(event) => setComicForm({ ...comicForm, genre: event.target.value })}>{COMIC_GENRES.map((genre) => <option key={genre} value={genre}>{getComicGenreLabel(genre)}</option>)}</select></label>
           <label>Deskripsi<textarea required maxLength={3000} rows={4} value={comicForm.synopsis} onChange={(event) => setComicForm({ ...comicForm, synopsis: event.target.value })} /></label>
           <fieldset className="comic-contributors-fieldset">
-            <legend>Penulis dan contributor (minimal satu)</legend>
+            <legend>Kredit kreator (minimal satu)</legend>
             <datalist id="comic-contributor-roles">
               <option value="Penulis" />
+              <option value="Ilustrator" />
+              <option value="Pewarna" />
+              <option value="Penerjemah" />
               <option value="Inker" />
               <option value="Outline" />
               <option value="Coloring" />
@@ -475,7 +542,7 @@ export default function CreatorComicPage() {
                   maxLength={60}
                   list="comic-contributor-roles"
                   aria-label={`Peran contributor ${index + 1}`}
-                  placeholder="Peran, mis. Penulis"
+                  placeholder="Peran, mis. Ilustrator"
                   value={item.role}
                   onChange={(event) => updateContributor(index, "role", event.target.value)}
                 />
@@ -502,6 +569,14 @@ export default function CreatorComicPage() {
               <Plus size={15} /> Tambah contributor
             </button>
           </fieldset>
+          <label>Teknik produksi<select value={comicForm.technique} onChange={(event) => setComicForm({ ...comicForm, technique: event.target.value })}>{PRODUCTION_TECHNIQUES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+          <label>Status cerita<select value={comicForm.storyStatus} onChange={(event) => setComicForm({ ...comicForm, storyStatus: event.target.value })}>{STORY_STATUSES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+          <label>Target pembaca<select value={comicForm.targetAudience} onChange={(event) => setComicForm({ ...comicForm, targetAudience: event.target.value })}>{TARGET_AUDIENCES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+          <label>Bahasa<select value={comicForm.language} onChange={(event) => setComicForm({ ...comicForm, language: event.target.value })}>{COMIC_LANGUAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}<option value="other">Bahasa lainnya</option></select></label>
+          {comicForm.language === "other" && <label>Nama bahasa<input required maxLength={80} value={comicForm.otherLanguage} onChange={(event) => setComicForm({ ...comicForm, otherLanguage: event.target.value })} placeholder="Contoh: Bahasa Jawa" /></label>}
+          <label>Asal karya<select value={comicForm.originType} onChange={(event) => setComicForm({ ...comicForm, originType: event.target.value })}>{ORIGIN_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+          {comicForm.originType === "adaptation" && <label>Sumber adaptasi<input required maxLength={500} value={comicForm.sourceInfo} onChange={(event) => setComicForm({ ...comicForm, sourceInfo: event.target.value })} placeholder="Judul dan pencipta karya sumber" /></label>}
+          <p className="comic-form-note">Semua komik di mu-komik gratis untuk dibaca.</p>
           <label className="cover-upload-field">Cover komik
             <input type="file" accept="image/avif,image/gif,image/jpeg,image/png,image/webp" onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)} />
             <span>{coverFile ? `Dipilih: ${coverFile.name}` : comic.cover_key ? "Cover saat ini dipertahankan jika tidak memilih file baru." : "Belum ada cover."}</span>

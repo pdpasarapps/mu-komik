@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useEffectEvent, useState } from "react";
-import { ArrowLeft, Archive, BookOpen, Check, Eye, LoaderCircle, Search, ShieldCheck, UserRound, Users, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { ArrowLeft, Archive, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, LayoutDashboard, LoaderCircle, Search, ShieldCheck, UserRound, Users, X } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import AdminAnalyticsPanel from "./analytics-panel";
@@ -12,14 +12,28 @@ type CreatorRequest = { id: string; user_id: string; note: string; portfolio_url
 type ComicReview = { id: string; title: string; slug: string; synopsis: string; contributor: string; created_at: string; creator_id: string; creator: string };
 type AdminUser = { id: string; display_name: string; role: "reader" | "creator" | "admin"; created_at: string };
 type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string };
+type AdminSection = "overview" | "analytics" | "comic-review" | "creator-requests" | "users" | "comics";
 
 const supabase = createClient();
+const adminSections: Record<AdminSection, { label: string; description: string }> = {
+  overview: { label: "Dashboard admin", description: "Kelola akun, komik, kurasi, dan pengajuan kreator mu-komik." },
+  analytics: { label: "Analitik", description: "Pantau aktivitas membaca dan komik yang paling banyak dibaca." },
+  "comic-review": { label: "Kurasi komik", description: "Tinjau komik yang menunggu persetujuan untuk diterbitkan." },
+  "creator-requests": { label: "Pengajuan kreator", description: "Tinjau permohonan akses kreator." },
+  users: { label: "Manajemen pengguna", description: "Kelola akun dan peran pengguna." },
+  comics: { label: "Katalog komik", description: "Cari komik dan kelola status publikasinya." },
+};
 const roleLabels = { reader: "Pembaca", creator: "Kreator", admin: "Admin" };
 const comicStatusLabels = { draft: "Draf", pending_review: "Menunggu kurasi", published: "Terbit", archived: "Diarsipkan" };
 const requestStatusLabels = { pending: "Menunggu", approved: "Disetujui", rejected: "Ditolak" };
 
 export default function AdminPage() {
   const router = useRouter();
+  const params = useParams<{ section?: string }>();
+  const requestedSection = params.section;
+  const section = requestedSection && requestedSection in adminSections
+    ? requestedSection as AdminSection
+    : "overview";
   const [requests, setRequests] = useState<CreatorRequest[]>([]);
   const [comicReviews, setComicReviews] = useState<ComicReview[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -47,7 +61,7 @@ export default function AdminPage() {
     }
     setAdminUserId(userData.user.id);
     const [requestResult, profileResult, comicResult] = await Promise.all([
-      supabase.from("creator_requests").select("id, user_id, note, portfolio_url, instagram_url, other_url, status, created_at").order("created_at", { ascending: false }),
+      supabase.from("creator_requests").select("id, user_id, note, portfolio_url, instagram_url, other_url, status, created_at").eq("status", "pending").order("created_at", { ascending: false }),
       supabase.from("profiles").select("id, display_name, role, created_at").order("created_at", { ascending: false }),
       supabase.from("comics").select("id, title, slug, synopsis, contributor, genre, status, created_at, creator_id").order("created_at", { ascending: false }),
     ]);
@@ -187,32 +201,39 @@ export default function AdminPage() {
         <Link className="wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></Link>
         <Link className="auth-back" href="/account"><ArrowLeft size={16} /> Kembali ke akun</Link>
       </nav>
-      <header className="admin-header">
-        <p className="eyebrow"><span /> Panel administrasi</p>
-        <div className="admin-title">
-          <div className="admin-icon"><ShieldCheck size={25} /></div>
-          <div><h1>Dashboard admin</h1><p>Kelola akun, komik, kurasi, dan pengajuan kreator mu-komik.</p></div>
-        </div>
-      </header>
-      <section className="admin-content">
+      <div className="admin-layout">
+        <aside className="admin-sidebar">
+          <p className="admin-sidebar-label">ADMIN WORKSPACE</p>
+          <nav className="admin-sidebar-links" aria-label="Navigasi dashboard admin">
+            <Link href="/admin/overview" aria-current={section === "overview" ? "page" : undefined}><LayoutDashboard size={17} /> Ringkasan</Link>
+            <Link href="/admin/analytics" aria-current={section === "analytics" ? "page" : undefined}><ChartNoAxesColumn size={17} /> Analitik</Link>
+            <Link href="/admin/comic-review" aria-current={section === "comic-review" ? "page" : undefined}><BookOpen size={17} /> Kurasi komik{comicReviews.length > 0 && <span>{comicReviews.length}</span>}</Link>
+            <Link href="/admin/creator-requests" aria-current={section === "creator-requests" ? "page" : undefined}><ClipboardList size={17} /> Pengajuan kreator{requests.length > 0 && <span>{requests.length}</span>}</Link>
+            <Link href="/admin/users" aria-current={section === "users" ? "page" : undefined}><Users size={17} /> Pengguna</Link>
+            <Link href="/admin/comics" aria-current={section === "comics" ? "page" : undefined}><BookOpen size={17} /> Katalog komik</Link>
+          </nav>
+          <div className="admin-sidebar-footer"><ShieldCheck size={16} /> Akses administrator</div>
+        </aside>
+        <div className="admin-main">
+          <header className="admin-header">
+            <p className="eyebrow"><span /> Panel administrasi</p>
+            <div className="admin-title">
+              <div className="admin-icon"><ShieldCheck size={25} /></div>
+              <div><h1>{adminSections[section].label}</h1><p>{adminSections[section].description}</p></div>
+            </div>
+          </header>
+          <section className="admin-content">
         {message && <p className="admin-message" role="status">{message}</p>}
-        <nav className="admin-shortcuts" aria-label="Navigasi manajemen admin">
-          <a href="#analytics">Analitik</a>
-          <a href="#comic-review">Antrean kurasi</a>
-          <a href="#creator-requests">Pengajuan kreator</a>
-          <a href="#user-management">Pengguna</a>
-          <a href="#comic-management">Komik</a>
-        </nav>
-        <section className="admin-dashboard" aria-label="Ringkasan">
+        {section === "overview" && <section className="admin-dashboard" id="overview" aria-label="Ringkasan">
           <article className="admin-stat"><span>Total pengguna</span><strong>{users.length}</strong><UserRound size={20} /></article>
           <article className="admin-stat"><span>Total komik</span><strong>{comics.length}</strong><BookOpen size={20} /></article>
           <article className="admin-stat"><span>Komik terbit</span><strong>{publishedComics}</strong><Eye size={20} /></article>
           <article className="admin-stat"><span>Perlu ditinjau</span><strong>{comicReviews.length + pendingRequests}</strong><ShieldCheck size={20} /></article>
-        </section>
-        <AdminAnalyticsPanel />
-        <section className="comic-review-section">
+        </section>}
+        {section === "analytics" && <AdminAnalyticsPanel />}
+        {section === "comic-review" && <section className="comic-review-section" id="comic-review">
           <div className="admin-section-heading">
-            <div><p className="eyebrow">Antrean publikasi</p><h2 id="comic-review">Kurasi komik</h2></div>
+            <div><p className="eyebrow">Antrean publikasi</p><h2>Kurasi komik</h2></div>
             <span>{comicReviews.length} menunggu kurasi</span>
           </div>
           {comicReviews.length === 0 ? (
@@ -237,13 +258,14 @@ export default function AdminPage() {
               ))}
             </div>
           )}
-        </section>
-        <section className="creator-requests-section" id="creator-requests">
+        </section>}
+        {section === "creator-requests" && <section className="creator-requests-section" id="creator-requests">
           <div className="admin-section-heading">
             <div><p className="eyebrow">Akses kreator</p><h2>Pengajuan kreator</h2></div>
+            <span>{requests.length} menunggu</span>
           </div>
           {requests.length === 0 ? (
-            <div className="admin-empty"><ShieldCheck size={28} /><h2>Belum ada pengajuan.</h2><p>Pengajuan akses kreator akan tampil di sini.</p></div>
+            <div className="admin-empty"><ShieldCheck size={28} /><h2>Tidak ada pengajuan yang menunggu.</h2><p>Pengajuan lama yang sudah disetujui atau ditolak tidak ditampilkan di antrean ini.</p></div>
           ) : (
             <div className="request-table-wrap">
               <table className="request-table">
@@ -261,8 +283,8 @@ export default function AdminPage() {
               </table>
             </div>
           )}
-        </section>
-        <section className="admin-management-section" id="user-management">
+        </section>}
+        {section === "users" && <section className="admin-management-section" id="user-management">
           <div className="admin-section-heading">
             <div><p className="eyebrow">Akun dan akses</p><h2>Manajemen pengguna</h2></div>
             <span>{users.length} pengguna</span>
@@ -290,8 +312,8 @@ export default function AdminPage() {
               </table>
             </div>
           )}
-        </section>
-        <section className="admin-management-section" id="comic-management">
+        </section>}
+        {section === "comics" && <section className="admin-management-section" id="comic-management">
           <div className="admin-section-heading">
             <div><p className="eyebrow">Katalog</p><h2>Manajemen komik</h2></div>
             <span>{comics.length} komik</span>
@@ -330,8 +352,10 @@ export default function AdminPage() {
               </table>
             </div>
           )}
-        </section>
-      </section>
+        </section>}
+          </section>
+        </div>
+      </div>
       {selectedRequest && (
         <div className="request-modal-backdrop" role="presentation" onClick={() => setSelectedRequest(null)}>
           <section className="request-modal" role="dialog" aria-modal="true" aria-labelledby="request-modal-title" onClick={(event) => event.stopPropagation()}>

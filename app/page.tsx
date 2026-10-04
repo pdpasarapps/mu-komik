@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, ArrowUpRight, BookOpen, Menu, Search, Sparkles, UserRound, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, BookOpen, Eye, Heart, Menu, Search, Share2, Sparkles, UserRound, X } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
@@ -19,6 +19,7 @@ type Comic = {
   creator: string;
   latestChapter: { id: string; title: string; chapter_number: number; published_at: string | null } | null;
   chapterCount: number;
+  engagement: { views: number; likes: number; shares: number } | null;
 };
 
 type ContinueReading = {
@@ -38,6 +39,27 @@ function cleanSynopsis(synopsis: string) {
   return synopsis.replace(/\*\*/g, "").replace(/👉/g, "").replace(/\n+/g, " ").trim();
 }
 
+function parseComicEngagementRows(data: unknown) {
+  if (!Array.isArray(data)) return null;
+  const counts = new Map<string, NonNullable<Comic["engagement"]>>();
+  for (const row of data) {
+    if (!row || typeof row !== "object" || !("comic_id" in row)) continue;
+    const comicId = row.comic_id;
+    const views = Number(row.views);
+    const likes = Number(row.likes);
+    const shares = Number(row.shares);
+    if (typeof comicId !== "string" || ![views, likes, shares].every((count) => Number.isSafeInteger(count) && count >= 0)) {
+      return null;
+    }
+    counts.set(comicId, { views, likes, shares });
+  }
+  return counts;
+}
+
+function formatEngagementCount(count: number) {
+  return new Intl.NumberFormat("id-ID", { notation: "compact", maximumFractionDigits: 1 }).format(count);
+}
+
 function ComicCard({ comic, compact = false }: { comic: Comic; compact?: boolean }) {
   const chapter = comic.latestChapter;
   return (
@@ -53,6 +75,13 @@ function ComicCard({ comic, compact = false }: { comic: Comic; compact?: boolean
           <span className="reader-card-genre">{comicGenre(comic.genre)}</span>
           <h3>{comic.title}</h3>
           <p>{comic.contributor || comic.creator}</p>
+          {comic.engagement && (
+            <div className="reader-card-engagement" aria-label={`Statistik ${comic.title}`}>
+              <span aria-label={`${comic.engagement.views.toLocaleString("id-ID")} dilihat`} title="Dilihat"><Eye size={13} /><b>{formatEngagementCount(comic.engagement.views)}</b></span>
+              <span aria-label={`${comic.engagement.likes.toLocaleString("id-ID")} favorit`} title="Favorit"><Heart size={13} /><b>{formatEngagementCount(comic.engagement.likes)}</b></span>
+              <span aria-label={`${comic.engagement.shares.toLocaleString("id-ID")} dibagikan`} title="Dibagikan"><Share2 size={13} /><b>{formatEngagementCount(comic.engagement.shares)}</b></span>
+            </div>
+          )}
           {chapter && <span className="reader-card-latest">Terbaru · Episode {chapter.chapter_number}</span>}
         </div>
       </Link>
@@ -136,8 +165,36 @@ export default function Home() {
           coverUrl: comic.cover_key && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${comic.cover_key}` : null,
           latestChapter: chapters[0] ?? null,
           chapterCount: chapters.length,
+          engagement: null,
         };
       });
+
+      if (comicIds.length) {
+        const { data: engagementRows, error: engagementError } = await supabase.rpc("public_comics_engagement", {
+          p_comic_ids: comicIds,
+        });
+        if (engagementError) {
+          if (engagementError.code === "PGRST202") {
+            console.warn("Comic card engagement counts are unavailable. Run supabase/comic-engagement-counts.sql and refresh the Supabase API schema cache.");
+          } else {
+            console.error("Unable to load comic card engagement counts:", {
+              message: engagementError.message,
+              code: engagementError.code,
+              details: engagementError.details,
+              hint: engagementError.hint,
+            });
+          }
+        } else {
+          const engagementByComic = parseComicEngagementRows(engagementRows);
+          if (!engagementByComic) {
+            console.error("Comic card engagement counts returned an invalid response.", engagementRows);
+          } else {
+            for (const comic of loadedComics) {
+              comic.engagement = engagementByComic.get(comic.id) ?? { views: 0, likes: 0, shares: 0 };
+            }
+          }
+        }
+      }
 
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) {
@@ -214,6 +271,7 @@ export default function Home() {
                     coverUrl: historyComic.cover_key && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${historyComic.cover_key}` : null,
                     latestChapter: null,
                     chapterCount: 0,
+                    engagement: null,
                   },
                   chapterId: history.chapter_id,
                   chapterTitle: chapter.title,

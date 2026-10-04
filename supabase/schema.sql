@@ -27,9 +27,19 @@ create table if not exists public.comics (
     check (jsonb_typeof(contributors) = 'array' and contributors <> '[]'::jsonb),
   cover_key text,
   genre text not null default 'Drama',
+  production_technique text not null default 'traditional_drawing'
+    check (production_technique in ('traditional_drawing', 'digital_illustration', 'mixed', 'ai_assisted', 'ai_generated')),
+  story_status text not null default 'ongoing'
+    check (story_status in ('ongoing', 'completed', 'hiatus')),
+  target_audience text not null default 'all_ages'
+    check (target_audience in ('all_ages', 'teen', 'adult')),
+  language text not null default 'id' check (btrim(language) <> ''),
+  origin_type text not null default 'original' check (origin_type in ('original', 'adaptation')),
+  source_info text not null default '',
   status public.comic_status not null default 'draft',
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  check (origin_type <> 'adaptation' or btrim(source_info) <> '')
 );
 
 create table if not exists public.chapters (

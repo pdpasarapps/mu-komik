@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, Bookmark, CalendarDays, CheckCircle2, CircleDot, Copy, ExternalLink, LoaderCircle, LockKeyhole, Share2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, CheckCircle2, ChevronUp, CircleDot, Copy, ExternalLink, Eye, Heart, LoaderCircle, Share2, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { getComicGenreLabel } from "@/lib/comic-genres";
+import { ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES, getMetadataLabel } from "@/lib/comic-metadata";
 
 const supabase = createClient();
 
@@ -16,15 +17,81 @@ type Comic = {
   synopsis: string;
   contributor: string;
   genre: string;
+  contributors: { role: string; name: string }[] | null;
+  production_technique: string;
+  story_status: string;
+  target_audience: string;
+  language: string;
+  origin_type: string;
+  source_info: string;
   cover_key: string | null;
   profiles: { display_name: string } | { display_name: string }[] | null;
 };
 
 type Chapter = { id: string; title: string; chapter_number: number; published_at: string | null };
 type ChapterReadStatus = "accessed" | "read";
+type ComicEngagement = { views: number; likes: number; shares: number };
+
+function parseComicEngagement(data: unknown): ComicEngagement | null {
+  if (!Array.isArray(data) || !data[0] || typeof data[0] !== "object") return null;
+  const row = data[0];
+  const views = Number(row.views);
+  const likes = Number(row.likes);
+  const shares = Number(row.shares);
+  if (![views, likes, shares].every((count) => Number.isSafeInteger(count) && count >= 0)) return null;
+  return { views, likes, shares };
+}
+
+function formatEngagementCount(count: number) {
+  return new Intl.NumberFormat("id-ID", { notation: "compact", maximumFractionDigits: 1 }).format(count);
+}
+
+function getErrorMessage(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (value instanceof Error) return value.message;
+  return undefined;
+}
+
+function isTimeoutError(error: unknown): boolean {
+  if (error instanceof Error && error.name === "TimeoutError") return true;
+  if (!error || typeof error !== "object") return false;
+  const details = error as { message?: unknown; details?: unknown; name?: unknown };
+  const message = [details.message, details.details, details.name]
+    .map((value) => `${value instanceof Error ? `${value.name} ${value.message}` : String(value ?? "")}`.toLowerCase())
+    .join(" ");
+  return message.includes("timeout") || message.includes("timed out");
+}
+
+function describeLoadError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      cause: getErrorMessage(error.cause),
+    };
+  }
+  if (error && typeof error === "object") {
+    const value = error as { code?: unknown; details?: unknown; hint?: unknown; message?: unknown; name?: unknown; status?: unknown };
+    return {
+      name: typeof value.name === "string" ? value.name : undefined,
+      message: getErrorMessage(value.message) ?? String(value.message ?? ""),
+      code: typeof value.code === "string" ? value.code : undefined,
+      details: getErrorMessage(value.details) ?? String(value.details ?? ""),
+      hint: typeof value.hint === "string" ? value.hint : undefined,
+      status: typeof value.status === "number" ? value.status : undefined,
+    };
+  }
+  return { message: String(error) };
+}
 
 function cleanSynopsis(synopsis: string) {
-  return synopsis.replace(/\*\*/g, "").replace(/👉/g, "").replace(/\n+/g, " ").trim();
+  return synopsis
+    .replace(/\*\*/g, "")
+    .replace(/👉/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export default function ComicDetailPage() {
@@ -39,15 +106,21 @@ export default function ComicDetailPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [chapterLoadError, setChapterLoadError] = useState(false);
+  const [chapterListLoading, setChapterListLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [engagement, setEngagement] = useState<ComicEngagement | null>(null);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
   const [bookmarkMessage, setBookmarkMessage] = useState("");
   const [shareMessage, setShareMessage] = useState("");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [synopsisExpanded, setSynopsisExpanded] = useState(false);
+  const [stickyReadVisible, setStickyReadVisible] = useState(false);
+  const [stickyReadDismissed, setStickyReadDismissed] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [shareCover, setShareCover] = useState<{ coverKey: string; file: File } | null>(null);
   const shareUrlRef = useRef<HTMLTextAreaElement>(null);
+  const primaryReadRef = useRef<HTMLAnchorElement>(null);
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
 
   useEffect(() => {
@@ -57,43 +130,150 @@ export default function ComicDetailPage() {
   }, [episodeSnackbar]);
 
   useEffect(() => {
+    const primaryAction = primaryReadRef.current;
+    if (!primaryAction) {
+      setStickyReadVisible(false);
+      return;
+    }
+    const mobileQuery = window.matchMedia("(max-width: 640px)");
+    let observer: IntersectionObserver | null = null;
+    const observePrimaryAction = () => {
+      observer?.disconnect();
+      observer = null;
+      if (!mobileQuery.matches) {
+        setStickyReadVisible(false);
+        return;
+      }
+      observer = new IntersectionObserver(([entry]) => {
+        if (entry.isIntersecting) {
+          setStickyReadVisible(false);
+          setStickyReadDismissed(false);
+        } else if (!stickyReadDismissed) {
+          setStickyReadVisible(true);
+        }
+      }, { threshold: 0.15 });
+      observer.observe(primaryAction);
+    };
+    observePrimaryAction();
+    mobileQuery.addEventListener("change", observePrimaryAction);
+    return () => {
+      observer?.disconnect();
+      mobileQuery.removeEventListener("change", observePrimaryAction);
+    };
+  }, [comic, chapters, lastReadChapterId, stickyReadDismissed]);
+
+  useEffect(() => {
     let active = true;
     const loadComic = async () => {
       setLoading(true);
       setLoadError("");
-      const { data, error } = await supabase
+      setEngagement(null);
+      const comicSelect = "id, title, slug, synopsis, contributor, contributors, genre, production_technique, story_status, target_audience, language, origin_type, source_info, cover_key, profiles!comics_creator_id_fkey(display_name)";
+      const fallbackComicSelect = "id, title, slug, synopsis, contributor, contributors, genre, cover_key, profiles!comics_creator_id_fkey(display_name)";
+      const legacyComicSelect = "id, title, slug, synopsis, contributor, genre, cover_key, profiles!comics_creator_id_fkey(display_name)";
+      let { data, error } = await supabase
         .from("comics")
-        .select("id, title, slug, synopsis, contributor, genre, cover_key, profiles!comics_creator_id_fkey(display_name)")
+        .select(comicSelect)
         .eq("slug", slug)
+        .abortSignal(AbortSignal.timeout(8000))
         .single();
+      if (error?.code === "42703") {
+        console.warn("Comic metadata columns are unavailable; retrying with existing comic fields.");
+        const fallback = await supabase
+          .from("comics")
+          .select(fallbackComicSelect)
+          .eq("slug", slug)
+          .abortSignal(AbortSignal.timeout(8000))
+          .single();
+        data = fallback.data as typeof data;
+        error = fallback.error;
+        if (error?.code === "42703") {
+          const legacy = await supabase
+            .from("comics")
+            .select(legacyComicSelect)
+            .eq("slug", slug)
+            .abortSignal(AbortSignal.timeout(8000))
+            .single();
+          data = legacy.data as typeof data;
+          error = legacy.error;
+        }
+      }
       if (error || !data) {
-        if (error) console.error("Unable to load comic details:", error);
+        if (error) {
+          const details = describeLoadError(error);
+          if (isTimeoutError(error)) {
+            console.warn("Comic detail request timed out.", { slug, timeoutMs: 8000, error: details });
+          } else {
+            console.error("Unable to load comic details.", { slug, error: details });
+          }
+        }
         if (active) {
-          setLoadError(error ? "Komik belum dapat dimuat. Periksa koneksi lalu coba lagi." : "");
+          setLoadError(isTimeoutError(error)
+            ? "Koneksi ke server terlalu lama. Periksa koneksi lalu coba lagi."
+            : error ? "Komik belum dapat dimuat. Periksa koneksi lalu coba lagi." : "");
           setComic(null);
           setLoading(false);
         }
         return;
       }
 
+      const comic = {
+        ...data,
+        contributors: "contributors" in data ? data.contributors : null,
+        production_technique: "production_technique" in data ? data.production_technique : "traditional_drawing",
+        story_status: "story_status" in data ? data.story_status : "ongoing",
+        target_audience: "target_audience" in data ? data.target_audience : "all_ages",
+        language: "language" in data ? data.language : "id",
+        origin_type: "origin_type" in data ? data.origin_type : "original",
+        source_info: "source_info" in data ? data.source_info : "",
+      };
+      if (active) {
+        setComic(comic as Comic);
+        setChapters([]);
+        setChapterLoadError(false);
+        setChapterListLoading(true);
+        setChapterProgressReady(false);
+        setChapterProgressError(false);
+        setLoading(false);
+      }
+
+      const engagementRequest = supabase.rpc("public_comic_engagement", { p_comic_id: data.id });
       const { data: chapterData, error: chapterError } = await supabase
         .from("chapters")
         .select("id, title, chapter_number, published_at")
         .eq("comic_id", data.id)
         .not("published_at", "is", null)
-        .order("chapter_number", { ascending: true });
+        .order("chapter_number", { ascending: true })
+        .abortSignal(AbortSignal.timeout(8000));
+      const { data: engagementData, error: engagementError } = await engagementRequest;
+      if (engagementError) {
+        const details = describeLoadError(engagementError);
+        if ("code" in engagementError && engagementError.code === "PGRST202") {
+          console.warn(
+            "Comic engagement counts are unavailable because public_comic_engagement is missing. "
+              + "Run supabase/comic-engagement-counts.sql after supabase/comic-analytics.sql, "
+              + "then refresh the Supabase API schema cache.",
+            { slug, error: details },
+          );
+        } else {
+          console.error("Unable to load comic engagement counts.", { slug, error: details });
+        }
+      } else {
+        const counts = parseComicEngagement(engagementData);
+        if (counts) {
+          if (active) setEngagement(counts);
+        } else {
+          console.error("Comic engagement counts returned an invalid response.", engagementData);
+        }
+      }
       if (chapterError) console.error("Unable to load comic episodes:", chapterError);
       if (active) {
         setChapterLoadError(Boolean(chapterError));
+        setChapterListLoading(false);
+        setChapters(chapterData ?? []);
         setChapterReadStatuses({});
         setChapterProgressReady(false);
         setChapterProgressError(false);
-      }
-
-      if (active) {
-        setComic(data as Comic);
-        setChapters(chapterData ?? []);
-        setLoading(false);
       }
 
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -185,7 +365,21 @@ export default function ComicDetailPage() {
         setChapterProgressReady(true);
       }
     };
-    void loadComic();
+    void loadComic().catch((error: unknown) => {
+      if (isTimeoutError(error)) {
+        console.warn("Comic detail loading timed out.", { slug, error: describeLoadError(error) });
+      } else {
+        console.error("Unable to finish loading comic details.", { slug, error: describeLoadError(error) });
+      }
+      if (active) {
+        setLoadError(error instanceof Error && isTimeoutError(error)
+          ? "Koneksi ke server terlalu lama. Periksa koneksi lalu coba lagi."
+          : "Komik belum dapat dimuat. Periksa koneksi lalu coba lagi.");
+        setComic(null);
+        setLoading(false);
+        setChapterListLoading(false);
+      }
+    });
     return () => { active = false; };
   }, [slug]);
 
@@ -223,7 +417,10 @@ export default function ComicDetailPage() {
         : "Favorit belum dapat diperbarui. Coba lagi sebentar.");
     } else {
       setIsBookmarked(!isBookmarked);
-      setBookmarkMessage(isBookmarked ? "Komik dihapus dari favorit." : "Komik disimpan ke favorit.");
+      setEngagement((current) => current
+        ? { ...current, likes: Math.max(0, current.likes + (isBookmarked ? -1 : 1)) }
+        : current);
+      setEpisodeSnackbar(isBookmarked ? "Komik dihapus dari favorit." : "Komik disimpan ke favorit.");
     }
     setBookmarkBusy(false);
   };
@@ -232,6 +429,19 @@ export default function ComicDetailPage() {
     setShareMessage("");
     const url = window.location.href;
     setShareUrl(url);
+    if (comic) {
+      void fetch("/api/analytics/comic-share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comicId: comic.id }),
+      }).then((response) => {
+        if (!response.ok) throw new Error(`Share analytics request failed with status ${response.status}`);
+        setEngagement((current) => current ? { ...current, shares: current.shares + 1 } : current);
+      }).catch((error: unknown) => {
+        console.error("Unable to record comic share:", error);
+        setShareMessage("Bagikan dimulai, tetapi statistik belum dapat dicatat.");
+      });
+    }
     if (navigator.share) {
       try {
         const synopsis = comic ? cleanSynopsis(comic.synopsis) : "";
@@ -267,18 +477,40 @@ export default function ComicDetailPage() {
     setShareMessage("Tautan dipilih. Salin dengan menekan Ctrl+C atau tahan lalu pilih Salin.");
   };
 
-  if (loading) return <main className="reader-detail-page"><div className="reader-detail-loading"><LoaderCircle className="spin" size={25} /><span>Menyiapkan ceritamu...</span></div></main>;
+  if (loading) return (
+    <main className="reader-detail-page" aria-busy="true">
+      <nav className="reader-subnav"><span className="wordmark reader-wordmark"><span className="wordmark-dot" />mu<span>komik</span></span><span className="reader-detail-skeleton reader-detail-skeleton-nav" /></nav>
+      <div className="reader-comic-detail reader-detail-loading">
+        <span className="reader-detail-skeleton reader-detail-cover-skeleton" />
+        <div className="reader-detail-skeleton-copy">
+          <span className="reader-detail-skeleton reader-detail-skeleton-meta" />
+          <span className="reader-detail-skeleton reader-detail-skeleton-title" />
+          <span className="reader-detail-skeleton reader-detail-skeleton-copyline" />
+          <span className="reader-detail-skeleton reader-detail-skeleton-copyline" />
+          <span className="reader-detail-skeleton reader-detail-skeleton-button" />
+        </div>
+      </div>
+      <section className="reader-episodes" aria-label="Memuat episode">
+        <div className="reader-section-heading"><h2>Episode</h2></div>
+        <div className="reader-detail-episode-skeletons">{[0, 1, 2].map((item) => <span className="reader-detail-skeleton" key={item} />)}</div>
+      </section>
+      <p className="reader-detail-loading-label"><LoaderCircle className="spin" size={17} /> Menyiapkan ceritamu...</p>
+    </main>
+  );
   if (!comic) {
     return (
       <main className="reader-detail-page">
         <nav className="reader-subnav"><Link className="wordmark reader-wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></Link><Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi komik</Link></nav>
-        <div className="reader-detail-not-found"><h1>{loadError ? "Komik belum bisa dibuka." : "Komik tidak ditemukan."}</h1><p>{loadError || "Cerita ini mungkin telah dipindahkan atau belum diterbitkan."}</p><Link className="reader-primary-button" href="/">Kembali ke beranda <ArrowRight size={17} /></Link></div>
+        <div className="reader-detail-not-found"><h1>{loadError ? "Komik belum bisa dibuka." : "Komik tidak ditemukan."}</h1><p>{loadError || "Cerita ini mungkin telah dipindahkan atau belum diterbitkan."}</p>{loadError && <button className="reader-primary-button" type="button" onClick={() => window.location.reload()}>Coba lagi <ArrowRight size={17} /></button>}<Link className="reader-detail-secondary-link" href="/">Jelajahi komik</Link></div>
       </main>
     );
   }
 
   const creator = Array.isArray(comic.profiles) ? comic.profiles[0]?.display_name : comic.profiles?.display_name;
   const contributor = comic.contributor.trim() || creator || "Kreator independen";
+  const credits = Array.isArray(comic.contributors) ? comic.contributors.filter((item) => item.name?.trim()) : [];
+  const writerCredit = credits.find((credit) => /^(penulis|writer)$/i.test(credit.role.trim()));
+  const byline = writerCredit?.name || contributor.replace(/^penulis(?:\s+atau\s+kontributor)?\s*:\s*/i, "") || "Kreator independen";
   const coverUrl = comic.cover_key && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${comic.cover_key}` : null;
   const firstIncompleteIndex = chapters.findIndex((chapter) => chapterReadStatuses[chapter.id] !== "read");
   const allChaptersRead = chapters.length > 0 && firstIncompleteIndex === -1;
@@ -290,6 +522,9 @@ export default function ComicDetailPage() {
   };
   const resumeChapter = chapters.find((chapter, index) => chapter.id === lastReadChapterId && isChapterUnlocked(index));
   const firstChapter = resumeChapter || chapters[firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0] || chapters[0];
+  const synopsis = cleanSynopsis(comic.synopsis);
+  const synopsisCanExpand = synopsis.length > 220;
+  const latestChapterNumber = Math.max(0, ...chapters.map((chapter) => chapter.chapter_number));
 
   return (
     <main className="reader-detail-page">
@@ -298,30 +533,44 @@ export default function ComicDetailPage() {
         <Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi</Link>
       </nav>
       <section className="reader-comic-detail">
-        <div className="reader-detail-cover">
+        <div className="reader-detail-cover-wrap">
+          <div className="reader-detail-cover">
           {coverUrl ? <img src={coverUrl} alt={`Sampul ${comic.title}`} fetchPriority="high" /> : <span>{comic.title.slice(0, 2).toUpperCase()}</span>}
+          </div>
+          <span className="reader-detail-access"><Check size={15} strokeWidth={2.5} /> Gratis dibaca</span>
         </div>
         <div className="reader-detail-copy">
-          <span className="reader-detail-genre">{getComicGenreLabel(comic.genre)}</span>
-          <p className="reader-section-kicker">KOMIK · {chapters.length} EPISODE</p>
+          <p className="reader-detail-genre-count">{getComicGenreLabel(comic.genre)}<span aria-hidden="true">·</span>{chapters.length} episode</p>
           <h1>{comic.title}</h1>
-          <p className="reader-detail-creator">Karya <strong>{contributor}</strong></p>
-          <p className="reader-detail-synopsis">{cleanSynopsis(comic.synopsis) || "Mulai membaca dan masuk ke dunia cerita ini."}</p>
-          <div className="reader-detail-actions">
+          <p className="reader-detail-creator">Karya <strong>{byline}</strong></p>
+          {engagement && (
+            <div className="reader-detail-engagement" aria-label="Statistik komik">
+              <span title={`${engagement.views.toLocaleString("id-ID")} kali dilihat`}><Eye size={15} /><strong>{formatEngagementCount(engagement.views)}</strong><small>Dilihat</small></span>
+              <span title={`${engagement.likes.toLocaleString("id-ID")} favorit`}><Heart size={15} /><strong>{formatEngagementCount(engagement.likes)}</strong><small>Favorit</small></span>
+              <span title={`${engagement.shares.toLocaleString("id-ID")} kali dibagikan`}><Share2 size={15} /><strong>{formatEngagementCount(engagement.shares)}</strong><small>Dibagikan</small></span>
+            </div>
+          )}
+          <div className={`reader-detail-synopsis-wrap${synopsisExpanded ? " reader-detail-synopsis-expanded" : ""}`}>
+            <p className="reader-detail-synopsis">{synopsis || "Mulai membaca dan masuk ke dunia cerita ini."}</p>
+            {synopsisCanExpand && <button className="reader-detail-synopsis-toggle" type="button" aria-expanded={synopsisExpanded} onClick={() => setSynopsisExpanded((expanded) => !expanded)}>{synopsisExpanded ? <>Lebih sedikit <ChevronUp size={15} /></> : <>Baca selengkapnya <ArrowRight size={15} /></>}</button>}
+          </div>
+          <div className="reader-detail-reading-action">
             {firstChapter
-              ? <Link className="reader-primary-button" href={`/comic/${comic.slug}/chapter/${firstChapter.id}`}><BookOpen size={18} /> {resumeChapter ? "Lanjutkan membaca" : "Baca sekarang"} <ArrowRight size={17} /></Link>
+              ? <Link ref={primaryReadRef} className="reader-primary-button reader-detail-primary-button" href={`/comic/${comic.slug}/chapter/${firstChapter.id}`}><BookOpen size={19} /> {resumeChapter ? "Lanjutkan baca" : "Mulai baca"} <ArrowRight size={18} /></Link>
               : <span className="reader-detail-unavailable">Episode akan segera hadir</span>}
+            {resumeChapter && <p className="reader-detail-resume">Terakhir dibaca · Episode {resumeChapter.chapter_number}</p>}
+          </div>
+          <div className="reader-detail-actions">
             {userId
-              ? <button className={`reader-detail-action${isBookmarked ? " reader-detail-action-saved" : ""}`} onClick={() => void toggleBookmark()} disabled={bookmarkBusy} aria-pressed={isBookmarked}>
-                  {bookmarkBusy ? <LoaderCircle className="spin" size={17} /> : <Bookmark size={17} fill={isBookmarked ? "currentColor" : "none"} />}
-                  {isBookmarked ? "Favorit tersimpan" : "Favorit"}
+              ? <button className={`reader-detail-action${isBookmarked ? " reader-detail-action-saved" : ""}`} onClick={() => void toggleBookmark()} disabled={bookmarkBusy} aria-pressed={isBookmarked} aria-label={isBookmarked ? "Hapus dari favorit" : "Simpan ke favorit"}>
+                  {bookmarkBusy ? <LoaderCircle className="spin" size={17} /> : <Heart size={17} fill={isBookmarked ? "currentColor" : "none"} />}
+                  Favorit
                 </button>
-              : <Link className="reader-detail-action" href="/login"><Bookmark size={17} /> Masuk untuk favorit</Link>}
+              : <Link className="reader-detail-action" href="/login" aria-label="Masuk untuk menyimpan komik ke favorit"><Heart size={17} /> Favorit</Link>}
             <button className="reader-detail-action" onClick={() => void shareComic()}><Share2 size={17} /> Bagikan</button>
           </div>
           {bookmarkMessage && <p className="reader-detail-action-message" role="status">{bookmarkMessage}</p>}
           {shareMessage && <p className="reader-detail-action-message" role="status">{shareMessage}</p>}
-          {resumeChapter && <p className="reader-detail-resume">Terakhir dibaca · Episode {resumeChapter.chapter_number}</p>}
         </div>
       </section>
       {shareDialogOpen && (
@@ -343,16 +592,19 @@ export default function ComicDetailPage() {
         </div>
       )}
       <section className="reader-episodes">
-        <div className="reader-section-heading"><div><p className="reader-section-kicker">MULAI ATAU LANJUTKAN</p><h2>Daftar episode</h2></div><span className="reader-result-count">{chapters.length} episode</span></div>
+        <div className="reader-section-heading"><div><p className="reader-section-kicker">LANJUTKAN CERITA</p><h2>Episode</h2></div><span className="reader-result-count">{chapters.length} episode</span></div>
         {chapterProgressError && <p className="reader-episode-progress-error" role="status">Progres episode belum dapat diverifikasi. Muat ulang halaman untuk mencoba lagi; episode berikutnya dikunci sementara.</p>}
-        {chapters.length ? (
+        {chapterListLoading ? (
+          <div className="reader-detail-episode-skeletons" aria-label="Memuat episode">{[0, 1, 2].map((item) => <span className="reader-detail-skeleton" key={item} />)}</div>
+        ) : chapters.length ? (
           <div className="reader-episode-list">
-            {chapters.map((chapter, index) => {
+            {[...chapters].reverse().map((chapter) => {
+              const index = chapters.findIndex((item) => item.id === chapter.id);
               const unlocked = isChapterUnlocked(index);
               const rowClass = `reader-episode-row${chapter.id === lastReadChapterId ? " reader-episode-last-read" : ""}${unlocked ? "" : " reader-episode-row-locked"}`;
               const content = (
                 <>
-                  <span className="reader-episode-number">{String(chapter.chapter_number).padStart(2, "0")}</span>
+                  <span className="reader-episode-number">EPISODE {String(chapter.chapter_number).padStart(2, "0")}</span>
                   <span className="reader-episode-title">
                     <strong>{chapter.title || `Episode ${chapter.chapter_number}`}</strong>
                     {chapter.id === lastReadChapterId && <small>Terakhir dibaca</small>}
@@ -363,9 +615,12 @@ export default function ComicDetailPage() {
                           : <><CircleDot size={13} /> Sudah diakses</>}
                       </small>
                     )}
+                    {chapter.published_at && <small className="reader-episode-date"><CalendarDays size={13} />{new Date(chapter.published_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</small>}
                   </span>
-                  <span className="reader-episode-date">{chapter.published_at ? <><CalendarDays size={14} />{new Date(chapter.published_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</> : null}</span>
-                  {unlocked ? <ArrowRight size={17} /> : <LockKeyhole size={16} aria-label="Episode terkunci" />}
+                  <span className="reader-episode-end-meta">
+                    {chapter.chapter_number === latestChapterNumber && <span className="reader-episode-latest-badge">Terbaru</span>}
+                    <ArrowRight className="reader-episode-arrow" size={17} />
+                  </span>
                 </>
               );
               return unlocked
@@ -373,13 +628,34 @@ export default function ComicDetailPage() {
                 : <button className={rowClass} type="button" aria-label={`Episode ${chapter.chapter_number} terkunci`} key={chapter.id} onClick={() => setEpisodeSnackbar("Selesaikan episode sebelumnya")}>{content}</button>;
             })}
           </div>
-        ) : <div className="reader-empty-state"><p>{chapterLoadError ? "Daftar episode belum dapat dimuat. Periksa koneksi lalu coba lagi." : "Belum ada episode yang diterbitkan."}</p></div>}
+        ) : chapterLoadError
+          ? <div className="reader-empty-state"><p>Tidak dapat memuat episode.</p><button type="button" onClick={() => window.location.reload()}>Coba lagi</button></div>
+          : <div className="reader-empty-state"><p>Belum ada episode yang diterbitkan.</p></div>}
+      </section>
+      <section className="reader-about-comic" aria-labelledby="reader-about-title">
+        <div className="reader-section-heading"><div><p className="reader-section-kicker">INFORMASI CERITA</p><h2 id="reader-about-title">Tentang komik</h2></div></div>
+        <dl className="reader-comic-metadata">
+          <div><dt>Teknik produksi</dt><dd>{getMetadataLabel(PRODUCTION_TECHNIQUES, comic.production_technique || "traditional_drawing", "Gambar tradisional")}</dd></div>
+          <div><dt>Status</dt><dd>{getMetadataLabel(STORY_STATUSES, comic.story_status || "ongoing", "Berjalan")}</dd></div>
+          <div><dt>Target pembaca</dt><dd>{getMetadataLabel(TARGET_AUDIENCES, comic.target_audience || "all_ages", "Semua umur")}</dd></div>
+          <div><dt>Bahasa</dt><dd>{comic.language === "id" ? "Bahasa Indonesia" : comic.language === "en" ? "Bahasa Inggris" : comic.language || "Bahasa Indonesia"}</dd></div>
+          <div><dt>Asal karya</dt><dd>{getMetadataLabel(ORIGIN_TYPES, comic.origin_type || "original", "Karya orisinal")}{comic.origin_type === "adaptation" && comic.source_info ? ` · Sumber: ${comic.source_info}` : ""}</dd></div>
+          <div className="reader-comic-metadata-access"><dt>Akses</dt><dd>Gratis</dd></div>
+          {credits.map((credit, index) => <div key={`${credit.role}-${index}`}><dt>{credit.role}</dt><dd>{credit.name}</dd></div>)}
+        </dl>
       </section>
       <footer className="reader-footer">
         <Link className="wordmark reader-wordmark" href="/"><span className="wordmark-dot" />mu<span>komik</span></Link>
         <p>Tempat cerita Indonesia menemukan pembacanya.</p>
         <Link href="/">Jelajahi komik <ArrowRight size={15} /></Link>
       </footer>
+      {stickyReadVisible && firstChapter && (
+        <aside className="reader-sticky-read" aria-label="Lanjutkan membaca">
+          <span className="reader-sticky-read-episode">Episode {String(firstChapter.chapter_number).padStart(2, "0")}</span>
+          <Link className="reader-sticky-read-action" href={`/comic/${comic.slug}/chapter/${firstChapter.id}`}><BookOpen size={17} />{resumeChapter ? "Lanjutkan" : "Mulai baca"}<ArrowRight size={16} /></Link>
+          <button type="button" className="reader-sticky-read-dismiss" aria-label="Tutup tombol baca" onClick={() => { setStickyReadDismissed(true); setStickyReadVisible(false); }}><X size={17} /></button>
+        </aside>
+      )}
       {episodeSnackbar && <div className="reader-episode-snackbar" role="status" aria-live="polite">{episodeSnackbar}</div>}
     </main>
   );
