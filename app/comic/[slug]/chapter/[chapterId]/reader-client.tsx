@@ -566,14 +566,13 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         <section className="reader-transition-ad-dialog" role="dialog" aria-modal="true" aria-labelledby="reader-transition-ad-title">
           <p className="reader-episode-end-kicker">JEDA ANTAR EPISODE</p>
           <h2 id="reader-transition-ad-title">Sebelum lanjut membaca</h2>
-          {transitionAdAvailable === null
-            ? <div className="reader-transition-ad-loading"><LoaderCircle className="spin" size={20} /> Memuat iklan...</div>
-            : <SponsoredAd
-                slotKey="reader_episode_transition"
-                placement="transition"
-                comicId={comic.id}
-                onCampaignAvailability={reportTransitionAdAvailability}
-              />}
+          {transitionAdAvailable === null && <div className="reader-transition-ad-loading"><LoaderCircle className="spin" size={20} /> Memuat iklan...</div>}
+          <SponsoredAd
+            slotKey="reader_episode_transition"
+            placement="transition"
+            comicId={comic.id}
+            onCampaignAvailability={reportTransitionAdAvailability}
+          />
           {transitionAdAvailable && transitionCountdown !== null && (
             transitionCountdown > 0
               ? <p className="reader-transition-ad-countdown"><Clock3 size={16} /> Bisa dilewati dalam {transitionCountdown} detik</p>
