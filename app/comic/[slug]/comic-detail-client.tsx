@@ -121,7 +121,6 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const [stickyReadVisible, setStickyReadVisible] = useState(false);
   const [stickyReadDismissed, setStickyReadDismissed] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
-  const [shareImage, setShareImage] = useState<{ slug: string; file: File } | null>(null);
   const shareUrlRef = useRef<HTMLTextAreaElement>(null);
   const primaryReadRef = useRef<HTMLAnchorElement>(null);
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
@@ -386,26 +385,6 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
     return () => { active = false; };
   }, [initialChapters, initialComic, slug]);
 
-  useEffect(() => {
-    if (!comic?.slug) return;
-    const comicSlug = comic.slug;
-    const controller = new AbortController();
-    const imageUrl = `/comic/${encodeURIComponent(comicSlug)}/opengraph-image`;
-    void fetch(imageUrl, { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`Branded share image request failed with status ${response.status}.`);
-        const blob = await response.blob();
-        if (!blob.type.startsWith("image/")) throw new Error("Branded share image response is not an image.");
-        setShareImage({ slug: comicSlug, file: new File([blob], `${comicSlug}-mu-komik.png`, { type: blob.type }) });
-      })
-      .catch((error: unknown) => {
-        if (error instanceof Error && error.name === "AbortError") return;
-        console.error("Unable to prepare branded comic share image:", error);
-        setShareImage((current) => current?.slug === comicSlug ? current : null);
-      });
-    return () => controller.abort();
-  }, [comic?.slug]);
-
   const toggleBookmark = async () => {
     if (!comic || !userId || bookmarkBusy) return;
     setBookmarkBusy(true);
@@ -450,10 +429,6 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
         const synopsis = comic ? cleanSynopsis(comic.synopsis) : "";
         const shareText = [synopsis, `Baca ${comic?.title} di mu-komik`].filter(Boolean).join("\n\n");
         const shareData: ShareData = { title: comic?.title, text: shareText, url };
-        const imageFile = shareImage && comic && shareImage.slug === comic.slug ? shareImage.file : null;
-        if (imageFile && navigator.canShare?.({ files: [imageFile] })) {
-          shareData.files = [imageFile];
-        }
         await navigator.share(shareData);
         return;
       } catch (error) {
