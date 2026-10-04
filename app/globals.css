@@ -550,6 +550,21 @@ button, input, select { font: inherit; }
 .reader-sponsored-ad-reader.reader-sponsored-ad-native .reader-sponsored-ad-cta { color: #fff; }
 .reader-sponsored-ad-reader.reader-sponsored-ad-native .reader-sponsored-ad-description { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .reader-episode-end-actions { width: 100%; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 9px; margin-top: 9px; }
+.reader-transition-ad-backdrop { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; overflow-y: auto; padding: 20px; background: rgba(8, 12, 10, .84); backdrop-filter: blur(8px); }
+.reader-transition-ad-dialog { width: min(760px, 100%); display: grid; justify-items: center; gap: 14px; padding: clamp(20px, 4vw, 36px); border: 1px solid rgba(255, 255, 255, .14); border-radius: 16px; background: #202623; color: #f5f7f5; box-shadow: 0 24px 90px rgba(0, 0, 0, .45); text-align: center; }
+.reader-transition-ad-dialog > .reader-episode-end-kicker { margin: 0; }
+.reader-transition-ad-dialog h2 { margin: 0; font-size: clamp(1.25rem, 3vw, 1.8rem); letter-spacing: -.04em; }
+.reader-transition-ad-dialog .reader-sponsored-ad-transition { width: 100%; margin: 4px 0; text-align: left; }
+.reader-sponsored-ad-transition.reader-sponsored-ad-native { border-color: rgba(255, 255, 255, .12); background: #101412; }
+.reader-sponsored-ad-transition.reader-sponsored-ad-native .reader-sponsored-ad-link { position: relative; min-height: 220px; display: flex; flex-direction: column; justify-content: flex-end; }
+.reader-sponsored-ad-transition.reader-sponsored-ad-native .reader-sponsored-ad-image { width: 100%; height: auto; min-height: 220px; object-fit: contain; }
+.reader-sponsored-ad-transition.reader-sponsored-ad-native .reader-sponsored-ad-picture { min-height: 220px; display: grid; place-items: center; }
+.reader-sponsored-ad-transition.reader-sponsored-ad-native .reader-sponsored-ad-copy { position: absolute; right: 0; bottom: 0; left: 0; gap: 6px; padding: 48px 20px 18px; background: linear-gradient(to top, rgba(12, 16, 15, .96), rgba(12, 16, 15, .58) 58%, transparent); color: #fff; }
+.reader-sponsored-ad-transition.reader-sponsored-ad-native .reader-sponsored-ad-sponsor,
+.reader-sponsored-ad-transition.reader-sponsored-ad-native .reader-sponsored-ad-description { color: rgba(255, 255, 255, .82); }
+.reader-sponsored-ad-transition.reader-sponsored-ad-native .reader-sponsored-ad-cta { color: #fff; }
+.reader-transition-ad-loading, .reader-transition-ad-countdown { min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; color: #c4cdc7; font-size: .84rem; }
+.reader-transition-ad-dialog > .reader-episode-next-action { min-width: min(280px, 100%); min-height: 46px; }
 .reader-episode-next-action, .reader-episode-secondary-action { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 13px; border-radius: 7px; font-size: .72rem; font-weight: 750; }
 .reader-episode-next-action { background: #f26b43; color: #1e2524; }.reader-episode-next-action:hover { background: #fa8663; }
 .reader-episode-secondary-action { border: 1px solid rgba(255,255,255,.17); color: #e9ebe7; }.reader-episode-secondary-action:hover { background: rgba(255,255,255,.07); }

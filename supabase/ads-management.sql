@@ -42,7 +42,7 @@ alter table public.sponsor_campaigns
   drop constraint if exists sponsor_campaign_target_placement_valid;
 alter table public.sponsor_campaigns
   add constraint sponsor_campaign_target_placement_valid
-  check (target_placement in ('all', 'comic_detail', 'reader', 'both'));
+  check (target_placement in ('all', 'comic_detail', 'reader', 'episode_transition', 'both'));
 alter table public.sponsor_campaigns
   drop constraint if exists active_sponsor_campaign_requires_slot;
 alter table public.sponsor_campaigns
@@ -50,7 +50,7 @@ alter table public.sponsor_campaigns
   check (
     status <> 'active'
     or slot_id is not null
-    or (target_comic_id is not null and target_placement in ('comic_detail', 'reader', 'both'))
+    or (target_comic_id is not null and target_placement in ('comic_detail', 'reader', 'episode_transition', 'both'))
   );
 alter table public.sponsor_campaigns
   drop constraint if exists sponsor_campaign_target_is_exclusive;
@@ -67,7 +67,8 @@ values
   ('Banner beranda', 'home_banner', 'banner', 'Tampil setelah area komik pilihan di beranda.'),
   ('Iklan native katalog', 'catalog_grid_native', 'native', 'Tampil selebar grid setelah 8 komik di Jelajah dan hasil pencarian (jika hasil lebih dari 8).'),
   ('Sponsor detail komik', 'comic_detail_sponsor', 'sponsor', 'Tampil di halaman detail komik sebelum daftar episode.'),
-  ('Iklan tengah bab', 'reader_mid_chapter', 'native', 'Tampil setiap setelah 5 halaman di halaman baca, kecuali setelah halaman terakhir.')
+  ('Iklan tengah bab', 'reader_mid_chapter', 'native', 'Tampil setiap setelah 5 halaman di halaman baca, kecuali setelah halaman terakhir.'),
+  ('Iklan antar episode', 'reader_episode_transition', 'native', 'Tampil saat pembaca berpindah episode. Materi tidak dapat dilewati selama 5 detik.')
 on conflict (slot_key) do nothing;
 
 alter table public.ad_slots enable row level security;
@@ -136,6 +137,7 @@ as $$
         and (
           (campaign.target_placement = 'comic_detail' and p_slot_key = 'comic_detail_sponsor')
           or (campaign.target_placement = 'reader' and p_slot_key = 'reader_mid_chapter')
+          or (campaign.target_placement = 'episode_transition' and p_slot_key = 'reader_episode_transition')
           or (
             campaign.target_placement = 'both'
             and p_slot_key in ('comic_detail_sponsor', 'reader_mid_chapter')

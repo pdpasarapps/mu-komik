@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 type CampaignStatus = "draft" | "active" | "paused" | "completed";
-type TargetPlacement = "all" | "comic_detail" | "reader" | "both";
+type TargetPlacement = "all" | "comic_detail" | "reader" | "episode_transition" | "both";
 type AdsListTab = "campaigns" | "slots";
 type AdSlot = {
   id: string;
@@ -185,6 +185,8 @@ export default function AdsListPanel() {
                   ? "Detail komik"
                   : campaign.target_placement === "reader"
                     ? "Halaman baca"
+                    : campaign.target_placement === "episode_transition"
+                      ? "Antar episode"
                     : campaign.target_placement === "both"
                       ? "Detail & baca"
                       : "Semua komik";

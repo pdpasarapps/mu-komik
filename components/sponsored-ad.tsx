@@ -19,7 +19,7 @@ type SponsoredCampaign = {
 
 const supabase = createClient();
 
-export default function SponsoredAd({ slotKey, placement, comicId, matchPageIndex, readerStopId }: { slotKey: string; placement: "home" | "comic" | "reader" | "catalog"; comicId?: string; matchPageIndex?: number; readerStopId?: string }) {
+export default function SponsoredAd({ slotKey, placement, comicId, matchPageIndex, readerStopId, onCampaignAvailability }: { slotKey: string; placement: "home" | "comic" | "reader" | "catalog" | "transition"; comicId?: string; matchPageIndex?: number; readerStopId?: string; onCampaignAvailability?: (available: boolean) => void }) {
   const [campaign, setCampaign] = useState<SponsoredCampaign | null>(null);
   const [matchedPageHeight, setMatchedPageHeight] = useState<number | null>(null);
 
@@ -44,6 +44,7 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
         } else {
           console.error("Unable to load sponsored campaign:", details);
         }
+        if (!cancelled) onCampaignAvailability?.(false);
         return;
       }
       const row = Array.isArray(data) ? data[0] : null;
@@ -64,11 +65,15 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
           image_url_mobile: typeof row.image_url_mobile === "string" ? row.image_url_mobile : null,
           format: row.format,
         });
+        onCampaignAvailability?.(true);
+      } else if (!cancelled) {
+        setCampaign(null);
+        onCampaignAvailability?.(false);
       }
     };
     void load();
     return () => { cancelled = true; };
-  }, [comicId, slotKey]);
+  }, [comicId, onCampaignAvailability, slotKey]);
 
   useEffect(() => {
     if (placement !== "reader" || matchPageIndex === undefined) return;
@@ -90,7 +95,7 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
 
   if (!campaign) return null;
   const sponsorLabel = campaign.format === "sponsor" ? "Sponsor" : "Iklan";
-  const nativeReaderAd = placement === "reader" && campaign.format === "native";
+  const nativeReaderAd = (placement === "reader" || placement === "transition") && campaign.format === "native";
   const fallbackImage = campaign.image_url || campaign.image_url_tablet || campaign.image_url_mobile;
   const adStyle = nativeReaderAd && matchedPageHeight
     ? { "--reader-ad-height": `${matchedPageHeight}px` } as CSSProperties

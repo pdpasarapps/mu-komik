@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 
 type AdFormat = "banner" | "native" | "sponsor";
 type CampaignStatus = "draft" | "active" | "paused" | "completed";
-type TargetPlacement = "all" | "comic_detail" | "reader" | "both";
+type TargetPlacement = "all" | "comic_detail" | "reader" | "episode_transition" | "both";
 type AdSlot = {
   id: string;
   name: string;
@@ -221,7 +221,7 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
       return;
     }
     if (campaignForm.target_comic_id && campaignForm.target_placement === "all") {
-      setMessage("Pilih apakah iklan komik tertentu tampil di detail, reader, atau keduanya.");
+      setMessage("Pilih penempatan iklan untuk komik ini.");
       return;
     }
     if (campaignForm.status === "active" && campaignForm.target_comic_id && !publishedComics.some((comic) => comic.id === campaignForm.target_comic_id)) {
@@ -507,7 +507,7 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
             </div>
             <label>URL gambar desktop (opsional)<input type="text" inputMode="url" aria-invalid={Boolean(campaignUrlErrors.image_url)} aria-describedby="campaign-image-help" value={campaignForm.image_url} onChange={(event) => { setCampaignForm((current) => ({ ...current, image_url: event.target.value })); setCampaignUrlErrors((current) => ({ ...current, image_url: "" })); }} onBlur={() => normalizeCampaignUrlField("image_url")} placeholder="https://contoh.id/banner.jpg" />{campaignUrlErrors.image_url ? <small className="ads-field-error" id="campaign-image-help" role="alert">{campaignUrlErrors.image_url}</small> : <small id="campaign-image-help">Opsional. URL ini menjadi gambar desktop dan fallback untuk perangkat lain.</small>}</label>
             <label>Target komik<select value={campaignForm.target_comic_id} onChange={(event) => setCampaignForm((current) => ({ ...current, target_comic_id: event.target.value, slot_id: event.target.value ? "" : current.slot_id, target_placement: event.target.value ? current.target_placement === "all" ? "comic_detail" : current.target_placement : "all" }))}><option value="">Semua komik / penempatan slot</option>{publishedComics.map((comic) => <option value={comic.id} key={comic.id}>{comic.title}</option>)}</select><small>Kosongkan untuk memakai slot umum. Pilih komik untuk menargetkan kampanye hanya ke judul tersebut.</small></label>
-            {campaignForm.target_comic_id ? <label>Penempatan untuk komik ini<select value={campaignForm.target_placement} onChange={(event) => setCampaignForm((current) => ({ ...current, target_placement: event.target.value as TargetPlacement }))}><option value="comic_detail">Halaman detail komik</option><option value="reader">Halaman baca</option><option value="both">Detail dan halaman baca</option></select></label> : <label>Slot<select value={campaignForm.slot_id} onChange={(event) => setCampaignForm((current) => ({ ...current, slot_id: event.target.value }))}><option value="">Pilih slot aktif</option>{slots.filter((slot) => slot.is_active || slot.id === campaignForm.slot_id).map((slot) => <option value={slot.id} key={slot.id}>{slot.name}{slot.is_active ? "" : " (nonaktif)"}</option>)}</select></label>}
+            {campaignForm.target_comic_id ? <label>Penempatan untuk komik ini<select value={campaignForm.target_placement} onChange={(event) => setCampaignForm((current) => ({ ...current, target_placement: event.target.value as TargetPlacement }))}><option value="comic_detail">Halaman detail komik</option><option value="reader">Halaman baca (tengah bab)</option><option value="episode_transition">Antar episode</option><option value="both">Detail dan halaman baca</option></select></label> : <label>Slot<select value={campaignForm.slot_id} onChange={(event) => setCampaignForm((current) => ({ ...current, slot_id: event.target.value }))}><option value="">Pilih slot aktif</option>{slots.filter((slot) => slot.is_active || slot.id === campaignForm.slot_id).map((slot) => <option value={slot.id} key={slot.id}>{slot.name}{slot.is_active ? "" : " (nonaktif)"}</option>)}</select></label>}
             <div className="ads-form-two-columns">
               <label>Status<select value={campaignForm.status} onChange={(event) => setCampaignForm((current) => ({ ...current, status: event.target.value as CampaignStatus }))}>{Object.entries(campaignStatusLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
             </div>
@@ -531,6 +531,8 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
                   ? "Detail komik"
                   : campaign.target_placement === "reader"
                     ? "Halaman baca"
+                    : campaign.target_placement === "episode_transition"
+                      ? "Antar episode"
                     : campaign.target_placement === "both"
                       ? "Detail & baca"
                       : "Semua komik";
