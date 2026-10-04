@@ -1,19 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Bookmark, LogOut, Settings2, Sparkles, UserRound } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Bookmark, LogOut, Plus, Settings2, Sparkles, Trash2, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import { getComicGenreLabel } from "@/lib/comic-genres";
+import { getCreatorSocialPlaceholder, isValidCreatorSocialUrl, normalizeCreatorSocialUrl, parseCreatorSocialLinks, type CreatorSocialLink } from "@/lib/creator-social-links";
 
-type Profile = { display_name: string; role: "reader" | "creator" | "admin" };
+type Profile = { id: string; display_name: string; role: "reader" | "creator" | "admin"; public_profile: boolean; bio: string; avatar_key: string | null; banner_key: string | null; social_links: CreatorSocialLink[] };
 type CreatorRequest = { status: "pending" | "approved" | "rejected" };
 type BookmarkedComic = { id: string; title: string; slug: string; genre: string; cover_key: string | null };
+type ContinueReading = {
+  comicTitle: string;
+  comicSlug: string;
+  genre: string;
+  coverUrl: string | null;
+  chapterId: string;
+  chapterTitle: string;
+  chapterNumber: number;
+  lastPage: number;
+  pageCount: number;
+};
 
 const supabase = createClient();
 const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
+const socialPlatforms = ["Instagram", "TikTok", "X", "YouTube", "Facebook", "Threads", "Twitch", "Discord", "Website", "Lainnya"];
+const isMissingProfileColumnError = (error: { code?: string }) => error.code === "42703" || error.code === "PGRST204";
 const roleLabels: Record<Profile["role"], string> = {
   reader: "Pembaca",
   creator: "Kreator",
@@ -40,7 +55,18 @@ export default function AccountPage() {
   const [otherUrl, setOtherUrl] = useState("");
   const [bookmarks, setBookmarks] = useState<BookmarkedComic[]>([]);
   const [bookmarkError, setBookmarkError] = useState("");
+  const [continueReading, setContinueReading] = useState<ContinueReading | null>(null);
+  const [readingProgressError, setReadingProgressError] = useState("");
   const [activeCreatorGuideTab, setActiveCreatorGuideTab] = useState<"publishing" | "rules">("publishing");
+  const [savingProfileVisibility, setSavingProfileVisibility] = useState(false);
+  const [profileVisibilityMessage, setProfileVisibilityMessage] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [bio, setBio] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [socialLinks, setSocialLinks] = useState<CreatorSocialLink[]>([]);
+  const [savingCreatorProfile, setSavingCreatorProfile] = useState(false);
+  const [creatorProfileMessage, setCreatorProfileMessage] = useState("");
 
   useEffect(() => {
     const loadAccount = async () => {
@@ -52,8 +78,63 @@ export default function AccountPage() {
       }
 
       setEmail(user.email ?? "");
-      const { data } = await supabase.from("profiles").select("display_name, role").eq("id", user.id).single();
-      setProfile(data);
+      let profileData: {
+        display_name: string;
+        role: Profile["role"];
+        public_profile: boolean;
+        bio: string;
+        avatar_key: string | null;
+        banner_key: string | null;
+        social_links: unknown;
+      } | null = null;
+      let profileError = null;
+      let missingProfileColumns: string | null = null;
+      const profileQueries = [
+        { columns: "display_name, role, public_profile, bio, avatar_key, banner_key, social_links", fallback: false },
+        { columns: "display_name, role, public_profile, bio, avatar_key, banner_key", fallback: true },
+        { columns: "display_name, role, public_profile, bio, avatar_key", fallback: true },
+        { columns: "display_name, role, public_profile, avatar_key", fallback: true },
+        { columns: "display_name, role", fallback: true },
+      ] as const;
+      for (const query of profileQueries) {
+        const result = await supabase
+          .from("profiles")
+          .select(query.columns as "display_name, role, public_profile, bio, avatar_key, banner_key, social_links")
+          .eq("id", user.id)
+          .single();
+        if (!result.error) {
+          profileData = {
+            display_name: result.data.display_name,
+            role: result.data.role,
+            public_profile: "public_profile" in result.data ? result.data.public_profile : false,
+            bio: "bio" in result.data ? result.data.bio : "",
+            avatar_key: "avatar_key" in result.data ? result.data.avatar_key : null,
+            banner_key: "banner_key" in result.data ? result.data.banner_key : null,
+            social_links: "social_links" in result.data ? result.data.social_links : [],
+          };
+          missingProfileColumns = query.fallback ? query.columns : null;
+          break;
+        }
+        profileError = result.error;
+        if (!isMissingProfileColumnError(result.error)) break;
+      }
+      if (profileError && !profileData) {
+        console.error("Unable to load account profile:", profileError);
+      } else if (profileData) {
+        const loadedProfile = { ...profileData, id: user.id, social_links: parseCreatorSocialLinks(profileData.social_links) };
+        setProfile(loadedProfile);
+        setDisplayName(loadedProfile.display_name);
+        setBio(loadedProfile.bio);
+        setSocialLinks(loadedProfile.social_links);
+        if (missingProfileColumns) {
+          if (!missingProfileColumns.includes("public_profile")) {
+            setProfileVisibilityMessage("Jalankan supabase/creator-public-profile.sql untuk mengaktifkan profil publik.");
+          }
+          if (!missingProfileColumns.includes("social_links")) {
+            setCreatorProfileMessage("Jalankan ulang supabase/creator-profile-bio.sql untuk mengaktifkan semua field profil kreator.");
+          }
+        }
+      }
       const { data: request } = await supabase.from("creator_requests").select("status").eq("user_id", user.id).maybeSingle();
       setCreatorRequest(request);
       const { data: bookmarkRows, error: bookmarkLoadError } = await supabase
@@ -70,6 +151,61 @@ export default function AccountPage() {
           return comic ? [comic] : [];
         }));
       }
+
+      const { data: history, error: historyError } = await supabase
+        .from("reading_history")
+        .select("chapter_id, last_page")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (historyError) {
+        console.error("Unable to load account reading history:", historyError);
+        setReadingProgressError("Riwayat bacamu belum dapat dimuat. Coba muat ulang halaman.");
+      } else if (history) {
+        const { data: chapter, error: chapterError } = await supabase
+          .from("chapters")
+          .select("id, title, chapter_number, comic_id")
+          .eq("id", history.chapter_id)
+          .maybeSingle();
+        if (chapterError) {
+          console.error("Unable to load the account reading chapter:", chapterError);
+          setReadingProgressError("Detail bacaan terakhir belum dapat dimuat.");
+        } else if (chapter) {
+          const [{ data: comic, error: comicError }, { count: pageCount, error: pageCountError }] = await Promise.all([
+            supabase
+              .from("comics")
+              .select("title, slug, genre, cover_key")
+              .eq("id", chapter.comic_id)
+              .maybeSingle(),
+            supabase
+              .from("pages")
+              .select("id", { count: "exact", head: true })
+              .eq("chapter_id", history.chapter_id),
+          ]);
+          if (comicError) {
+            console.error("Unable to load the account reading comic:", comicError);
+            setReadingProgressError("Informasi komik untuk bacaan terakhir belum dapat dimuat.");
+          } else if (pageCountError) {
+            console.error("Unable to load account reading page count:", pageCountError);
+            setReadingProgressError("Progres halaman untuk bacaan terakhir belum dapat dimuat.");
+          } else if (comic) {
+            const totalPages = pageCount ?? 0;
+            const lastPage = totalPages ? Math.min(Math.max(history.last_page, 1), totalPages) : Math.max(history.last_page, 1);
+            setContinueReading({
+              comicTitle: comic.title,
+              comicSlug: comic.slug,
+              genre: comic.genre,
+              coverUrl: comic.cover_key && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${comic.cover_key}` : null,
+              chapterId: chapter.id,
+              chapterTitle: chapter.title,
+              chapterNumber: chapter.chapter_number,
+              lastPage,
+              pageCount: totalPages,
+            });
+          }
+        }
+      }
       setLoading(false);
     };
     loadAccount();
@@ -79,6 +215,149 @@ export default function AccountPage() {
     setLoggingOut(true);
     await supabase.auth.signOut();
     router.replace("/");
+  };
+
+  const updateProfileVisibility = async (publicProfile: boolean) => {
+    if (!profile || profile.role !== "creator") return;
+    setSavingProfileVisibility(true);
+    setProfileVisibilityMessage("");
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ public_profile: publicProfile })
+      .eq("id", profile.id)
+      .select("public_profile")
+      .single();
+    if (error) {
+      console.error("Unable to update creator profile visibility:", error);
+      setProfileVisibilityMessage(
+        error.code === "42703"
+          ? "Pengaturan ini belum tersedia. Jalankan supabase/creator-public-profile.sql pada database."
+          : "Pengaturan profil publik gagal disimpan. Coba lagi.",
+      );
+    } else {
+      setProfile({ ...profile, public_profile: data.public_profile });
+      setProfileVisibilityMessage(data.public_profile ? "Profil kreator sekarang dapat dilihat publik." : "Profil kreator sekarang privat.");
+    }
+    setSavingProfileVisibility(false);
+  };
+
+  const saveCreatorProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!profile || profile.role !== "creator") return;
+    const name = displayName.trim();
+    const creatorBio = bio.trim();
+    if (!name || name.length > 80 || creatorBio.length > 500) {
+      setCreatorProfileMessage("Nama wajib diisi (maksimal 80 karakter) dan bio maksimal 500 karakter.");
+      return;
+    }
+    if (avatarFile && (!["image/jpeg", "image/png", "image/webp"].includes(avatarFile.type) || avatarFile.size > 5 * 1024 * 1024)) {
+      setCreatorProfileMessage("Foto harus berformat JPG, PNG, atau WebP dan berukuran maksimal 5 MB.");
+      return;
+    }
+    if (bannerFile && (!["image/jpeg", "image/png", "image/webp"].includes(bannerFile.type) || bannerFile.size > 10 * 1024 * 1024)) {
+      setCreatorProfileMessage("Banner harus berformat JPG, PNG, atau WebP dan berukuran maksimal 10 MB.");
+      return;
+    }
+    const enteredSocialLinks = socialLinks.map((link) => ({
+      platform: link.platform.trim(),
+      url: normalizeCreatorSocialUrl(link.platform.trim(), link.url),
+    }));
+    if (enteredSocialLinks.some((link) => Boolean(link.platform) !== Boolean(link.url))) {
+      setCreatorProfileMessage("Lengkapi nama platform dan tautannya, atau hapus baris yang kosong.");
+      return;
+    }
+    if (enteredSocialLinks.some((link) => link.platform.length > 32 || link.url.length > 500 || (link.url && !isValidCreatorSocialUrl(link.url)))) {
+      setCreatorProfileMessage("Tautan sosial harus menggunakan URL HTTPS yang valid; nama platform maksimal 32 karakter.");
+      return;
+    }
+    const savedSocialLinks = enteredSocialLinks.filter((link) => link.platform && link.url);
+
+    setSavingCreatorProfile(true);
+    setCreatorProfileMessage("");
+    try {
+      let avatarKey = profile.avatar_key;
+      let bannerKey = profile.banner_key;
+      if (avatarFile || bannerFile) {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !sessionData.session?.access_token) {
+          throw new Error("Sesi login tidak ditemukan. Silakan masuk kembali.");
+        }
+        for (const [imageType, imageFile] of [["avatar", avatarFile], ["banner", bannerFile]] as const) {
+          if (!imageFile) continue;
+          const formData = new FormData();
+          formData.append("imageType", imageType);
+          formData.append(imageType, imageFile);
+          const uploadResponse = await fetch("/api/r2/profile-avatar", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
+            body: formData,
+          });
+          const uploadResult = await uploadResponse.json() as { error?: string; objectKey?: string };
+          if (!uploadResponse.ok || !uploadResult.objectKey) {
+            throw new Error(uploadResult.error || `${imageType === "banner" ? "Banner" : "Foto profil"} gagal diunggah.`);
+          }
+          if (imageType === "avatar") avatarKey = uploadResult.objectKey;
+          else bannerKey = uploadResult.objectKey;
+        }
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .update({ display_name: name, bio: creatorBio, avatar_key: avatarKey, banner_key: bannerKey, social_links: savedSocialLinks })
+        .eq("id", profile.id)
+        .select("display_name, bio, avatar_key, banner_key, social_links")
+        .single();
+      if (error) {
+        console.error("Unable to save creator profile:", {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        });
+        if (isMissingProfileColumnError(error)) {
+          const missingColumn = error.message.match(/'([^']+)' column|'([^']+)' of 'profiles'/i)?.slice(1).find(Boolean);
+          if (missingColumn === "social_links") {
+            const { data: profileWithoutSocialLinks, error: retryError } = await supabase
+              .from("profiles")
+              .update({ display_name: name, bio: creatorBio, avatar_key: avatarKey, banner_key: bannerKey })
+              .eq("id", profile.id)
+              .select("display_name, bio, avatar_key, banner_key")
+              .single();
+            if (!retryError && profileWithoutSocialLinks) {
+              setProfile({ ...profile, ...profileWithoutSocialLinks });
+              setDisplayName(profileWithoutSocialLinks.display_name);
+              setBio(profileWithoutSocialLinks.bio);
+              setAvatarFile(null);
+              setBannerFile(null);
+              setCreatorProfileMessage("Profil tersimpan, tetapi tautan sosial belum. Jalankan ulang supabase/creator-profile-bio.sql, lalu simpan lagi.");
+              return;
+            }
+            if (retryError) {
+              console.error("Unable to save creator profile without social links:", {
+                code: retryError.code,
+                message: retryError.message,
+                details: retryError.details,
+                hint: retryError.hint,
+              });
+            }
+          }
+          throw new Error(`Kolom ${missingColumn ? `"${missingColumn}"` : "profil"} belum tersedia di Supabase. Jalankan ulang supabase/creator-profile-bio.sql, lalu muat ulang skema API Supabase.`);
+        }
+        throw new Error(`Profil gagal disimpan: ${error.message || "Periksa koneksi lalu coba lagi."}`);
+      }
+      setProfile({ ...profile, ...data });
+      setDisplayName(data.display_name);
+      setBio(data.bio);
+      setAvatarFile(null);
+      setBannerFile(null);
+      setSocialLinks(parseCreatorSocialLinks(data.social_links));
+      setCreatorProfileMessage("Profil kreator berhasil disimpan.");
+    } catch (error) {
+      console.error("Creator profile save failed:", error);
+      setCreatorProfileMessage(error instanceof Error ? error.message : "Profil gagal disimpan. Coba lagi.");
+    } finally {
+      setSavingCreatorProfile(false);
+    }
   };
 
   const handleCreatorRequest = async () => {
@@ -105,9 +384,35 @@ export default function AccountPage() {
   return (
     <main className="account-shell">
       <nav className="account-nav"><BrandLogo /><button className="account-logout" onClick={handleLogout} disabled={loggingOut}><LogOut size={16} /> {loggingOut ? "Keluar..." : "Keluar"}</button></nav>
-      <section className="account-header"><Link className="auth-back" href="/"><ArrowLeft size={16} /> Kembali ke beranda</Link><div className="account-heading"><div className="account-avatar"><UserRound size={30} /></div><div><p className="eyebrow"><span /> Ruang bacamu</p><h1>Hai, {profile?.display_name || "Pembaca"}.</h1><p>{email}</p></div></div></section>
+      <section className="account-header"><Link className="auth-back" href="/"><ArrowLeft size={16} /> Kembali ke beranda</Link><div className="account-heading"><div className="account-avatar">{profile?.avatar_key && publicUrl ? <Image src={`${publicUrl.replace(/\/$/, "")}/${profile.avatar_key}`} alt="" width={74} height={74} unoptimized /> : <UserRound size={30} />}</div><div><p className="eyebrow"><span /> Ruang bacamu</p><h1>Hai, {profile?.display_name || "Pembaca"}.</h1><p>{email}</p></div></div></section>
       <section className="account-grid">
-        <article className="account-panel account-panel-wide"><div className="panel-heading"><div><p className="eyebrow">Lanjutkan dari sini</p><h2>Lanjutkan membaca</h2></div><BookOpen size={22} /></div><div className="account-empty"><div className="empty-icon"><BookOpen size={23} /></div><h3>Koleksimu menanti.</h3><p>Mulai baca komik dan bab terakhirmu akan muncul di sini.</p><Link className="button button-dark" href="/#discover">Jelajahi komik</Link></div></article>
+        <article className="account-panel account-panel-wide">
+          <div className="panel-heading"><div><p className="eyebrow">Lanjutkan dari sini</p><h2>Lanjutkan membaca</h2></div><BookOpen size={22} /></div>
+          {readingProgressError
+            ? <p className="account-reading-message" role="alert">{readingProgressError}</p>
+            : continueReading
+              ? <Link className="account-reading-card" href={`/comic/${encodeURIComponent(continueReading.comicSlug)}/chapter/${encodeURIComponent(continueReading.chapterId)}`}>
+                  <span className="account-reading-cover">
+                    {continueReading.coverUrl
+                      ? <Image src={continueReading.coverUrl} alt={`Sampul ${continueReading.comicTitle}`} fill sizes="(max-width: 760px) 72px, 90px" unoptimized />
+                      : <BookOpen size={22} />}
+                  </span>
+                  <span className="account-reading-info">
+                    <small>{getComicGenreLabel(continueReading.genre)}</small>
+                    <strong>{continueReading.comicTitle}</strong>
+                    <span>Episode {continueReading.chapterNumber} · {continueReading.chapterTitle}</span>
+                    <small className="account-reading-progress">Terakhir dibaca di halaman {continueReading.lastPage}{continueReading.pageCount ? ` dari ${continueReading.pageCount}` : ""}</small>
+                    {continueReading.pageCount > 0 && <span className="account-reading-progressbar" aria-hidden="true"><i style={{ width: `${Math.min(100, (continueReading.lastPage / continueReading.pageCount) * 100)}%` }} /></span>}
+                  </span>
+                  <span className="account-reading-action">Lanjutkan <ArrowRight size={16} /></span>
+                </Link>
+              : <div className="account-reading-empty">
+                  <span className="empty-icon"><BookOpen size={23} /></span>
+                  <h3>Belum ada bacaan terakhir.</h3>
+                  <p>Komik yang kamu baca saat masuk akan tersimpan di sini.</p>
+                  <Link className="button button-dark" href="/#discover">Jelajahi komik</Link>
+                </div>}
+        </article>
         <article className="account-panel account-bookmark-panel">
           <div className="panel-heading"><div><p className="eyebrow">Simpan untuk nanti</p><h2>Favorit</h2></div><Bookmark size={22} /></div>
           {bookmarkError ? <p className="account-bookmark-message" role="alert">{bookmarkError} Jalankan supabase/comic-bookmarks.sql pada database.</p>
@@ -126,6 +431,126 @@ export default function AccountPage() {
           <div className="settings-row"><span>Jenis akun</span><strong>{profile?.role ? roleLabels[profile.role] : "Pembaca"}</strong></div>
           <div className="settings-row"><span>Alamat email</span><strong>{email}</strong></div>
           {profile?.role === "creator" && <Link className="account-creator-link" href="/creator"><Sparkles size={16} /> Buka ruang kreator <ArrowUpRight size={15} /></Link>}
+          {profile?.role === "creator" && (
+            <div className="creator-profile-setting">
+              <label className="creator-profile-visibility">
+                <span><strong>Bagikan profil publik</strong><small>{profile.public_profile ? "Nama dan komik terbit dapat dilihat semua orang." : "Profil dan daftar komik disembunyikan dari publik."}</small></span>
+                <input
+                  type="checkbox"
+                  checked={profile.public_profile}
+                  disabled={savingProfileVisibility}
+                  onChange={(event) => void updateProfileVisibility(event.target.checked)}
+                />
+              </label>
+              {profile.public_profile && <Link className="creator-profile-public-link" href={`/profile/${encodeURIComponent(profile.id)}`}>Lihat profil publik <ArrowUpRight size={15} /></Link>}
+              {profileVisibilityMessage && <p className="creator-profile-message" role="status">{profileVisibilityMessage}</p>}
+            </div>
+          )}
+          {profile?.role === "creator" && (
+            <form className="creator-profile-editor" onSubmit={saveCreatorProfile}>
+              <div className="creator-profile-editor-heading">
+                <strong>Edit profil kreator</strong>
+                <small>Informasi ini tampil di halaman profil publikmu.</small>
+              </div>
+              <div className="creator-avatar-row">
+                <span className="creator-avatar-preview">
+                  {profile.avatar_key && publicUrl
+                    ? <Image src={`${publicUrl.replace(/\/$/, "")}/${profile.avatar_key}`} alt="Foto profil kreator" width={54} height={54} unoptimized />
+                    : <UserRound size={22} />}
+                </span>
+                <label className="creator-avatar-upload">
+                  <span>{avatarFile ? avatarFile.name : "Pilih foto profil"}</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) => setAvatarFile(event.target.files?.[0] ?? null)}
+                    disabled={savingCreatorProfile}
+                  />
+                  <small>JPG, PNG, atau WebP · Maks. 5 MB</small>
+                </label>
+              </div>
+              <label className="creator-profile-field creator-banner-field">
+                <span>Banner profil</span>
+                <span className="creator-banner-preview">
+                  {bannerFile
+                    ? <span className="creator-banner-selected">{bannerFile.name} · Siap diunggah</span>
+                    : profile.banner_key && publicUrl
+                      ? <Image src={`${publicUrl.replace(/\/$/, "")}/${profile.banner_key}`} alt="Banner profil saat ini" fill sizes="(max-width: 760px) 85vw, 380px" unoptimized />
+                      : <span>Tambahkan ilustrasi banner untuk bagian atas profilmu</span>}
+                </span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) => setBannerFile(event.target.files?.[0] ?? null)}
+                  disabled={savingCreatorProfile}
+                />
+                <small>JPG, PNG, atau WebP · Maks. 10 MB · Disarankan rasio lebar 3:1</small>
+              </label>
+              <label className="creator-profile-field">
+                <span>Nama tampilan</span>
+                <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={80} required disabled={savingCreatorProfile} />
+              </label>
+              <label className="creator-profile-field">
+                <span>Bio</span>
+                <textarea value={bio} onChange={(event) => setBio(event.target.value)} maxLength={500} rows={4} placeholder="Ceritakan sedikit tentang dirimu dan karya-karyamu..." disabled={savingCreatorProfile} />
+                <small>{bio.length}/500 karakter</small>
+              </label>
+              <div className="creator-social-editor">
+                <div className="creator-social-heading">
+                  <span><strong>Sosial media</strong><small>Tambahkan Instagram, TikTok, X, YouTube, situs pribadi, dan lainnya.</small></span>
+                  <button
+                    className="creator-social-add"
+                    type="button"
+                    onClick={() => setSocialLinks((current) => [...current, { platform: socialPlatforms[0], url: "" }])}
+                    disabled={savingCreatorProfile}
+                  ><Plus size={15} /> Tambah</button>
+                </div>
+                {socialLinks.length === 0
+                  ? <p className="creator-social-empty">Belum ada tautan sosial.</p>
+                  : <div className="creator-social-rows">
+                      {socialLinks.map((link, index) => (
+                        <div className="creator-social-row" key={`social-${index}`}>
+                          <label>
+                            <span className="sr-only">Nama platform sosial {index + 1}</span>
+                            <select
+                              value={link.platform}
+                              onChange={(event) => setSocialLinks((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, platform: event.target.value } : item))}
+                              disabled={savingCreatorProfile}
+                              required
+                            >
+                              <option value="" disabled>Pilih platform</option>
+                              {socialPlatforms.map((platform) => <option value={platform} key={platform}>{platform}</option>)}
+                            </select>
+                          </label>
+                          <label>
+                            <span className="sr-only">URL platform sosial {index + 1}</span>
+                            <input
+                              type="text"
+                              inputMode="url"
+                              value={link.url}
+                              onChange={(event) => setSocialLinks((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, url: event.target.value } : item))}
+                              placeholder={getCreatorSocialPlaceholder(link.platform, displayName)}
+                              maxLength={500}
+                              disabled={savingCreatorProfile}
+                            />
+                          </label>
+                          <button
+                            className="creator-social-remove"
+                            type="button"
+                            aria-label={`Hapus tautan sosial ${link.platform || index + 1}`}
+                            onClick={() => setSocialLinks((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                            disabled={savingCreatorProfile}
+                          ><Trash2 size={16} /></button>
+                        </div>
+                      ))}
+                    </div>}
+              </div>
+              <button className="button button-dark creator-profile-save" type="submit" disabled={savingCreatorProfile}>
+                {savingCreatorProfile ? "Menyimpan..." : "Simpan profil"}
+              </button>
+              {creatorProfileMessage && <p className="creator-profile-message" role="status">{creatorProfileMessage}</p>}
+            </form>
+          )}
           {profile?.role === "admin" && <Link className="account-creator-link" href="/admin"><Settings2 size={16} /> Buka panel admin <ArrowUpRight size={15} /></Link>}
           {profile?.role === "reader" && (
             <div className="creator-request">

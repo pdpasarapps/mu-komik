@@ -19,6 +19,8 @@ type Comic = {
   genre: string;
   coverUrl: string | null;
   creator: string;
+  creatorId: string | null;
+  creatorProfilePublic: boolean;
   latestChapter: { id: string; title: string; chapter_number: number; published_at: string | null } | null;
   chapterCount: number;
   engagement: { views: number; likes: number; shares: number } | null;
@@ -87,6 +89,9 @@ function ComicCard({ comic, compact = false }: { comic: Comic; compact?: boolean
           {chapter && <span className="reader-card-latest">Terbaru · Episode {chapter.chapter_number}</span>}
         </div>
       </Link>
+      {comic.creatorId && comic.creatorProfilePublic && (
+        <Link className="reader-creator-profile-link" href={`/profile/${encodeURIComponent(comic.creatorId)}`}>Profil kreator <ArrowUpRight size={13} /></Link>
+      )}
       {chapter && <Link className="reader-card-read" href={`/comic/${comic.slug}/chapter/${chapter.id}`}><BookOpen size={14} /> Baca <ArrowRight size={14} /></Link>}
     </article>
   );
@@ -115,12 +120,21 @@ export default function Home() {
     let active = true;
     const loadHome = async () => {
       setCatalogState("loading");
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("comics")
-        .select("id, title, slug, synopsis, genre, contributor, cover_key, profiles!comics_creator_id_fkey(display_name)")
+        .select("id, title, slug, synopsis, genre, contributor, cover_key, profiles!comics_creator_id_fkey(id, display_name, public_profile)")
         .eq("status", "published")
         .order("created_at", { ascending: false });
 
+      if (error?.code === "42703") {
+        const legacyQuery = await supabase
+          .from("comics")
+          .select("id, title, slug, synopsis, genre, contributor, cover_key, profiles!comics_creator_id_fkey(display_name)")
+          .eq("status", "published")
+          .order("created_at", { ascending: false });
+        data = legacyQuery.data as typeof data;
+        error = legacyQuery.error;
+      }
       if (error) {
         console.error("Unable to load published comics:", error);
         if (active) setCatalogState("error");
@@ -153,8 +167,8 @@ export default function Home() {
       }
 
       const loadedComics: Comic[] = rows.map((comic) => {
-        const profiles = comic.profiles as { display_name?: string } | { display_name?: string }[] | null;
-        const profileName = Array.isArray(profiles) ? profiles[0]?.display_name : profiles?.display_name;
+        const profiles = comic.profiles as { id?: string; display_name?: string; public_profile?: boolean } | { id?: string; display_name?: string; public_profile?: boolean }[] | null;
+        const profile = Array.isArray(profiles) ? profiles[0] : profiles;
         const chapters = chaptersByComic.get(comic.id) ?? [];
         return {
           id: comic.id,
@@ -163,7 +177,9 @@ export default function Home() {
           synopsis: comic.synopsis || "",
           contributor: comic.contributor?.trim() || "",
           genre: comic.genre,
-          creator: profileName || "Kreator independen",
+          creator: profile?.display_name || "Kreator independen",
+          creatorId: profile?.public_profile ? profile.id || null : null,
+          creatorProfilePublic: Boolean(profile?.public_profile),
           coverUrl: comic.cover_key && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${comic.cover_key}` : null,
           latestChapter: chapters[0] ?? null,
           chapterCount: chapters.length,
@@ -270,6 +286,8 @@ export default function Home() {
                     contributor: historyComic.contributor?.trim() || "",
                     genre: historyComic.genre,
                     creator: profile?.display_name || "Kreator independen",
+                    creatorId: null,
+                    creatorProfilePublic: false,
                     coverUrl: historyComic.cover_key && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${historyComic.cover_key}` : null,
                     latestChapter: null,
                     chapterCount: 0,
@@ -371,6 +389,9 @@ export default function Home() {
           <div className="reader-featured-copy">
             <span className="reader-kicker"><Sparkles size={15} /> UPDATE TERBARU</span>
             <p className="reader-featured-genre">{comicGenre(featuredComic.genre)} <span>·</span> {featuredComic.contributor || featuredComic.creator}</p>
+            {featuredComic.creatorId && featuredComic.creatorProfilePublic && (
+              <Link className="reader-creator-profile-link" href={`/profile/${encodeURIComponent(featuredComic.creatorId)}`}>Profil kreator {featuredComic.creator} <ArrowUpRight size={13} /></Link>
+            )}
             <h2>{featuredComic.title}</h2>
             <p className="reader-featured-synopsis">{cleanSynopsis(featuredComic.synopsis) || "Temukan cerita baru dan mulai membaca hari ini."}</p>
             {featuredComic.latestChapter && <span className="reader-featured-episode">Episode {featuredComic.latestChapter.chapter_number} · {featuredComic.latestChapter.title}</span>}

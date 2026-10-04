@@ -13,12 +13,23 @@ export default async function ComicPage({
     throw new Error("Unable to verify published comic: Supabase public environment variables are missing.");
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("comics")
-    .select("id, title, slug, synopsis, contributor, genre, cover_key, profiles!comics_creator_id_fkey(display_name)")
+    .select("id, title, slug, synopsis, contributor, genre, cover_key, profiles!comics_creator_id_fkey(id, display_name, public_profile)")
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle();
+  if (error?.code === "42703") {
+    console.warn("Creator public profiles are not configured. Loading comic profile fields without public-profile links.");
+    const legacy = await supabase
+      .from("comics")
+      .select("id, title, slug, synopsis, contributor, genre, cover_key, profiles!comics_creator_id_fkey(display_name)")
+      .eq("slug", slug)
+      .eq("status", "published")
+      .maybeSingle();
+    data = legacy.data as typeof data;
+    error = legacy.error;
+  }
   if (error) {
     console.error("Unable to verify published comic:", { slug, error });
     throw error;

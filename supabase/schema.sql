@@ -12,7 +12,11 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null default 'Reader',
   avatar_key text,
+  banner_key text,
+  bio text not null default '',
+  social_links jsonb not null default '[]'::jsonb check (jsonb_typeof(social_links) = 'array'),
   role public.user_role not null default 'reader',
+  public_profile boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -88,6 +92,7 @@ drop policy if exists "Published comics are public" on public.comics;
 drop policy if exists "Published chapters are public" on public.chapters;
 drop policy if exists "Published pages are public" on public.pages;
 drop policy if exists "Users read own profile" on public.profiles;
+drop policy if exists "Public creator profiles are readable" on public.profiles;
 drop policy if exists "Users update own profile" on public.profiles;
 drop policy if exists "Users manage own history" on public.reading_history;
 drop policy if exists "Users manage own bookmarks" on public.bookmarks;
@@ -118,6 +123,7 @@ create policy "Published pages are public" on public.pages for select using (
   )
 );
 create policy "Users read own profile" on public.profiles for select using (id = auth.uid());
+create policy "Public creator profiles are readable" on public.profiles for select using (role = 'creator' and public_profile = true);
 create policy "Users update own profile" on public.profiles for update using (id = auth.uid()) with check (id = auth.uid());
 create policy "Users manage own history" on public.reading_history for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "Users manage own bookmarks" on public.bookmarks for all using (user_id = auth.uid()) with check (user_id = auth.uid());
