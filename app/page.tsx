@@ -19,7 +19,7 @@ type Comic = {
   genre: string;
   coverUrl: string | null;
   creator: string;
-  creatorId: string | null;
+  creatorHandle: string | null;
   creatorProfilePublic: boolean;
   latestChapter: { id: string; title: string; chapter_number: number; published_at: string | null } | null;
   chapterCount: number;
@@ -89,8 +89,8 @@ function ComicCard({ comic, compact = false }: { comic: Comic; compact?: boolean
           {chapter && <span className="reader-card-latest">Terbaru · Episode {chapter.chapter_number}</span>}
         </div>
       </Link>
-      {comic.creatorId && comic.creatorProfilePublic && (
-        <Link className="reader-creator-profile-link" href={`/profile/${encodeURIComponent(comic.creatorId)}`}>Profil kreator <ArrowUpRight size={13} /></Link>
+      {comic.creatorHandle && comic.creatorProfilePublic && (
+        <Link className="reader-creator-profile-link" href={`/kreator/${encodeURIComponent(comic.creatorHandle)}`}>Profil kreator <ArrowUpRight size={13} /></Link>
       )}
       {chapter && <Link className="reader-card-read" href={`/comic/${comic.slug}/chapter/${chapter.id}`}><BookOpen size={14} /> Baca <ArrowRight size={14} /></Link>}
     </article>
@@ -122,7 +122,7 @@ export default function Home() {
       setCatalogState("loading");
       let { data, error } = await supabase
         .from("comics")
-        .select("id, title, slug, synopsis, genre, contributor, cover_key, profiles!comics_creator_id_fkey(id, display_name, public_profile)")
+        .select("id, title, slug, synopsis, genre, contributor, cover_key, profiles!comics_creator_id_fkey(id, public_handle, display_name, public_profile)")
         .eq("status", "published")
         .order("created_at", { ascending: false });
 
@@ -167,7 +167,7 @@ export default function Home() {
       }
 
       const loadedComics: Comic[] = rows.map((comic) => {
-        const profiles = comic.profiles as { id?: string; display_name?: string; public_profile?: boolean } | { id?: string; display_name?: string; public_profile?: boolean }[] | null;
+        const profiles = comic.profiles as { id?: string; public_handle?: string | null; display_name?: string; public_profile?: boolean } | { id?: string; public_handle?: string | null; display_name?: string; public_profile?: boolean }[] | null;
         const profile = Array.isArray(profiles) ? profiles[0] : profiles;
         const chapters = chaptersByComic.get(comic.id) ?? [];
         return {
@@ -178,7 +178,7 @@ export default function Home() {
           contributor: comic.contributor?.trim() || "",
           genre: comic.genre,
           creator: profile?.display_name || "Kreator independen",
-          creatorId: profile?.public_profile ? profile.id || null : null,
+          creatorHandle: profile?.public_profile ? profile.public_handle || null : null,
           creatorProfilePublic: Boolean(profile?.public_profile),
           coverUrl: comic.cover_key && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${comic.cover_key}` : null,
           latestChapter: chapters[0] ?? null,
@@ -286,7 +286,7 @@ export default function Home() {
                     contributor: historyComic.contributor?.trim() || "",
                     genre: historyComic.genre,
                     creator: profile?.display_name || "Kreator independen",
-                    creatorId: null,
+                    creatorHandle: null,
                     creatorProfilePublic: false,
                     coverUrl: historyComic.cover_key && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${historyComic.cover_key}` : null,
                     latestChapter: null,
@@ -389,8 +389,8 @@ export default function Home() {
           <div className="reader-featured-copy">
             <span className="reader-kicker"><Sparkles size={15} /> UPDATE TERBARU</span>
             <p className="reader-featured-genre">{comicGenre(featuredComic.genre)} <span>·</span> {featuredComic.contributor || featuredComic.creator}</p>
-            {featuredComic.creatorId && featuredComic.creatorProfilePublic && (
-              <Link className="reader-creator-profile-link" href={`/profile/${encodeURIComponent(featuredComic.creatorId)}`}>Profil kreator {featuredComic.creator} <ArrowUpRight size={13} /></Link>
+            {featuredComic.creatorHandle && featuredComic.creatorProfilePublic && (
+              <Link className="reader-creator-profile-link" href={`/kreator/${encodeURIComponent(featuredComic.creatorHandle)}`}>Profil kreator {featuredComic.creator} <ArrowUpRight size={13} /></Link>
             )}
             <h2>{featuredComic.title}</h2>
             <p className="reader-featured-synopsis">{cleanSynopsis(featuredComic.synopsis) || "Temukan cerita baru dan mulai membaca hari ini."}</p>

@@ -8,9 +8,10 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import { getComicGenreLabel } from "@/lib/comic-genres";
+import { createCreatorHandle, isValidCreatorHandle } from "@/lib/creator-handle";
 import { getCreatorSocialPlaceholder, isValidCreatorSocialUrl, normalizeCreatorSocialUrl, parseCreatorSocialLinks, type CreatorSocialLink } from "@/lib/creator-social-links";
 
-type Profile = { id: string; display_name: string; role: "reader" | "creator" | "admin"; public_profile: boolean; bio: string; avatar_key: string | null; banner_key: string | null; social_links: CreatorSocialLink[] };
+type Profile = { id: string; display_name: string; public_handle: string | null; role: "reader" | "creator" | "admin"; public_profile: boolean; bio: string; avatar_key: string | null; banner_key: string | null; social_links: CreatorSocialLink[] };
 type CreatorRequest = { status: "pending" | "approved" | "rejected" };
 type BookmarkedComic = { id: string; title: string; slug: string; genre: string; cover_key: string | null };
 type ContinueReading = {
@@ -61,6 +62,7 @@ export default function AccountPage() {
   const [savingProfileVisibility, setSavingProfileVisibility] = useState(false);
   const [profileVisibilityMessage, setProfileVisibilityMessage] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [publicHandle, setPublicHandle] = useState("");
   const [bio, setBio] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -86,20 +88,22 @@ export default function AccountPage() {
         avatar_key: string | null;
         banner_key: string | null;
         social_links: unknown;
+        public_handle: string | null;
       } | null = null;
       let profileError = null;
       let missingProfileColumns: string | null = null;
       const profileQueries = [
-        { columns: "display_name, role, public_profile, bio, avatar_key, banner_key, social_links", fallback: false },
+        { columns: "display_name, role, public_profile, bio, avatar_key, banner_key, social_links, public_handle", fallback: false },
+        { columns: "display_name, role, public_profile, bio, avatar_key, banner_key, public_handle", fallback: true },
+        { columns: "display_name, role, public_profile, bio, avatar_key, banner_key, social_links", fallback: true },
         { columns: "display_name, role, public_profile, bio, avatar_key, banner_key", fallback: true },
-        { columns: "display_name, role, public_profile, bio, avatar_key", fallback: true },
         { columns: "display_name, role, public_profile, avatar_key", fallback: true },
         { columns: "display_name, role", fallback: true },
       ] as const;
       for (const query of profileQueries) {
         const result = await supabase
           .from("profiles")
-          .select(query.columns as "display_name, role, public_profile, bio, avatar_key, banner_key, social_links")
+          .select(query.columns as "display_name, role, public_profile, bio, avatar_key, banner_key, social_links, public_handle" | "display_name, role, public_profile, bio, avatar_key, banner_key, public_handle" | "display_name, role, public_profile, bio, avatar_key, banner_key, social_links" | "display_name, role, public_profile, bio, avatar_key, banner_key" | "display_name, role, public_profile, avatar_key" | "display_name, role")
           .eq("id", user.id)
           .single();
         if (!result.error) {
@@ -111,6 +115,7 @@ export default function AccountPage() {
             avatar_key: "avatar_key" in result.data ? result.data.avatar_key : null,
             banner_key: "banner_key" in result.data ? result.data.banner_key : null,
             social_links: "social_links" in result.data ? result.data.social_links : [],
+            public_handle: "public_handle" in result.data ? result.data.public_handle : null,
           };
           missingProfileColumns = query.fallback ? query.columns : null;
           break;
@@ -124,6 +129,7 @@ export default function AccountPage() {
         const loadedProfile = { ...profileData, id: user.id, social_links: parseCreatorSocialLinks(profileData.social_links) };
         setProfile(loadedProfile);
         setDisplayName(loadedProfile.display_name);
+        setPublicHandle(loadedProfile.public_handle || createCreatorHandle(loadedProfile.display_name));
         setBio(loadedProfile.bio);
         setSocialLinks(loadedProfile.social_links);
         if (missingProfileColumns) {
@@ -132,6 +138,9 @@ export default function AccountPage() {
           }
           if (!missingProfileColumns.includes("social_links")) {
             setCreatorProfileMessage("Jalankan ulang supabase/creator-profile-bio.sql untuk mengaktifkan semua field profil kreator.");
+          }
+          if (!missingProfileColumns.includes("public_handle")) {
+            setCreatorProfileMessage("Jalankan supabase/creator-profile-handle.sql untuk mengaktifkan URL profil kreator.");
           }
         }
       }
@@ -245,9 +254,14 @@ export default function AccountPage() {
     event.preventDefault();
     if (!profile || profile.role !== "creator") return;
     const name = displayName.trim();
+    const handle = publicHandle.trim().toLowerCase();
     const creatorBio = bio.trim();
     if (!name || name.length > 80 || creatorBio.length > 500) {
       setCreatorProfileMessage("Nama wajib diisi (maksimal 80 karakter) dan bio maksimal 500 karakter.");
+      return;
+    }
+    if (!isValidCreatorHandle(handle)) {
+      setCreatorProfileMessage("URL profil harus 3–40 karakter, hanya huruf kecil, angka, dan tanda hubung.");
       return;
     }
     if (avatarFile && (!["image/jpeg", "image/png", "image/webp"].includes(avatarFile.type) || avatarFile.size > 5 * 1024 * 1024)) {
@@ -303,9 +317,9 @@ export default function AccountPage() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .update({ display_name: name, bio: creatorBio, avatar_key: avatarKey, banner_key: bannerKey, social_links: savedSocialLinks })
+        .update({ display_name: name, public_handle: handle, bio: creatorBio, avatar_key: avatarKey, banner_key: bannerKey, social_links: savedSocialLinks })
         .eq("id", profile.id)
-        .select("display_name, bio, avatar_key, banner_key, social_links")
+        .select("display_name, public_handle, bio, avatar_key, banner_key, social_links")
         .single();
       if (error) {
         console.error("Unable to save creator profile:", {
@@ -316,16 +330,20 @@ export default function AccountPage() {
         });
         if (isMissingProfileColumnError(error)) {
           const missingColumn = error.message.match(/'([^']+)' column|'([^']+)' of 'profiles'/i)?.slice(1).find(Boolean);
+          if (missingColumn === "public_handle") {
+            throw new Error("Kolom URL profil belum tersedia. Jalankan supabase/creator-profile-handle.sql pada database terlebih dahulu.");
+          }
           if (missingColumn === "social_links") {
             const { data: profileWithoutSocialLinks, error: retryError } = await supabase
               .from("profiles")
-              .update({ display_name: name, bio: creatorBio, avatar_key: avatarKey, banner_key: bannerKey })
+              .update({ display_name: name, public_handle: handle, bio: creatorBio, avatar_key: avatarKey, banner_key: bannerKey })
               .eq("id", profile.id)
-              .select("display_name, bio, avatar_key, banner_key")
+              .select("display_name, public_handle, bio, avatar_key, banner_key")
               .single();
             if (!retryError && profileWithoutSocialLinks) {
               setProfile({ ...profile, ...profileWithoutSocialLinks });
               setDisplayName(profileWithoutSocialLinks.display_name);
+              setPublicHandle(profileWithoutSocialLinks.public_handle);
               setBio(profileWithoutSocialLinks.bio);
               setAvatarFile(null);
               setBannerFile(null);
@@ -343,10 +361,14 @@ export default function AccountPage() {
           }
           throw new Error(`Kolom ${missingColumn ? `"${missingColumn}"` : "profil"} belum tersedia di Supabase. Jalankan ulang supabase/creator-profile-bio.sql, lalu muat ulang skema API Supabase.`);
         }
+        if (error.code === "23505") {
+          throw new Error("URL profil tersebut sudah dipakai kreator lain. Silakan pilih URL yang berbeda.");
+        }
         throw new Error(`Profil gagal disimpan: ${error.message || "Periksa koneksi lalu coba lagi."}`);
       }
       setProfile({ ...profile, ...data });
       setDisplayName(data.display_name);
+      setPublicHandle(data.public_handle);
       setBio(data.bio);
       setAvatarFile(null);
       setBannerFile(null);
@@ -442,7 +464,7 @@ export default function AccountPage() {
                   onChange={(event) => void updateProfileVisibility(event.target.checked)}
                 />
               </label>
-              {profile.public_profile && <Link className="creator-profile-public-link" href={`/profile/${encodeURIComponent(profile.id)}`}>Lihat profil publik <ArrowUpRight size={15} /></Link>}
+              {profile.public_profile && profile.public_handle && <Link className="creator-profile-public-link" href={`/kreator/${encodeURIComponent(profile.public_handle)}`}>Lihat profil publik <ArrowUpRight size={15} /></Link>}
               {profileVisibilityMessage && <p className="creator-profile-message" role="status">{profileVisibilityMessage}</p>}
             </div>
           )}
@@ -489,6 +511,22 @@ export default function AccountPage() {
               <label className="creator-profile-field">
                 <span>Nama tampilan</span>
                 <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={80} required disabled={savingCreatorProfile} />
+              </label>
+              <label className="creator-profile-field">
+                <span>URL profil</span>
+                <input
+                  value={publicHandle}
+                  onChange={(event) => setPublicHandle(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 40))}
+                  maxLength={40}
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  disabled={savingCreatorProfile}
+                  required
+                  aria-describedby="creator-public-handle-help"
+                />
+                <small id="creator-public-handle-help">
+                  Tautan profil: /kreator/{publicHandle || "nama-kreator"}. 3–40 karakter, huruf kecil, angka, dan tanda hubung.
+                </small>
               </label>
               <label className="creator-profile-field">
                 <span>Bio</span>

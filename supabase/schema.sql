@@ -11,6 +11,7 @@ end $$;
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null default 'Reader',
+  public_handle text unique check (public_handle is null or (length(public_handle) between 3 and 40 and public_handle ~ '^[a-z0-9]+(-[a-z0-9]+)*$')),
   avatar_key text,
   banner_key text,
   bio text not null default '',

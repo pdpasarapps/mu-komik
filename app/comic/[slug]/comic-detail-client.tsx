@@ -27,7 +27,7 @@ export type Comic = {
   origin_type: string;
   source_info: string;
   cover_key: string | null;
-  profiles: { id?: string; display_name: string; public_profile?: boolean } | { id?: string; display_name: string; public_profile?: boolean }[] | null;
+  profiles: { id?: string; public_handle?: string | null; display_name: string; public_profile?: boolean } | { id?: string; public_handle?: string | null; display_name: string; public_profile?: boolean }[] | null;
 };
 
 export type Chapter = { id: string; title: string; chapter_number: number; published_at: string | null };
@@ -171,8 +171,8 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
       if (!initialComic) setLoading(true);
       setLoadError("");
       setEngagement(null);
-      const comicSelect = "id, title, slug, synopsis, contributor, contributors, genre, production_technique, story_status, target_audience, language, origin_type, source_info, cover_key, profiles!comics_creator_id_fkey(id, display_name, public_profile)";
-      const fallbackComicSelect = "id, title, slug, synopsis, contributor, contributors, genre, cover_key, profiles!comics_creator_id_fkey(id, display_name, public_profile)";
+      const comicSelect = "id, title, slug, synopsis, contributor, contributors, genre, production_technique, story_status, target_audience, language, origin_type, source_info, cover_key, profiles!comics_creator_id_fkey(id, public_handle, display_name, public_profile)";
+      const fallbackComicSelect = "id, title, slug, synopsis, contributor, contributors, genre, cover_key, profiles!comics_creator_id_fkey(id, public_handle, display_name, public_profile)";
       const legacyComicSelect = "id, title, slug, synopsis, contributor, genre, cover_key, profiles!comics_creator_id_fkey(display_name)";
       let { data, error } = await supabase
         .from("comics")
@@ -547,8 +547,8 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
           <p className="reader-detail-genre-count">{getComicGenreLabel(comic.genre)}<span aria-hidden="true">·</span>{chapters.length} episode</p>
           <h1>{comic.title}</h1>
           <p className="reader-detail-creator">Karya <strong>{byline}</strong></p>
-          {creatorProfile?.id && creatorProfile.public_profile && (
-            <Link className="reader-creator-profile-link reader-detail-creator-profile" href={`/profile/${encodeURIComponent(creatorProfile.id)}`}>
+          {creatorProfile?.public_handle && creatorProfile.public_profile && (
+            <Link className="reader-creator-profile-link reader-detail-creator-profile" href={`/kreator/${encodeURIComponent(creatorProfile.public_handle)}`}>
               Lihat profil kreator {creator}
               <ArrowRight size={14} />
             </Link>

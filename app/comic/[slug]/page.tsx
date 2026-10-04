@@ -15,7 +15,7 @@ export default async function ComicPage({
 
   let { data, error } = await supabase
     .from("comics")
-    .select("id, title, slug, synopsis, contributor, genre, cover_key, profiles!comics_creator_id_fkey(id, display_name, public_profile)")
+    .select("id, title, slug, synopsis, contributor, genre, cover_key, profiles!comics_creator_id_fkey(id, public_handle, display_name, public_profile)")
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle();
