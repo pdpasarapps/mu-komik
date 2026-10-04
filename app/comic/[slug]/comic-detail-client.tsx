@@ -11,6 +11,9 @@ import PlatformLinks from "@/components/platform-links";
 import { getComicGenreLabel } from "@/lib/comic-genres";
 import SponsoredAd from "@/components/sponsored-ad";
 import { ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES, getMetadataLabel } from "@/lib/comic-metadata";
+import DeviceUnavailableNotice from "@/components/device-unavailable-notice";
+import { useCurrentDevice } from "@/components/use-current-device";
+import { COMIC_TARGET_DEVICES, isComicAvailableOnDevice, type ComicTargetDevice } from "@/lib/comic-target-device";
 
 const supabase = createClient();
 
@@ -21,6 +24,7 @@ export type Comic = {
   synopsis: string;
   contributor: string;
   genre: string;
+  target_device: ComicTargetDevice;
   contributors: { role: string; name: string }[] | null;
   production_technique: string;
   story_status: string;
@@ -101,6 +105,7 @@ function cleanSynopsis(synopsis: string) {
 
 export default function ComicDetailPage({ initialComic, initialChapters }: ComicDetailPageProps) {
   const { settings } = usePlatformSettings();
+  const currentDevice = useCurrentDevice();
   const { slug } = useParams<{ slug: string }>();
   const [comic, setComic] = useState<Comic | null>(initialComic);
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
@@ -170,12 +175,17 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   useEffect(() => {
     let active = true;
     const loadComic = async () => {
+      if (currentDevice === null) return;
+      if (!isComicAvailableOnDevice(initialComic?.target_device, currentDevice)) {
+        setLoading(false);
+        return;
+      }
       if (!initialComic) setLoading(true);
       setLoadError("");
       setEngagement(null);
-      const comicSelect = "id, title, slug, synopsis, contributor, contributors, genre, production_technique, story_status, target_audience, language, origin_type, source_info, cover_key, profiles!comics_creator_id_fkey(id, public_handle, display_name, public_profile)";
-      const fallbackComicSelect = "id, title, slug, synopsis, contributor, contributors, genre, cover_key, profiles!comics_creator_id_fkey(id, public_handle, display_name, public_profile)";
-      const legacyComicSelect = "id, title, slug, synopsis, contributor, genre, cover_key, profiles!comics_creator_id_fkey(display_name)";
+      const comicSelect = "id, title, slug, synopsis, contributor, contributors, genre, target_device, production_technique, story_status, target_audience, language, origin_type, source_info, cover_key, profiles!comics_creator_id_fkey(id, public_handle, display_name, public_profile)";
+      const fallbackComicSelect = "id, title, slug, synopsis, contributor, contributors, genre, target_device, cover_key, profiles!comics_creator_id_fkey(id, public_handle, display_name, public_profile)";
+      const legacyComicSelect = "id, title, slug, synopsis, contributor, genre, target_device, cover_key, profiles!comics_creator_id_fkey(display_name)";
       let { data, error } = await supabase
         .from("comics")
         .select(comicSelect)
@@ -201,6 +211,16 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
             .single();
           data = legacy.data as typeof data;
           error = legacy.error;
+          if (error?.code === "42703") {
+            const oldest = await supabase
+              .from("comics")
+              .select("id, title, slug, synopsis, contributor, genre, cover_key, profiles!comics_creator_id_fkey(display_name)")
+              .eq("slug", slug)
+              .abortSignal(AbortSignal.timeout(8000))
+              .single();
+            data = oldest.data as typeof data;
+            error = oldest.error;
+          }
         }
       }
       if (error || !data) {
@@ -222,8 +242,15 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
         return;
       }
 
+      const targetDevice = "target_device" in data ? data.target_device as ComicTargetDevice : initialComic?.target_device;
+      if (!isComicAvailableOnDevice(targetDevice, currentDevice)) {
+        if (active) setLoading(false);
+        return;
+      }
+
       const comic = {
         ...data,
+        target_device: targetDevice || "all",
         contributors: "contributors" in data ? data.contributors : null,
         production_technique: "production_technique" in data ? data.production_technique : "traditional_drawing",
         story_status: "story_status" in data ? data.story_status : "ongoing",
@@ -386,7 +413,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
       }
     });
     return () => { active = false; };
-  }, [initialChapters, initialComic, slug]);
+  }, [currentDevice, initialChapters, initialComic, slug]);
 
   const toggleBookmark = async () => {
     if (!comic || !userId || bookmarkBusy) return;
@@ -484,6 +511,13 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
         <div className="reader-detail-not-found"><h1>{loadError ? "Komik belum bisa dibuka." : "Komik tidak ditemukan."}</h1><p>{loadError || "Cerita ini mungkin telah dipindahkan atau belum diterbitkan."}</p>{loadError && <button className="reader-primary-button" type="button" onClick={() => window.location.reload()}>Coba lagi <ArrowRight size={17} /></button>}<Link className="reader-detail-secondary-link" href="/">Jelajahi komik</Link></div>
       </main>
     );
+  }
+  if (currentDevice === null) {
+    return <main className="reader-detail-page" aria-busy="true"><div className="reader-detail-not-found">Memeriksa ketersediaan komik...</div></main>;
+  }
+  if (!isComicAvailableOnDevice(comic.target_device, currentDevice)) {
+    const targetLabel = COMIC_TARGET_DEVICES.find((device) => device.value === comic.target_device)?.label.toLowerCase() || "perangkat tertentu";
+    return <DeviceUnavailableNotice deviceName={targetLabel} />;
   }
 
   const creator = Array.isArray(comic.profiles) ? comic.profiles[0]?.display_name : comic.profiles?.display_name;

@@ -6,18 +6,22 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import SponsoredAd from "@/components/sponsored-ad";
+import DeviceUnavailableNotice from "@/components/device-unavailable-notice";
+import { useCurrentDevice } from "@/components/use-current-device";
+import { COMIC_TARGET_DEVICES, isComicAvailableOnDevice, type ComicTargetDevice } from "@/lib/comic-target-device";
 
 const supabase = createClient();
 const TRANSITION_AD_LOAD_TIMEOUT_MS = 2000;
 
 type Page = { id: string; page_number: number; object_key: string };
 type Chapter = { id: string; title: string; chapter_number: number; comic_id: string };
-type Comic = { id: string; title: string; slug: string };
+type Comic = { id: string; title: string; slug: string; target_device: ComicTargetDevice };
 export type ChapterReaderSeed = { chapter: Chapter; comic: Comic };
 
 export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed }) {
   const { slug, chapterId } = useParams<{ slug: string; chapterId: string }>();
   const router = useRouter();
+  const currentDevice = useCurrentDevice();
   const [chapter, setChapter] = useState<Chapter | null>(seed.chapter);
   const [comic, setComic] = useState<Comic | null>(seed.comic);
   const [chapterList, setChapterList] = useState<Chapter[]>([]);
@@ -43,6 +47,11 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   useEffect(() => {
     let active = true;
     const loadChapter = async () => {
+      if (currentDevice === null) return;
+      if (!isComicAvailableOnDevice(seed.comic.target_device, currentDevice)) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setErrorMessage("");
       setHistoryReady(false);
@@ -60,16 +69,34 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         }
         return;
       }
-      const { data: comicData, error: comicError } = await supabase
+      let { data: comicData, error: comicError } = await supabase
         .from("comics")
-        .select("id, title, slug")
+        .select("id, title, slug, target_device")
         .eq("id", chapterData.comic_id)
         .eq("slug", slug)
         .maybeSingle();
+      if (comicError?.code === "42703") {
+        const legacyComic = await supabase
+          .from("comics")
+          .select("id, title, slug")
+          .eq("id", chapterData.comic_id)
+          .eq("slug", slug)
+          .maybeSingle();
+        comicData = legacyComic.data as typeof comicData;
+        comicError = legacyComic.error;
+      }
       if (comicError || !comicData) {
         if (comicError) console.error("Unable to load the reader comic:", comicError);
         if (active) {
           setErrorMessage(comicError ? "Komik belum dapat dimuat. Periksa koneksi lalu coba lagi." : "Episode ini bukan bagian dari komik tersebut.");
+          setLoading(false);
+        }
+        return;
+      }
+      comicData = { ...comicData, target_device: comicData.target_device || seed.comic.target_device || "all" };
+      if (!isComicAvailableOnDevice(comicData.target_device, currentDevice)) {
+        if (active) {
+          setComic(comicData);
           setLoading(false);
         }
         return;
@@ -195,7 +222,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     };
     void loadChapter();
     return () => { active = false; };
-  }, [chapterId, router, slug]);
+  }, [chapterId, currentDevice, router, seed.comic.target_device, slug]);
 
   useEffect(() => {
     if (loading || !chapter || !pages.length) return;
@@ -419,7 +446,11 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     };
   }, [loading, pages.length]);
 
-  if (loading) return (
+  if (currentDevice !== null && !isComicAvailableOnDevice(comic?.target_device ?? seed.comic.target_device, currentDevice)) {
+    const targetLabel = COMIC_TARGET_DEVICES.find((device) => device.value === (comic?.target_device ?? seed.comic.target_device))?.label.toLowerCase() || "perangkat tertentu";
+    return <DeviceUnavailableNotice deviceName={targetLabel} />;
+  }
+  if (currentDevice === null || loading) return (
     <main className="reader-loading">
       <h1>{comic?.title} Episode {chapter?.chapter_number}: {chapter?.title}</h1>
       <LoaderCircle className="spin" size={25} />

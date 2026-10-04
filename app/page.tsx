@@ -9,6 +9,8 @@ import BrandLogo from "@/components/brand-logo";
 import PlatformLinks from "@/components/platform-links";
 import SponsoredAd from "@/components/sponsored-ad";
 import { usePlatformSettings } from "./platform-runtime";
+import { useCurrentDevice } from "@/components/use-current-device";
+import { isComicAvailableOnDevice, type ComicTargetDevice } from "@/lib/comic-target-device";
 
 const supabase = createClient();
 
@@ -19,6 +21,7 @@ type Comic = {
   synopsis: string;
   contributor: string;
   genre: string;
+  target_device: ComicTargetDevice;
   coverUrl: string | null;
   creator: string;
   creatorHandle: string | null;
@@ -105,6 +108,7 @@ function ComicSkeleton() {
 
 export default function Home() {
   const { settings } = usePlatformSettings();
+  const currentDevice = useCurrentDevice();
   const [comics, setComics] = useState<Comic[]>([]);
   const [catalogState, setCatalogState] = useState<"loading" | "ready" | "empty" | "error">("loading");
   const [episodeLoadError, setEpisodeLoadError] = useState(false);
@@ -125,18 +129,27 @@ export default function Home() {
       setCatalogState("loading");
       let { data, error } = await supabase
         .from("comics")
-        .select("id, title, slug, synopsis, genre, contributor, cover_key, profiles!comics_creator_id_fkey(id, public_handle, display_name, public_profile)")
+        .select("id, title, slug, synopsis, genre, contributor, cover_key, target_device, profiles!comics_creator_id_fkey(id, public_handle, display_name, public_profile)")
         .eq("status", "published")
         .order("created_at", { ascending: false });
 
       if (error?.code === "42703") {
-        const legacyQuery = await supabase
+        const fallbackQuery = await supabase
           .from("comics")
-          .select("id, title, slug, synopsis, genre, contributor, cover_key, profiles!comics_creator_id_fkey(display_name)")
+          .select("id, title, slug, synopsis, genre, contributor, cover_key, target_device, profiles!comics_creator_id_fkey(display_name)")
           .eq("status", "published")
           .order("created_at", { ascending: false });
-        data = legacyQuery.data as typeof data;
-        error = legacyQuery.error;
+        data = fallbackQuery.data as typeof data;
+        error = fallbackQuery.error;
+        if (error?.code === "42703") {
+          const legacyQuery = await supabase
+            .from("comics")
+            .select("id, title, slug, synopsis, genre, contributor, cover_key, profiles!comics_creator_id_fkey(display_name)")
+            .eq("status", "published")
+            .order("created_at", { ascending: false });
+          data = legacyQuery.data as typeof data;
+          error = legacyQuery.error;
+        }
       }
       if (error) {
         console.error("Unable to load published comics:", error);
@@ -180,6 +193,7 @@ export default function Home() {
           synopsis: comic.synopsis || "",
           contributor: comic.contributor?.trim() || "",
           genre: comic.genre,
+          target_device: comic.target_device || "all",
           creator: profile?.display_name || "Kreator independen",
           creatorHandle: profile?.public_profile ? profile.public_handle || null : null,
           creatorProfilePublic: Boolean(profile?.public_profile),
@@ -254,11 +268,20 @@ export default function Home() {
               hint: chapterError.hint,
             });
           } else if (chapter) {
-            const { data: historyComic, error: comicError } = await supabase
+            let { data: historyComic, error: comicError } = await supabase
               .from("comics")
-              .select("id, title, slug, synopsis, contributor, genre, cover_key, profiles!comics_creator_id_fkey(display_name)")
+              .select("id, title, slug, synopsis, contributor, genre, cover_key, target_device, profiles!comics_creator_id_fkey(display_name)")
               .eq("id", chapter.comic_id)
               .maybeSingle();
+            if (comicError?.code === "42703") {
+              const legacyHistoryComic = await supabase
+                .from("comics")
+                .select("id, title, slug, synopsis, contributor, genre, cover_key, profiles!comics_creator_id_fkey(display_name)")
+                .eq("id", chapter.comic_id)
+                .maybeSingle();
+              historyComic = legacyHistoryComic.data as typeof historyComic;
+              comicError = legacyHistoryComic.error;
+            }
             if (comicError) {
               console.error("Unable to load the comic from reading history:", {
                 message: comicError.message,
@@ -288,6 +311,7 @@ export default function Home() {
                     synopsis: historyComic.synopsis || "",
                     contributor: historyComic.contributor?.trim() || "",
                     genre: historyComic.genre,
+                    target_device: historyComic.target_device || "all",
                     creator: profile?.display_name || "Kreator independen",
                     creatorHandle: null,
                     creatorProfilePublic: false,
@@ -329,23 +353,27 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const visibleComics = useMemo(
+    () => comics.filter((comic) => isComicAvailableOnDevice(comic.target_device, currentDevice)),
+    [comics, currentDevice],
+  );
   const genres = useMemo(() => ["all", ...new Set([
     ...COMIC_GENRES,
-    ...comics.map((comic) => comic.genre).filter(Boolean),
-  ])], [comics]);
+    ...visibleComics.map((comic) => comic.genre).filter(Boolean),
+  ])], [visibleComics]);
   const searchedComics = useMemo(() => {
     const normalizedQuery = settings.feature_flags.search ? query.trim().toLocaleLowerCase("id-ID") : "";
-    return comics.filter((comic) => {
+    return visibleComics.filter((comic) => {
       const matchesGenre = genre === "all" || comic.genre === genre;
       const searchable = `${comic.title} ${comic.creator} ${comic.contributor} ${comic.genre}`.toLocaleLowerCase("id-ID");
       return matchesGenre && (!normalizedQuery || searchable.includes(normalizedQuery));
     });
-  }, [comics, genre, query, settings.feature_flags.search]);
-  const latestComics = [...comics].filter((comic) => comic.latestChapter).sort((a, b) =>
+  }, [visibleComics, genre, query, settings.feature_flags.search]);
+  const latestComics = [...visibleComics].filter((comic) => comic.latestChapter).sort((a, b) =>
     new Date(b.latestChapter?.published_at || 0).getTime() - new Date(a.latestChapter?.published_at || 0).getTime(),
   );
-  const featuredComic = latestComics[0] || comics[0];
-  const ongoingComics = [...comics].sort((a, b) => b.chapterCount - a.chapterCount).filter((comic) => comic.chapterCount > 1);
+  const featuredComic = latestComics[0] || visibleComics[0];
+  const ongoingComics = [...visibleComics].sort((a, b) => b.chapterCount - a.chapterCount).filter((comic) => comic.chapterCount > 1);
 
   const focusSearch = () => {
     setMobileSearchOpen(true);
@@ -420,7 +448,7 @@ export default function Home() {
       <SponsoredAd slotKey="home_banner" placement="home" />
 
       <div className="reader-home-content">
-        {signedIn && continueReading && (
+        {signedIn && continueReading && isComicAvailableOnDevice(continueReading.comic.target_device, currentDevice) && (
           <section className="reader-home-section reader-continue-section">
             <div className="reader-section-heading"><div><p className="reader-section-kicker">KEMBALI KE CERITAMU</p><h2>Lanjutkan membaca</h2></div></div>
             <Link className="reader-continue-card" href={`/comic/${continueReading.comic.slug}/chapter/${continueReading.chapterId}`}>
@@ -474,7 +502,7 @@ export default function Home() {
             </Fragment>
           ))}</div>}
           {catalogState === "loading" && <div className="reader-comic-grid">{Array.from({ length: 6 }, (_, index) => <ComicSkeleton key={index} />)}</div>}
-          {catalogState === "ready" && searchedComics.length === 0 && <div className="reader-empty-state"><p>{query ? "Komik yang kamu cari belum ditemukan." : genre !== "all" ? "Belum ada komik dalam kategori ini." : "Belum ada komik terbit."}</p><button onClick={() => { setGenre("all"); setQuery(""); }}>Jelajahi semua komik</button></div>}
+          {catalogState === "ready" && searchedComics.length === 0 && <div className="reader-empty-state"><p>{query ? "Komik yang kamu cari belum ditemukan." : genre !== "all" ? "Belum ada komik dalam kategori ini." : visibleComics.length === 0 ? "Belum ada komik yang tersedia di perangkat ini." : "Belum ada komik terbit."}</p><button onClick={() => { setGenre("all"); setQuery(""); }}>Jelajahi semua komik</button></div>}
         </section>
       </div>
 

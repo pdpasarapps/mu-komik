@@ -38,6 +38,8 @@ create table if not exists public.comics (
     check (story_status in ('ongoing', 'completed', 'hiatus')),
   target_audience text not null default 'all_ages'
     check (target_audience in ('all_ages', 'teen', 'adult')),
+  target_device text not null default 'all'
+    check (target_device in ('all', 'mobile', 'tablet', 'desktop')),
   language text not null default 'id' check (btrim(language) <> ''),
   origin_type text not null default 'original' check (origin_type in ('original', 'adaptation')),
   source_info text not null default '',

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
 import { COMIC_LANGUAGES, ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES } from "@/lib/comic-metadata";
+import { COMIC_TARGET_DEVICES, type ComicTargetDevice } from "@/lib/comic-target-device";
 import { usePlatformSettings } from "../platform-runtime";
 
 export type CreatorArea = "creator" | "komiku" | "terbitkan-komik";
@@ -39,6 +40,7 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
     technique: "traditional_drawing",
     storyStatus: "ongoing",
     targetAudience: "all_ages",
+    targetDevice: "all" as ComicTargetDevice,
     language: "id",
     otherLanguage: "",
     originType: "original",
@@ -127,9 +129,14 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
       origin_type: form.originType,
       source_info: form.originType === "adaptation" ? form.sourceInfo.trim() : "",
       status: "draft",
+      target_device: form.targetDevice,
     }).select("id, title, slug, genre, synopsis, contributor, cover_key, status, created_at").single();
     if (error) {
-      setMessage(error.code === "23505" ? "Komik dengan judul ini sudah ada." : error.message);
+      setMessage(error.code === "23505"
+        ? "Komik dengan judul ini sudah ada."
+        : error.code === "42703"
+          ? "Database belum mendukung target perangkat. Jalankan supabase/comic-target-device.sql terlebih dahulu."
+          : error.message);
     } else {
       setComics((current) => [{ ...data, coverUrl: null }, ...current]);
       setForm({
@@ -139,6 +146,7 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
         technique: "traditional_drawing",
         storyStatus: "ongoing",
         targetAudience: "all_ages",
+        targetDevice: "all",
         language: "id",
         otherLanguage: "",
         originType: "original",
@@ -199,6 +207,7 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
           </div>
           <label>Judul<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Judul komik" /></label>
           <label>Genre<select value={form.genre} onChange={(event) => setForm({ ...form, genre: event.target.value })}>{COMIC_GENRES.map((genre) => <option key={genre} value={genre}>{getComicGenreLabel(genre)}</option>)}</select></label>
+          <label>Target perangkat<select value={form.targetDevice} onChange={(event) => setForm({ ...form, targetDevice: COMIC_TARGET_DEVICES.find((device) => device.value === event.target.value)?.value || "all" })}>{COMIC_TARGET_DEVICES.map((device) => <option key={device.value} value={device.value}>{device.label}</option>)}</select><small>Komik hanya akan ditampilkan dan dapat dibaca di perangkat yang dipilih.</small></label>
           <label>Sinopsis<textarea required value={form.synopsis} onChange={(event) => setForm({ ...form, synopsis: event.target.value })} placeholder="Ceritakan tentang komik ini" rows={4} /></label>
           <fieldset className="comic-contributors-fieldset">
             <legend>Kredit kreator</legend>

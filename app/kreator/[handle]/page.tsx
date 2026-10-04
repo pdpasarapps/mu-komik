@@ -5,9 +5,10 @@ import { ArrowLeft, AtSign, Gamepad2, Globe2, Link2, MessageCircle, UserRound } 
 import { notFound } from "next/navigation";
 import BrandLogo from "@/components/brand-logo";
 import ShareProfileButton from "@/components/share-profile-button";
-import { getComicGenreLabel } from "@/lib/comic-genres";
 import { parseCreatorSocialLinks } from "@/lib/creator-social-links";
 import { createPublicSupabaseClient, siteUrl } from "@/lib/seo";
+import CreatorComicGrid from "@/components/creator-comic-grid";
+import type { ComicTargetDevice } from "@/lib/comic-target-device";
 
 type CreatorComic = {
   id: string;
@@ -15,6 +16,7 @@ type CreatorComic = {
   slug: string;
   genre: string;
   cover_key: string | null;
+  target_device: ComicTargetDevice;
 };
 
 const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
@@ -152,12 +154,22 @@ export default async function CreatorProfilePage({
   if (!profile) notFound();
   const socialLinks = parseCreatorSocialLinks(profile.social_links);
 
-  const { data: comics, error: comicsError } = await supabase
+  let { data: comics, error: comicsError } = await supabase
     .from("comics")
-    .select("id, title, slug, genre, cover_key")
+    .select("id, title, slug, genre, cover_key, target_device")
     .eq("creator_id", profile.id)
     .eq("status", "published")
     .order("created_at", { ascending: false });
+  if (comicsError?.code === "42703") {
+    const legacyComics = await supabase
+      .from("comics")
+      .select("id, title, slug, genre, cover_key")
+      .eq("creator_id", profile.id)
+      .eq("status", "published")
+      .order("created_at", { ascending: false });
+    comics = legacyComics.data as typeof comics;
+    comicsError = legacyComics.error;
+  }
   if (comicsError) throw new Error(`Unable to load the creator's published comics: ${comicsError.message}`);
 
   return (
@@ -198,29 +210,16 @@ export default async function CreatorProfilePage({
         )}
       </header>
       <section className="creator-public-section" aria-labelledby="creator-public-comics">
-        <div className="reader-section-heading">
-          <div><p className="reader-section-kicker">KARYA PILIHAN</p><h2 id="creator-public-comics">Komik</h2></div>
-          <p className="creator-public-comic-count">{comics?.length ?? 0} komik terbit</p>
-        </div>
         {comics?.length ? (
-          <div className="creator-public-grid">
-            {(comics as CreatorComic[]).map((comic) => {
-              const coverUrl = comic.cover_key && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${comic.cover_key}` : null;
-              return (
-                <Link className="creator-public-comic" href={`/comic/${encodeURIComponent(comic.slug)}`} key={comic.id}>
-                  <div className="creator-public-cover">
-                    {coverUrl
-                      ? <Image src={coverUrl} alt={`Sampul ${comic.title}`} fill sizes="(max-width: 760px) 46vw, 220px" unoptimized />
-                      : <span>{comic.title.slice(0, 2).toUpperCase()}</span>}
-                  </div>
-                  <h3>{comic.title}</h3>
-                  <p>{getComicGenreLabel(comic.genre)}</p>
-                </Link>
-              );
-            })}
-          </div>
+          <CreatorComicGrid comics={comics as CreatorComic[]} publicUrl={publicUrl} />
         ) : (
-          <p className="creator-public-empty">Belum ada komik yang diterbitkan.</p>
+          <>
+            <div className="reader-section-heading">
+              <div><p className="reader-section-kicker">KARYA PILIHAN</p><h2 id="creator-public-comics">Komik</h2></div>
+              <p className="creator-public-comic-count">0 komik terbit</p>
+            </div>
+            <p className="creator-public-empty">Belum ada komik yang diterbitkan.</p>
+          </>
         )}
       </section>
     </main>

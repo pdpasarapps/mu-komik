@@ -6,6 +6,7 @@ For existing Supabase projects, run `supabase/comic-contributors.sql` once befor
 For comic publishing and admin curation, run `supabase/comic-curation.sql` once on existing Supabase projects.
 For the admin dashboard, run `supabase/creator-request.sql` first, then `supabase/admin-management.sql` to grant admin access to profile management.
 For comic-level bookmarks on an existing database, run `supabase/comic-bookmarks.sql` once.
+For creator-selected comic device targeting on an existing database, run `supabase/comic-target-device.sql` once before deploying.
 For static comic share previews on an existing database, run `supabase/comic-share-previews.sql` once before deploying. Admins can then generate previews for published comics from `/admin/share-previews`; new covers create their share preview in the browser and upload it directly to R2.
 For admin reading analytics on an existing database, run `supabase/comic-analytics.sql` once in the Supabase SQL Editor after `supabase/creator-request.sql`, then configure `SUPABASE_SERVICE_ROLE_KEY` as a server-only secret in the production Worker and `.env.local`. The analytics route needs it to record anonymous views; never expose it in client-side code. Counts start after this migration is installed. A browser opening the same episode is counted at most once per 30-minute interval; unique readers use a random first-party cookie, not an IP address or user-agent.
 
