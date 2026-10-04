@@ -20,8 +20,8 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: "/pwa/icon-512-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
     shortcuts: [
-      { name: "Jelajahi komik", short_name: "Jelajahi", url: "/#jelajah", icons: [{ src: "/pwa/shortcut-discover.png", sizes: "96x96", type: "image/png" }] },
-      { name: "Koleksi saya", short_name: "Koleksi", url: "/account", icons: [{ src: "/pwa/shortcut-library.png", sizes: "96x96", type: "image/png" }] },
+      { name: "Jelajahi komik", short_name: "Jelajahi", url: "/#jelajah", icons: [{ src: "/pwa/icon-192.png", sizes: "192x192", type: "image/png" }] },
+      { name: "Koleksi saya", short_name: "Koleksi", url: "/account", icons: [{ src: "/pwa/icon-192.png", sizes: "192x192", type: "image/png" }] },
     ],
   };
 }
