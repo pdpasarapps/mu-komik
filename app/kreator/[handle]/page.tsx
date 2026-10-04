@@ -71,7 +71,7 @@ export async function generateMetadata({
     ? rawDescription
     : `${rawDescription.slice(0, 157).replace(/\s+\S*$/, "")}...`;
   const url = new URL(`/kreator/${encodeURIComponent(handle)}`, siteUrl).toString();
-  const image = new URL(`/kreator/${encodeURIComponent(handle)}/opengraph-image`, siteUrl).toString();
+  const image = new URL("/logo_mukomik.jpg", siteUrl).toString();
   return {
     title,
     description,
@@ -87,13 +87,13 @@ export async function generateMetadata({
       url,
       siteName: "MU Komik",
       locale: "id_ID",
-      images: [{ url: image, width: 1200, height: 630, alt: `Foto profil dan profil kreator ${data.display_name}` }],
+      images: [{ url: image, alt: "Logo MU Komik" }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [{ url: image, alt: `Foto profil dan profil kreator ${data.display_name}` }],
+      images: [{ url: image, alt: "Logo MU Komik" }],
     },
   };
 }
