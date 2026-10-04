@@ -42,7 +42,13 @@ export async function generateMetadata({
   const description = descriptionText.length > 160
     ? `${descriptionText.slice(0, 157).trimEnd()}...`
     : descriptionText || `Baca komik ${comic.title}, genre ${getComicGenreLabel(comic.genre)}, di mu-komik.`;
-  const image = new URL(`/comic/${encodeURIComponent(slug)}/opengraph-image`, siteUrl).toString();
+  const imageBaseUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL;
+  let image = new URL("/logo_mukomik.jpg", siteUrl).toString();
+  if (comic.cover_key && imageBaseUrl) {
+    const coverUrl = new URL(imageBaseUrl);
+    coverUrl.pathname = `${coverUrl.pathname.replace(/\/?$/, "/")}${comic.cover_key.split("/").map(encodeURIComponent).join("/")}`;
+    image = coverUrl.toString();
+  }
   const author = comic.contributor?.trim() || profile?.display_name || "Kreator independen";
   const canonicalUrl = new URL(`/comic/${encodeURIComponent(slug)}`, siteUrl).toString();
 
