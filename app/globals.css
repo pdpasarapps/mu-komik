@@ -701,11 +701,10 @@ button, input, select { font: inherit; }
   .admin-main .admin-title p { font-size: .78rem; }
 }
 .creator-public-identity-copy { min-width: 0; flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
-.creator-profile-share { position: relative; display: flex; align-items: center; gap: 8px; }
-.creator-profile-share-button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: 0 0 auto; padding: 0 13px; border: 1px solid var(--reader-border); border-radius: 7px; background: rgba(255,255,255,.8); color: var(--reader-text); font: inherit; font-size: .76rem; font-weight: 750; cursor: pointer; }
-.creator-profile-share-button:hover { border-color: rgba(95,130,104,.5); background: #fff; }
-.creator-profile-share-menu { position: absolute; z-index: 10; top: calc(100% + 8px); left: 0; width: max-content; min-width: 190px; display: grid; gap: 2px; padding: 6px; border: 1px solid var(--reader-border); border-radius: 9px; background: #fff; box-shadow: 0 12px 30px rgba(32,36,34,.14); }
-.creator-profile-share-menu a, .creator-profile-share-menu button { min-height: 38px; display: flex; align-items: center; gap: 9px; padding: 0 10px; border: 0; border-radius: 5px; background: transparent; color: var(--reader-text); font: inherit; font-size: .76rem; text-align: left; text-decoration: none; cursor: pointer; }
-.creator-profile-share-menu a:hover, .creator-profile-share-menu button:hover { background: #f3f1e9; }
+.creator-profile-share { display: flex; align-items: center; gap: 8px; }
+.creator-profile-share .reader-detail-action { min-height: 44px; transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease; }
+.creator-profile-share .reader-detail-action:hover { transform: translateY(-1px); }
+.creator-profile-share .reader-detail-action:active { transform: translateY(0) scale(.98); }
+.creator-profile-share .reader-detail-action:focus-visible { outline: 3px solid rgba(237,105,68,.55); outline-offset: 2px; }
 .creator-profile-share-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
-@media (max-width: 520px) { .creator-public-identity-copy { align-items: flex-start; flex-direction: column; gap: 10px; }.creator-profile-share-button { min-height: 34px; padding: 0 10px; font-size: .7rem; } }
+@media (max-width: 520px) { .creator-public-identity-copy { align-items: flex-start; flex-direction: column; gap: 10px; } }

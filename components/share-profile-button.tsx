@@ -1,77 +1,101 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Copy, Share2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { Copy, ExternalLink, Share2, X } from "lucide-react";
 
 export default function ShareProfileButton({ creatorName }: { creatorName: string }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
   const [message, setMessage] = useState("");
-  const profileTitle = `Profil ${creatorName} — MU Komik`;
+  const shareUrlRef = useRef<HTMLTextAreaElement>(null);
   const shareText = `Lihat profil kreator ${creatorName} di MU Komik`;
 
   const shareProfile = async () => {
     setMessage("");
-    try {
-      const url = `${window.location.origin}${window.location.pathname}`;
-      if (navigator.share) {
-        await navigator.share({ title: profileTitle, text: shareText, url });
-        setMessage("Profil berhasil dibagikan.");
-      } else {
-        await navigator.clipboard.writeText(url);
-        setMessage("Tautan profil disalin.");
+    const url = window.location.href;
+    setShareUrl(url);
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Profil ${creatorName} — MU Komik`,
+          text: shareText,
+          url,
+        });
+        return;
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+        console.error("Unable to open the native profile share dialog:", error);
       }
-      setMenuOpen(false);
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      console.error("Unable to share creator profile:", error);
-      setMessage("Profil tidak dapat dibagikan. Coba salin URL dari bilah alamat.");
     }
+    setDialogOpen(true);
   };
 
-  const copyProfileLink = async () => {
+  const copyProfileUrl = async () => {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}`);
-      setMessage("Tautan profil disalin.");
-      setMenuOpen(false);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        setMessage("Tautan profil berhasil disalin.");
+        setDialogOpen(false);
+        return;
+      }
     } catch (error) {
-      console.error("Unable to copy creator profile URL:", error);
-      setMessage("Tautan tidak dapat disalin. Salin URL dari bilah alamat.");
+      console.error("Clipboard API could not copy the creator profile URL:", error);
     }
+    shareUrlRef.current?.focus();
+    shareUrlRef.current?.select();
+    setMessage("Tautan dipilih. Salin dengan menekan Ctrl+C atau tahan lalu pilih Salin.");
   };
 
-  const url = typeof window === "undefined" ? "" : `${window.location.origin}${window.location.pathname}`;
-  const encodedUrl = encodeURIComponent(url);
-  const encodedText = encodeURIComponent(shareText);
+  const whatsappText = `${shareText}: ${shareUrl}`;
 
   return (
-    <div className="creator-profile-share">
-      <button
-        className="creator-profile-share-button"
-        type="button"
-        onClick={() => {
-          setMessage("");
-          setMenuOpen((open) => !open);
-        }}
-        aria-expanded={menuOpen}
-        aria-haspopup="true"
-        aria-controls="creator-profile-share-menu"
-      >
-        <Share2 size={16} />
-        Bagikan profil
-      </button>
-      {menuOpen && (
-        <div className="creator-profile-share-menu" id="creator-profile-share-menu" role="group" aria-label="Bagikan profil melalui">
-          <a href={`https://wa.me/?text=${encodedText}%20${encodedUrl}`} target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)}>WhatsApp</a>
-          <a href={`https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`} target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)}>Telegram</a>
-          <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`} target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)}>Facebook</a>
-          <a href={`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`} target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)}>X</a>
-          <button type="button" onClick={() => void shareProfile()}>Bagikan lainnya</button>
-          <button type="button" onClick={() => void copyProfileLink()}>
-            <Copy size={14} /> Salin tautan
-          </button>
+    <>
+      <div className="creator-profile-share">
+        <button className="reader-detail-action creator-profile-share-button" type="button" onClick={() => void shareProfile()}>
+          <Share2 size={17} /> Bagikan
+        </button>
+        {message && <span className="creator-profile-share-status" role="status">{message}</span>}
+      </div>
+      {dialogOpen && (
+        <div className="reader-share-backdrop" role="presentation" onClick={() => setDialogOpen(false)}>
+          <section
+            className="reader-share-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="creator-share-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button className="reader-share-close" type="button" aria-label="Tutup pilihan berbagi" onClick={() => setDialogOpen(false)}>
+              <X size={19} />
+            </button>
+            <p className="reader-section-kicker">BAGIKAN PROFIL</p>
+            <h2 id="creator-share-title">Bagikan profil kreator</h2>
+            <p className="reader-share-description">{creatorName} · MU Komik</p>
+            <textarea
+              ref={shareUrlRef}
+              className="reader-share-url"
+              aria-label="Tautan profil"
+              readOnly
+              value={shareUrl}
+              onFocus={(event) => event.currentTarget.select()}
+            />
+            <div className="reader-share-actions">
+              <button className="reader-primary-button" type="button" onClick={() => void copyProfileUrl()}>
+                <Copy size={17} /> Salin tautan
+              </button>
+              <a
+                className="reader-detail-action"
+                href={`https://wa.me/?text=${encodeURIComponent(whatsappText)}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <ExternalLink size={17} /> Bagikan via WhatsApp
+              </a>
+            </div>
+            {message && <p className="reader-detail-action-message" role="status">{message}</p>}
+          </section>
         </div>
       )}
-      {message && <span className="creator-profile-share-status" role="status">{message === "Tautan profil disalin." && <Check size={14} />}{message}</span>}
-    </div>
+    </>
   );
 }

@@ -51,7 +51,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { handle } = await params;
   const supabase = createPublicSupabaseClient();
-  if (!supabase) return { title: "Profil kreator" };
+  if (!supabase) return { title: "Profil kreator", robots: { index: false, follow: false } };
   const { data, error } = await supabase
     .from("profiles")
     .select("display_name, bio")
@@ -61,30 +61,39 @@ export async function generateMetadata({
     .maybeSingle();
   if (error) {
     console.error("Unable to load public creator profile metadata:", error);
-    return { title: "Profil kreator" };
+    return { title: "Profil kreator", robots: { index: false, follow: false } };
   }
-  if (!data) return { title: "Profil kreator" };
-  const title = `${data.display_name} — Profil Kreator`;
-  const description = data.bio?.trim().replace(/\s+/g, " ").slice(0, 160)
+  if (!data) return { title: "Profil kreator", robots: { index: false, follow: false } };
+  const title = `${data.display_name} — Kreator Komik Indonesia`;
+  const rawDescription = data.bio?.trim().replace(/\s+/g, " ")
     || `Lihat komik terbit dari kreator ${data.display_name} di MU Komik.`;
+  const description = rawDescription.length <= 160
+    ? rawDescription
+    : `${rawDescription.slice(0, 157).replace(/\s+\S*$/, "")}...`;
   const url = new URL(`/kreator/${encodeURIComponent(handle)}`, siteUrl).toString();
-  const image = new URL(`${url}/opengraph-image`, siteUrl).toString();
+  const image = new URL(`/kreator/${encodeURIComponent(handle)}/opengraph-image`, siteUrl).toString();
   return {
     title,
     description,
+    keywords: [data.display_name, "kreator komik", "komik Indonesia", "MU Komik"],
+    authors: [{ name: data.display_name }],
+    creator: data.display_name,
+    robots: { index: true, follow: true },
     alternates: { canonical: url },
     openGraph: {
       type: "profile",
       title,
       description,
       url,
-      images: [{ url: image, width: 1200, height: 630, alt: `Profil kreator ${data.display_name}` }],
+      siteName: "MU Komik",
+      locale: "id_ID",
+      images: [{ url: image, width: 1200, height: 630, alt: `Foto profil dan profil kreator ${data.display_name}` }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [image],
+      images: [{ url: image, alt: `Foto profil dan profil kreator ${data.display_name}` }],
     },
   };
 }
