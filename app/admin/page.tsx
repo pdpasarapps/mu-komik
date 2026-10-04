@@ -3,6 +3,7 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { ArrowLeft, Archive, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, Image as ImageIcon, LayoutDashboard, LoaderCircle, Search, ShieldCheck, UserRound, Users, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
@@ -136,8 +137,7 @@ export default function AdminPage() {
 
       for (const [index, comic] of comicsToProcess.entries()) {
         try {
-          const coverUrl = `${publicUrl.replace(/\/$/, "")}/${comic.cover_key!.split("/").map(encodeURIComponent).join("/")}`;
-          const coverResponse = await fetch(coverUrl);
+          const coverResponse = await fetch(`/api/share-cover?key=${encodeURIComponent(comic.cover_key!)}`);
           if (!coverResponse.ok) throw new Error(`Cover gagal diunduh (${coverResponse.status}).`);
           const preview = await createComicSharePreview(await coverResponse.blob(), comic.title);
           const signResponse = await fetch("/api/r2/share-preview", {
@@ -166,8 +166,9 @@ export default function AdminPage() {
             : item));
           generated += 1;
         } catch (error) {
-          console.error("Unable to generate comic share preview:", { comicId: comic.id, error });
-          failures.push(`${comic.title}: ${error instanceof Error ? error.message : "gagal diproses"}`);
+          const errorMessage = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+          console.error("Unable to generate comic share preview:", { comicId: comic.id, error: errorMessage });
+          failures.push(`${comic.title}: ${errorMessage}`);
         }
         setSharePreviewProgress(`${index + 1} dari ${comicsToProcess.length} komik`);
       }
@@ -269,6 +270,7 @@ export default function AdminPage() {
   });
   const pendingRequests = requests.filter((request) => request.status === "pending").length;
   const publishedComics = comics.filter((comic) => comic.status === "published").length;
+  const generatedSharePreviews = comics.filter((comic) => comic.status === "published" && comic.share_preview_key);
 
   if (loading) return <main className="admin-shell"><LoaderCircle className="spin" size={24} /></main>;
 
@@ -320,6 +322,49 @@ export default function AdminPage() {
             {generatingSharePreviews ? <LoaderCircle className="spin" size={16} /> : <ImageIcon size={16} />}
             {generatingSharePreviews ? "Membuat preview..." : "Buat preview untuk semua komik terbit"}
           </button>
+          <div className="admin-section-heading">
+            <div><p className="eyebrow">Tersimpan di R2</p><h2>Preview yang sudah dibuat</h2></div>
+            <span>{generatedSharePreviews.length} komik</span>
+          </div>
+          {generatedSharePreviews.length ? (
+            <div className="request-table-wrap">
+              <table className="request-table">
+                <thead>
+                  <tr><th>Preview</th><th>Komik</th><th>Status</th><th>File R2</th></tr>
+                </thead>
+                <tbody>
+                  {generatedSharePreviews.map((comic) => {
+                    const previewUrl = publicUrl
+                      ? `${publicUrl.replace(/\/$/, "")}/${comic.share_preview_key!.split("/").map(encodeURIComponent).join("/")}`
+                      : "";
+                    return (
+                      <tr key={comic.id}>
+                        <td>
+                          {previewUrl && (
+                            <a href={previewUrl} target="_blank" rel="noreferrer" aria-label={`Buka preview share ${comic.title}`}>
+                              <Image
+                                src={previewUrl}
+                                alt={`Preview share ${comic.title}`}
+                                width={120}
+                                height={63}
+                                unoptimized
+                                style={{ width: 120, height: 63, objectFit: "cover", borderRadius: 6 }}
+                              />
+                            </a>
+                          )}
+                        </td>
+                        <td><strong>{comic.title}</strong><code>{comic.slug}</code></td>
+                        <td><span className="request-status request-approved">Sudah dibuat</span></td>
+                        <td>{previewUrl && <a href={previewUrl} target="_blank" rel="noreferrer">Lihat file JPG</a>}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="admin-empty"><ImageIcon size={26} /><h2>Belum ada preview yang dibuat.</h2><p>Preview komik akan tercatat di tabel ini setelah proses berhasil.</p></div>
+          )}
         </section>}
         {section === "comic-review" && <section className="comic-review-section" id="comic-review">
           <div className="admin-section-heading">
