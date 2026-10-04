@@ -40,6 +40,7 @@ export default function AccountPage() {
   const [otherUrl, setOtherUrl] = useState("");
   const [bookmarks, setBookmarks] = useState<BookmarkedComic[]>([]);
   const [bookmarkError, setBookmarkError] = useState("");
+  const [activeCreatorGuideTab, setActiveCreatorGuideTab] = useState<"publishing" | "rules">("publishing");
 
   useEffect(() => {
     const loadAccount = async () => {
@@ -144,6 +145,83 @@ export default function AccountPage() {
           )}
         </article>
       </section>
+      {profile?.role === "creator" && (
+        <section className="account-panel account-creator-faq" aria-labelledby="creator-faq-title">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Panduan kreator</p>
+              <h2 id="creator-faq-title">Panduan MU Komik</h2>
+            </div>
+            <Sparkles size={22} />
+          </div>
+          <div className="account-creator-tabs" role="tablist" aria-label="Panduan kreator">
+            <button
+              id="creator-publishing-tab"
+              type="button"
+              role="tab"
+              aria-selected={activeCreatorGuideTab === "publishing"}
+              aria-controls="creator-publishing-panel"
+              tabIndex={activeCreatorGuideTab === "publishing" ? 0 : -1}
+              onClick={() => setActiveCreatorGuideTab("publishing")}
+              onKeyDown={(event) => {
+                if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                event.preventDefault();
+                const nextTab = activeCreatorGuideTab === "publishing" ? "rules" : "publishing";
+                setActiveCreatorGuideTab(nextTab);
+                document.getElementById(`creator-${nextTab}-tab`)?.focus();
+              }}
+            >
+              Cara Publikasi
+            </button>
+            <button
+              id="creator-rules-tab"
+              type="button"
+              role="tab"
+              aria-selected={activeCreatorGuideTab === "rules"}
+              aria-controls="creator-rules-panel"
+              tabIndex={activeCreatorGuideTab === "rules" ? 0 : -1}
+              onClick={() => setActiveCreatorGuideTab("rules")}
+              onKeyDown={(event) => {
+                if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                event.preventDefault();
+                const nextTab = activeCreatorGuideTab === "publishing" ? "rules" : "publishing";
+                setActiveCreatorGuideTab(nextTab);
+                document.getElementById(`creator-${nextTab}-tab`)?.focus();
+              }}
+            >
+              Aturan
+            </button>
+          </div>
+          {activeCreatorGuideTab === "publishing" ? (
+            <div id="creator-publishing-panel" className="account-creator-tab-panel" role="tabpanel" aria-labelledby="creator-publishing-tab" tabIndex={0}>
+              <details>
+                <summary>Bagaimana cara mulai menerbitkan komik?</summary>
+                <p>Buka Ruang Kreator, pilih <strong>Komik baru</strong>, lalu lengkapi judul, genre, sinopsis, kredit kreator, bahasa, target pembaca, dan detail lainnya. Komik yang dibuat akan tersimpan sebagai draf.</p>
+              </details>
+              <details>
+                <summary>Bagaimana cara menerbitkan bab?</summary>
+                <p>Pilih komik di Ruang Kreator, buat bab dengan judul dan nomor bab, lalu unggah halaman-halamannya. Aktifkan opsi <strong>Publish chapter</strong> saat membuat atau mengedit bab agar bab dapat dibaca.</p>
+              </details>
+              <details>
+                <summary>Bagaimana komik bisa tampil untuk pembaca?</summary>
+                <p>Dari daftar komik, pilih <strong>Ajukan kurasi</strong>. Komik akan berstatus menunggu kurasi sampai admin meninjaunya. Setelah disetujui dan berstatus terbit, komik dapat ditemukan pembaca.</p>
+              </details>
+            </div>
+          ) : (
+            <div id="creator-rules-panel" className="account-creator-tab-panel" role="tabpanel" aria-labelledby="creator-rules-tab" tabIndex={0}>
+              <details>
+                <summary>Apa aturan publikasi komik di MU Komik?</summary>
+                <p>Komik di MU Komik gratis untuk dibaca. Cantumkan kredit kreator yang terlibat. Jika komik merupakan adaptasi, isi judul dan pencipta karya sumbernya.</p>
+              </details>
+              <details>
+                <summary>Informasi apa yang perlu diisi dengan benar?</summary>
+                <p>Pilih target pembaca dan teknik produksi yang sesuai dengan karyamu, termasuk jika karya dibantu atau dibuat dengan AI.</p>
+              </details>
+              <Link className="account-manifesto-link" href="/manifesto">Baca Manifesto AI MU-KOMIK <ArrowUpRight size={15} /></Link>
+            </div>
+          )}
+        </section>
+      )}
     </main>
   );
 }

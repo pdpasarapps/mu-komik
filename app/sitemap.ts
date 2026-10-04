@@ -6,6 +6,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: siteUrl.toString(),
     changeFrequency: "daily",
     priority: 1,
+  }, {
+    url: new URL("/manifesto", siteUrl).toString(),
+    changeFrequency: "monthly",
+    priority: 0.6,
   }];
   const supabase = createPublicSupabaseClient();
   if (!supabase) {
