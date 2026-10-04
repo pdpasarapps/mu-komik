@@ -3,7 +3,7 @@ import { getComicGenreLabel } from "@/lib/comic-genres";
 import { createPublicSupabaseClient, siteUrl } from "@/lib/seo";
 
 export const alt = "Komik di mu-komik";
-export const size = { width: 1200, height: 630 };
+export const size = { width: 900, height: 1200 };
 export const contentType = "image/png";
 
 function toBase64(buffer: ArrayBuffer) {
@@ -72,6 +72,7 @@ export default async function OpenGraphImage({
           width: "100%",
           height: "100%",
           display: "flex",
+          flexDirection: "column",
           backgroundColor: "#f7f6f2",
           color: "#202422",
           fontFamily: "sans-serif",
@@ -79,8 +80,9 @@ export default async function OpenGraphImage({
       >
         <div
           style={{
-            width: 420,
-            height: "100%",
+            width: "100%",
+            height: 860,
+            flexShrink: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -89,59 +91,58 @@ export default async function OpenGraphImage({
           }}
         >
           {coverImage ? (
-            <img src={coverImage} alt="" width={420} height={630} style={{ objectFit: "cover" }} />
+            <img src={coverImage} alt="" width={900} height={860} style={{ objectFit: "cover", objectPosition: "top" }} />
           ) : (
             <div style={{ fontSize: 110, fontWeight: 800 }}>{title.slice(0, 2).toUpperCase()}</div>
           )}
         </div>
         <div
           style={{
-            flex: 1,
+            width: "100%",
             display: "flex",
-            flexDirection: "column",
+            alignItems: "center",
             justifyContent: "center",
-            padding: "58px 64px",
+            height: 340,
+            flexShrink: 0,
+            padding: "12px 42px 14px",
+            position: "relative",
           }}
         >
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              alignSelf: "flex-start",
-              gap: 15,
-              marginBottom: 45,
-              padding: "10px 17px 10px 10px",
-              borderRadius: 18,
-              backgroundColor: "#ffffff",
+              position: "absolute",
+              top: 12,
+              right: 42,
+              padding: "8px 18px",
+              borderRadius: 999,
+              backgroundColor: "#fce5dc",
+              color: "#c94f2c",
+              fontSize: 28,
+              fontWeight: 700,
+              textAlign: "center",
             }}
           >
-            <img src={logoUrl} alt="Logo mu-komik" width={72} height={72} style={{ borderRadius: 12 }} />
-            <span style={{ display: "flex", flexDirection: "column", color: "#56635b", fontSize: 21, fontWeight: 700, lineHeight: 1.2 }}>
-              <span>MU KOMIK</span>
-              <span style={{ fontSize: 16, fontWeight: 500 }}>Komik Indonesia</span>
-            </span>
+            {genre}
           </div>
-          <div style={{ marginBottom: 17, color: "#ed6944", fontSize: 22, fontWeight: 700 }}>{genre}</div>
           <div
             style={{
               display: "flex",
-              maxHeight: 220,
-              overflow: "hidden",
-              fontSize: 58,
-              fontWeight: 800,
-              lineHeight: 1.08,
-              letterSpacing: -2,
-              overflowWrap: "anywhere",
+              alignItems: "center",
+              alignSelf: "center",
+              gap: 20,
             }}
           >
-            {title}
-          </div>
-          <div style={{ marginTop: 32, color: "#667269", fontSize: 25 }}>Baca di MU Komik</div>
-          <div style={{ display: "flex", marginTop: 20, color: "#7a857e", fontSize: 16 }}>
-            Instagram @mu_komik · TikTok @mukomikz
-          </div>
-          <div style={{ display: "flex", marginTop: 8, color: "#7a857e", fontSize: 15 }}>
-            mu.komiks.apps@gmail.com
+            <img
+              src={logoUrl}
+              alt="Logo mu-komik"
+              width={150}
+              height={150}
+              style={{ border: "2px solid #d8d4ca", borderRadius: 18, boxSizing: "border-box" }}
+            />
+            <span style={{ width: 420, display: "flex", flexDirection: "column", alignItems: "center", color: "#000000", lineHeight: 1.1 }}>
+              <span style={{ fontSize: 72, fontWeight: 800, whiteSpace: "nowrap" }}>MU KOMIK</span>
+              <span style={{ fontSize: 48, fontWeight: 500, whiteSpace: "nowrap" }}>Komik Indonesia</span>
+            </span>
           </div>
         </div>
       </div>
