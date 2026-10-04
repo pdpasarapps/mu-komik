@@ -39,23 +39,24 @@ export async function generateMetadata({
   const comic = Array.isArray(chapter.comics) ? chapter.comics[0] : chapter.comics;
   if (!comic) return { title: "Episode tidak ditemukan", robots: { index: false, follow: false } };
 
-  const title = `${comic.title} - Episode ${chapter.chapter_number}: ${chapter.title}`;
+  const title = `${comic.title} Episode ${chapter.chapter_number}: ${chapter.title}`;
   const synopsis = (comic.synopsis || "").replace(/\*\*/g, "").replace(/👉/g, "").replace(/\s+/g, " ").trim();
-  const description = synopsis.length > 160 ? `${synopsis.slice(0, 157).trimEnd()}...` : synopsis || `Baca episode ${chapter.chapter_number} dari komik ${comic.title} di mu-komik.`;
+  const episodeDescription = `Baca episode ${chapter.chapter_number} "${chapter.title}" dari komik ${comic.title}.`;
+  const description = `${episodeDescription}${synopsis ? ` ${synopsis}` : ""}`.slice(0, 160).trimEnd();
   const canonicalUrl = new URL(`/comic/${encodeURIComponent(slug)}/chapter/${encodeURIComponent(chapterId)}`, siteUrl).toString();
   const imageBaseUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL;
   const image = comic.cover_key && imageBaseUrl
     ? `${imageBaseUrl.replace(/\/$/, "")}/${comic.cover_key}`
     : undefined;
   return {
-    title,
+    title: `${title} | MU Komik`,
     description,
     alternates: { canonical: canonicalUrl },
     openGraph: {
       type: "article",
       locale: "id_ID",
       siteName: "mu-komik",
-      title,
+      title: `${title} | MU Komik`,
       description,
       url: canonicalUrl,
       ...(image ? { images: [{ url: image, alt: `Sampul komik ${comic.title}` }] } : {}),

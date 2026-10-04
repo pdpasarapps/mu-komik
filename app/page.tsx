@@ -333,6 +333,7 @@ export default function Home() {
 
   return (
     <main className="reader-home">
+      <h1 className="reader-sr-only">Baca komik Indonesia dari kreator lokal</h1>
       <header className="reader-header">
         <button className="reader-menu-toggle" aria-label={menuOpen ? "Tutup navigasi" : "Buka navigasi"} onClick={() => setMenuOpen((open) => !open)}>
           {menuOpen ? <X size={21} /> : <Menu size={21} />}
@@ -370,7 +371,7 @@ export default function Home() {
           <div className="reader-featured-copy">
             <span className="reader-kicker"><Sparkles size={15} /> UPDATE TERBARU</span>
             <p className="reader-featured-genre">{comicGenre(featuredComic.genre)} <span>·</span> {featuredComic.contributor || featuredComic.creator}</p>
-            <h1>{featuredComic.title}</h1>
+            <h2>{featuredComic.title}</h2>
             <p className="reader-featured-synopsis">{cleanSynopsis(featuredComic.synopsis) || "Temukan cerita baru dan mulai membaca hari ini."}</p>
             {featuredComic.latestChapter && <span className="reader-featured-episode">Episode {featuredComic.latestChapter.chapter_number} · {featuredComic.latestChapter.title}</span>}
             <Link className="reader-primary-button" href={featuredComic.latestChapter ? `/comic/${featuredComic.slug}/chapter/${featuredComic.latestChapter.id}` : `/comic/${featuredComic.slug}`}>
@@ -386,7 +387,7 @@ export default function Home() {
       ) : (
         <section className="reader-welcome">
           <p className="reader-kicker"><Sparkles size={15} /> CERITA INDONESIA, DI SINI</p>
-          <h1>Temukan kisah yang membuatmu betah membaca.</h1>
+          <h2>Temukan kisah yang membuatmu betah membaca.</h2>
           <p>Jelajahi komik independen dan temukan cerita favorit berikutnya.</p>
           <Link className="reader-primary-button" href="#jelajah">Jelajahi komik <ArrowRight size={17} /></Link>
         </section>

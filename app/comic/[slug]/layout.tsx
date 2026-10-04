@@ -47,7 +47,7 @@ export async function generateMetadata({
   const canonicalUrl = new URL(`/comic/${encodeURIComponent(slug)}`, siteUrl).toString();
 
   return {
-    title: comic.title,
+    title: `${comic.title} — Baca Komik Indonesia`,
     description,
     alternates: { canonical: canonicalUrl },
     keywords: [comic.title, getComicGenreLabel(comic.genre), "komik Indonesia", "baca komik", author],
@@ -56,14 +56,14 @@ export async function generateMetadata({
       type: "article",
       locale: "id_ID",
       siteName: "mu-komik",
-      title: `${comic.title} - Baca Komik Indonesia`,
+      title: `${comic.title} — Baca Komik Indonesia | MU Komik`,
       description,
       url: canonicalUrl,
       images: [{ url: image, alt: `Preview komik ${comic.title} dengan logo mu-komik` }],
     },
     twitter: {
       card: "summary_large_image",
-      title: comic.title,
+      title: `${comic.title} — Baca Komik Indonesia | MU Komik`,
       description,
       images: [image],
     },
