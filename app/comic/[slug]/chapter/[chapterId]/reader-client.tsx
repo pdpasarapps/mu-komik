@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import SponsoredAd from "@/components/sponsored-ad";
 
 const supabase = createClient();
+const TRANSITION_AD_LOAD_TIMEOUT_MS = 2000;
 
 type Page = { id: string; page_number: number; object_key: string };
 type Chapter = { id: string; title: string; chapter_number: number; comic_id: string };
@@ -342,10 +343,19 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   };
 
   useEffect(() => {
-    if (!pendingChapterHref || transitionAdAvailable === null) return;
-    if (!transitionAdAvailable) {
+    if (!pendingChapterHref) return;
+    if (transitionAdAvailable === false) {
       router.push(pendingChapterHref);
       return;
+    }
+    if (transitionAdAvailable === null) {
+      const target = pendingChapterHref;
+      const timer = window.setTimeout(() => {
+        console.warn("Episode transition ad did not load in time; continuing without the ad.");
+        setPendingChapterHref(null);
+        router.push(target);
+      }, TRANSITION_AD_LOAD_TIMEOUT_MS);
+      return () => window.clearTimeout(timer);
     }
     if (transitionDeadline === null) return;
 
