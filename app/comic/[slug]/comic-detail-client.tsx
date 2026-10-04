@@ -426,8 +426,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
     }
     if (navigator.share) {
       try {
-        const synopsis = comic ? cleanSynopsis(comic.synopsis) : "";
-        const shareText = [synopsis, `Baca ${comic?.title} di mu-komik`].filter(Boolean).join("\n\n");
+        const shareText = comic ? `Yuk baca ${comic.title} di MU Komik!` : "Yuk baca komik di MU Komik!";
         const shareData: ShareData = { title: comic?.title, text: shareText, url };
         await navigator.share(shareData);
         return;
@@ -570,7 +569,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
             <textarea ref={shareUrlRef} className="reader-share-url" aria-label="Tautan komik" readOnly value={shareUrl} onFocus={(event) => event.currentTarget.select()} />
             <div className="reader-share-actions">
               <button className="reader-primary-button" type="button" onClick={() => void copyShareUrl()}><Copy size={17} /> Salin tautan</button>
-              <a className="reader-detail-action" href={`https://wa.me/?text=${encodeURIComponent([cleanSynopsis(comic.synopsis), `Baca ${comic.title} di mu-komik: ${shareUrl}`].filter(Boolean).join("\n\n"))}`} target="_blank" rel="noreferrer"><ExternalLink size={17} /> Bagikan via WhatsApp</a>
+              <a className="reader-detail-action" href={`https://wa.me/?text=${encodeURIComponent(`Yuk baca ${comic.title} di MU Komik! ${shareUrl}`)}`} target="_blank" rel="noreferrer"><ExternalLink size={17} /> Bagikan via WhatsApp</a>
             </div>
             {shareMessage && <p className="reader-detail-action-message" role="status">{shareMessage}</p>}
           </section>
