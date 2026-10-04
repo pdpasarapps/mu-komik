@@ -91,37 +91,33 @@ export default function AccountPage() {
         public_handle: string | null;
       } | null = null;
       let profileError = null;
-      let missingProfileColumns: string | null = null;
-      const profileQueries = [
-        { columns: "display_name, role, public_profile, bio, avatar_key, banner_key, social_links, public_handle", fallback: false },
-        { columns: "display_name, role, public_profile, bio, avatar_key, banner_key, public_handle", fallback: true },
-        { columns: "display_name, role, public_profile, bio, avatar_key, banner_key, social_links", fallback: true },
-        { columns: "display_name, role, public_profile, bio, avatar_key, banner_key", fallback: true },
-        { columns: "display_name, role, public_profile, avatar_key", fallback: true },
-        { columns: "display_name, role", fallback: true },
-      ] as const;
-      for (const query of profileQueries) {
-        const result = await supabase
-          .from("profiles")
-          .select(query.columns as "display_name, role, public_profile, bio, avatar_key, banner_key, social_links, public_handle" | "display_name, role, public_profile, bio, avatar_key, banner_key, public_handle" | "display_name, role, public_profile, bio, avatar_key, banner_key, social_links" | "display_name, role, public_profile, bio, avatar_key, banner_key" | "display_name, role, public_profile, avatar_key" | "display_name, role")
-          .eq("id", user.id)
-          .single();
-        if (!result.error) {
-          profileData = {
-            display_name: result.data.display_name,
-            role: result.data.role,
-            public_profile: "public_profile" in result.data ? result.data.public_profile : false,
-            bio: "bio" in result.data ? result.data.bio : "",
-            avatar_key: "avatar_key" in result.data ? result.data.avatar_key : null,
-            banner_key: "banner_key" in result.data ? result.data.banner_key : null,
-            social_links: "social_links" in result.data ? result.data.social_links : [],
-            public_handle: "public_handle" in result.data ? result.data.public_handle : null,
-          };
-          missingProfileColumns = query.fallback ? query.columns : null;
-          break;
+      const profileResult = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      if (profileResult.error) {
+        profileError = profileResult.error;
+      } else {
+        const row = profileResult.data;
+        profileData = {
+          display_name: row.display_name,
+          role: row.role,
+          public_profile: "public_profile" in row ? row.public_profile : false,
+          bio: "bio" in row ? row.bio : "",
+          avatar_key: "avatar_key" in row ? row.avatar_key : null,
+          banner_key: "banner_key" in row ? row.banner_key : null,
+          social_links: "social_links" in row ? row.social_links : [],
+          public_handle: "public_handle" in row ? row.public_handle : null,
+        };
+        if (!("public_profile" in row)) {
+          setProfileVisibilityMessage("Jalankan supabase/creator-public-profile.sql untuk mengaktifkan profil publik.");
         }
-        profileError = result.error;
-        if (!isMissingProfileColumnError(result.error)) break;
+        if (!("public_handle" in row)) {
+          setCreatorProfileMessage("Jalankan supabase/creator-profile-handle.sql untuk mengaktifkan URL profil kreator.");
+        } else if (!("social_links" in row) || !("bio" in row) || !("banner_key" in row)) {
+          setCreatorProfileMessage("Jalankan ulang supabase/creator-profile-bio.sql untuk mengaktifkan semua field profil kreator.");
+        }
       }
       if (profileError && !profileData) {
         console.error("Unable to load account profile:", profileError);
@@ -132,17 +128,6 @@ export default function AccountPage() {
         setPublicHandle(loadedProfile.public_handle || createCreatorHandle(loadedProfile.display_name));
         setBio(loadedProfile.bio);
         setSocialLinks(loadedProfile.social_links);
-        if (missingProfileColumns) {
-          if (!missingProfileColumns.includes("public_profile")) {
-            setProfileVisibilityMessage("Jalankan supabase/creator-public-profile.sql untuk mengaktifkan profil publik.");
-          }
-          if (!missingProfileColumns.includes("social_links")) {
-            setCreatorProfileMessage("Jalankan ulang supabase/creator-profile-bio.sql untuk mengaktifkan semua field profil kreator.");
-          }
-          if (!missingProfileColumns.includes("public_handle")) {
-            setCreatorProfileMessage("Jalankan supabase/creator-profile-handle.sql untuk mengaktifkan URL profil kreator.");
-          }
-        }
       }
       const { data: request } = await supabase.from("creator_requests").select("status").eq("user_id", user.id).maybeSingle();
       setCreatorRequest(request);
