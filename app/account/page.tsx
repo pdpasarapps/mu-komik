@@ -464,7 +464,6 @@ export default function AccountPage() {
                   onChange={(event) => void updateProfileVisibility(event.target.checked)}
                 />
               </label>
-              {profile.public_profile && profile.public_handle && <Link className="creator-profile-public-link" href={`/kreator/${encodeURIComponent(profile.public_handle)}`}>Lihat profil publik <ArrowUpRight size={15} /></Link>}
               {profileVisibilityMessage && <p className="creator-profile-message" role="status">{profileVisibilityMessage}</p>}
             </div>
           )}
@@ -473,6 +472,11 @@ export default function AccountPage() {
               <div className="creator-profile-editor-heading">
                 <strong>Edit profil kreator</strong>
                 <small>Informasi ini tampil di halaman profil publikmu.</small>
+                {profile.public_profile && profile.public_handle && (
+                  <Link className="creator-profile-public-link" href={`/kreator/${encodeURIComponent(profile.public_handle)}`}>
+                    Lihat profil <ArrowUpRight size={15} />
+                  </Link>
+                )}
               </div>
               <div className="creator-avatar-row">
                 <span className="creator-avatar-preview">

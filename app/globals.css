@@ -700,10 +700,12 @@ button, input, select { font: inherit; }
   .admin-main .admin-title h1 { font-size: clamp(2.35rem, 11vw, 3.3rem); }
   .admin-main .admin-title p { font-size: .78rem; }
 }
-  .creator-public-nav-actions { display: flex; align-items: center; gap: 16px; }
-  .creator-profile-share { display: flex; align-items: center; gap: 8px; }
-  .creator-profile-share-button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 13px; border: 1px solid var(--reader-border); border-radius: 7px; background: rgba(255,255,255,.8); color: var(--reader-text); font: inherit; font-size: .76rem; font-weight: 750; cursor: pointer; }
-  .creator-profile-share-button:hover { border-color: rgba(95,130,104,.5); background: #fff; }
-  .creator-profile-share-button:disabled { opacity: .6; cursor: wait; }
-  .creator-profile-share > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
-  @media (max-width: 520px) { .creator-public-nav-actions { gap: 9px; }.creator-profile-share-button { min-height: 34px; padding: 0 9px; font-size: .68rem; }.creator-public-nav-actions .reader-back-link { font-size: .72rem; } }
+.creator-public-identity-copy { min-width: 0; flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.creator-profile-share { position: relative; display: flex; align-items: center; gap: 8px; }
+.creator-profile-share-button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: 0 0 auto; padding: 0 13px; border: 1px solid var(--reader-border); border-radius: 7px; background: rgba(255,255,255,.8); color: var(--reader-text); font: inherit; font-size: .76rem; font-weight: 750; cursor: pointer; }
+.creator-profile-share-button:hover { border-color: rgba(95,130,104,.5); background: #fff; }
+.creator-profile-share-menu { position: absolute; z-index: 10; top: calc(100% + 8px); left: 0; width: max-content; min-width: 190px; display: grid; gap: 2px; padding: 6px; border: 1px solid var(--reader-border); border-radius: 9px; background: #fff; box-shadow: 0 12px 30px rgba(32,36,34,.14); }
+.creator-profile-share-menu a, .creator-profile-share-menu button { min-height: 38px; display: flex; align-items: center; gap: 9px; padding: 0 10px; border: 0; border-radius: 5px; background: transparent; color: var(--reader-text); font: inherit; font-size: .76rem; text-align: left; text-decoration: none; cursor: pointer; }
+.creator-profile-share-menu a:hover, .creator-profile-share-menu button:hover { background: #f3f1e9; }
+.creator-profile-share-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+@media (max-width: 520px) { .creator-public-identity-copy { align-items: flex-start; flex-direction: column; gap: 10px; }.creator-profile-share-button { min-height: 34px; padding: 0 10px; font-size: .7rem; } }

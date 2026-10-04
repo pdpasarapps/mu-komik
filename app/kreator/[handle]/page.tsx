@@ -155,10 +155,7 @@ export default async function CreatorProfilePage({
     <main className="creator-public-profile">
       <nav className="creator-public-nav" aria-label="Navigasi profil kreator">
         <BrandLogo className="wordmark reader-wordmark" />
-        <div className="creator-public-nav-actions">
-          <ShareProfileButton creatorName={profile.display_name} />
-          <Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi komik</Link>
-        </div>
+        <Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi komik</Link>
       </nav>
       <header className="creator-public-header">
         <div className="creator-public-banner">
@@ -172,8 +169,9 @@ export default async function CreatorProfilePage({
               ? <Image src={`${publicUrl.replace(/\/$/, "")}/${profile.avatar_key}`} alt="" fill sizes="112px" unoptimized />
               : <UserRound size={38} />}
           </span>
-          <div>
+          <div className="creator-public-identity-copy">
             <h1>{profile.display_name || "Kreator MU Komik"}</h1>
+            <ShareProfileButton creatorName={profile.display_name} />
           </div>
         </div>
         {profile.bio && <p className="creator-public-bio">{profile.bio}</p>}
