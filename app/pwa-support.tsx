@@ -13,7 +13,7 @@ export default function PwaSupport() {
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [isIosInstallable, setIsIosInstallable] = useState(false);
   const [isStandalone, setIsStandalone] = useState(true);
-  const [showInstructions, setShowInstructions] = useState(false);
+  const [installInstructions, setInstallInstructions] = useState<"ios" | "android" | null>(null);
 
   useEffect(() => {
     const standalone = window.matchMedia("(display-mode: standalone)").matches
@@ -27,6 +27,7 @@ export default function PwaSupport() {
     const userAgent = window.navigator.userAgent;
     const isIos = /iPad|iPhone|iPod/.test(userAgent)
       || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(userAgent);
     const detectionFrame = window.requestAnimationFrame(() => {
       setIsStandalone(standalone);
       if (isIos && !standalone) setIsIosInstallable(true);
@@ -39,7 +40,7 @@ export default function PwaSupport() {
     const handleInstalled = () => {
       setInstallPrompt(null);
       setIsIosInstallable(false);
-      setShowInstructions(false);
+      if (isAndroid) setInstallInstructions("android");
       setIsStandalone(true);
     };
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -53,19 +54,22 @@ export default function PwaSupport() {
 
   const install = async () => {
     if (!installPrompt) {
-      setShowInstructions(true);
+      setInstallInstructions("ios");
       return;
     }
     await installPrompt.prompt();
     const choice = await installPrompt.userChoice;
-    if (choice.outcome === "accepted") setInstallPrompt(null);
+    if (choice.outcome === "accepted") {
+      setInstallPrompt(null);
+      setInstallInstructions("android");
+    }
   };
 
-  if (isStandalone || (!installPrompt && !isIosInstallable && !showInstructions)) return null;
+  if ((isStandalone && !installInstructions) || (!installPrompt && !isIosInstallable && !installInstructions)) return null;
 
   return (
     <>
-      {!showInstructions ? (
+      {!installInstructions ? (
         <aside className="pwa-install-card" aria-label="Pasang aplikasi mu-komik">
           <Image className="pwa-install-logo" src="/logo_mukomik.jpg" alt="" width={42} height={42} />
           <div className="pwa-install-copy"><strong>Baca lebih nyaman</strong><span>Pasang mu-komik di perangkatmu.</span></div>
@@ -73,14 +77,23 @@ export default function PwaSupport() {
           <button className="pwa-install-dismiss" aria-label="Tutup ajakan pemasangan" onClick={() => { setInstallPrompt(null); setIsIosInstallable(false); }}><X size={17} /></button>
         </aside>
       ) : (
-        <div className="pwa-install-backdrop" role="presentation" onClick={() => setShowInstructions(false)}>
+        <div className="pwa-install-backdrop" role="presentation" onClick={() => setInstallInstructions(null)}>
           <section className="pwa-install-dialog" role="dialog" aria-modal="true" aria-labelledby="pwa-install-title" onClick={(event) => event.stopPropagation()}>
-            <button className="pwa-install-dialog-close" onClick={() => setShowInstructions(false)} aria-label="Tutup petunjuk"><X size={19} /></button>
+            <button className="pwa-install-dialog-close" onClick={() => setInstallInstructions(null)} aria-label="Tutup petunjuk"><X size={19} /></button>
             <Image className="pwa-install-dialog-logo" src="/logo_mukomik.jpg" alt="Logo mu-komik" width={72} height={72} />
-            <h2 id="pwa-install-title">Pasang mu-komik</h2>
-            <p>Untuk membaca seperti aplikasi, tambahkan mu-komik ke Layar Utama:</p>
-            <ol><li>Ketuk tombol <Share size={15} aria-label="Bagikan" /> <strong>Bagikan</strong> di Safari.</li><li>Pilih <strong>Tambahkan ke Layar Utama</strong>, lalu ketuk <strong>Tambah</strong>.</li></ol>
-            <button className="pwa-install-dialog-done" onClick={() => setShowInstructions(false)}>Mengerti</button>
+            <h2 id="pwa-install-title">{installInstructions === "android" ? "Mu-komik sudah terpasang" : "Pasang mu-komik"}</h2>
+            {installInstructions === "android" ? (
+              <>
+                <p>Jika ikon belum muncul di layar utama, Android mungkin menyimpannya di daftar aplikasi.</p>
+                <ol><li>Buka daftar aplikasi dan cari <strong>mu-komik</strong>.</li><li>Tekan lama ikonnya, lalu pilih <strong>Tambahkan ke layar utama</strong> atau seret ikon ke layar utama.</li></ol>
+              </>
+            ) : (
+              <>
+                <p>Untuk membaca seperti aplikasi, tambahkan mu-komik ke Layar Utama:</p>
+                <ol><li>Ketuk tombol <Share size={15} aria-label="Bagikan" /> <strong>Bagikan</strong> di Safari.</li><li>Pilih <strong>Tambahkan ke Layar Utama</strong>, lalu ketuk <strong>Tambah</strong>.</li></ol>
+              </>
+            )}
+            <button className="pwa-install-dialog-done" onClick={() => setInstallInstructions(null)}>Mengerti</button>
           </section>
         </div>
       )}
