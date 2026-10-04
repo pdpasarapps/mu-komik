@@ -14,6 +14,7 @@ import { ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES, 
 import DeviceUnavailableNotice from "@/components/device-unavailable-notice";
 import { useCurrentDevice } from "@/components/use-current-device";
 import { COMIC_TARGET_DEVICES, isComicAvailableOnDevice, type ComicTargetDevice } from "@/lib/comic-target-device";
+import { useReaderMembership } from "@/app/membership-runtime";
 
 const supabase = createClient();
 
@@ -106,6 +107,7 @@ function cleanSynopsis(synopsis: string) {
 export default function ComicDetailPage({ initialComic, initialChapters }: ComicDetailPageProps) {
   const { settings } = usePlatformSettings();
   const currentDevice = useCurrentDevice();
+  const membership = useReaderMembership();
   const { slug } = useParams<{ slug: string }>();
   const [comic, setComic] = useState<Comic | null>(initialComic);
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
@@ -531,6 +533,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const allChaptersRead = chapters.length > 0 && firstIncompleteIndex === -1;
   const isChapterUnlocked = (chapterIndex: number) => {
     if (chapterIndex < 0) return false;
+    if (membership.tier === "vip") return true;
     if (!chapterProgressReady) return chapterIndex === 0;
     if (chapterProgressError) return chapterIndex === 0;
     return allChaptersRead || chapterIndex <= firstIncompleteIndex;

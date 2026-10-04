@@ -12,11 +12,12 @@ import AdsManagementPanel from "./ads-management-panel";
 import { createComicSharePreview } from "@/lib/comic-share-preview";
 import { defaultPlatformSettings, type PlatformSettings } from "@/lib/platform-settings";
 import { usePlatformSettings } from "../platform-runtime";
+import { READER_MEMBERSHIP_TIERS, type ReaderMembershipTier } from "@/lib/reader-membership";
 
 type RequestStatus = "pending" | "approved" | "rejected";
 type CreatorRequest = { id: string; user_id: string; note: string; portfolio_url: string | null; instagram_url: string | null; other_url: string | null; status: RequestStatus; created_at: string; applicant: string; role: string };
 type ComicReview = { id: string; title: string; slug: string; synopsis: string; contributor: string; created_at: string; creator_id: string; creator: string };
-type AdminUser = { id: string; display_name: string; role: "reader" | "creator" | "admin"; created_at: string };
+type AdminUser = { id: string; display_name: string; role: "reader" | "creator" | "admin"; membershipTier: ReaderMembershipTier; created_at: string };
 type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string };
 type SettingsAuditEntry = { id: number; changed_by: string | null; changed_at: string; previous_values: Record<string, unknown>; new_values: Record<string, unknown> };
 type AdminSection = "overview" | "analytics" | "comic-review" | "creator-requests" | "users" | "comics" | "share-previews" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "platform-settings";
@@ -95,18 +96,29 @@ export default function AdminPage() {
       return;
     }
     setAdminUserId(userData.user.id);
-    const [requestResult, profileResult, comicResult] = await Promise.all([
+    const [requestResult, profileResult, membershipResult, comicResult] = await Promise.all([
       supabase.from("creator_requests").select("id, user_id, note, portfolio_url, instagram_url, other_url, status, created_at").eq("status", "pending").order("created_at", { ascending: false }),
       supabase.from("profiles").select("id, display_name, role, created_at").order("created_at", { ascending: false }),
+      supabase.from("reader_memberships").select("user_id, tier"),
       supabase.from("comics").select("id, title, slug, synopsis, contributor, genre, cover_key, share_preview_key, status, created_at, creator_id").order("created_at", { ascending: false }),
     ]);
-    const loadErrors = [requestResult.error, profileResult.error, comicResult.error].filter(Boolean);
+    const loadErrors = [requestResult.error, profileResult.error, membershipResult.error, comicResult.error].filter(Boolean);
     if (loadErrors.length) {
-      setMessage(loadErrors.map((error) => error?.message).join(" · "));
+      const missingMembershipTable = membershipResult.error?.code === "42P01" || membershipResult.error?.code === "PGRST205";
+      setMessage(missingMembershipTable
+        ? "Jalankan supabase/reader-memberships.sql setelah supabase/creator-request.sql untuk mengaktifkan paket reader."
+        : loadErrors.map((error) => error?.message).join(" · "));
       setLoading(false);
       return;
     }
-    const profiles = (profileResult.data ?? []) as AdminUser[];
+    const membershipByUser = new Map((membershipResult.data ?? []).map((membership) => [
+      membership.user_id,
+      membership.tier === "premium" || membership.tier === "vip" ? membership.tier : "free",
+    ]));
+    const profiles = (profileResult.data ?? []).map((profile) => ({
+      ...profile,
+      membershipTier: membershipByUser.get(profile.id) || "free",
+    })) as AdminUser[];
     const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
     setUsers(profiles);
     setRequests((requestResult.data ?? []).map((request) => ({
@@ -326,6 +338,23 @@ export default function AdminPage() {
     } else {
       setUsers((current) => current.map((item) => item.id === user.id ? { ...item, role } : item));
       setMessage(`Peran ${user.display_name} diubah menjadi ${roleLabels[role]}.`);
+    }
+    setActionId(null);
+  };
+
+  const updateReaderMembership = async (user: AdminUser, tier: ReaderMembershipTier) => {
+    setActionId(user.id);
+    setMessage("");
+    const { error } = await supabase.from("reader_memberships").upsert({
+      user_id: user.id,
+      tier,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) {
+      setMessage(`Paket tidak dapat diperbarui: ${error.message}`);
+    } else {
+      setUsers((current) => current.map((item) => item.id === user.id ? { ...item, membershipTier: tier } : item));
+      setMessage(`Paket ${user.display_name} diubah menjadi ${tier.toUpperCase()}.`);
     }
     setActionId(null);
   };
@@ -638,7 +667,7 @@ export default function AdminPage() {
           ) : (
             <div className="request-table-wrap">
               <table className="request-table admin-user-table">
-                <thead><tr><th>Pengguna</th><th>Bergabung</th><th>Peran</th><th>Kelola peran</th></tr></thead>
+                <thead><tr><th>Pengguna</th><th>Bergabung</th><th>Peran</th><th>Kelola peran</th><th>Paket reader</th></tr></thead>
                 <tbody>{filteredUsers.map((user) => (
                   <tr key={user.id}>
                     <td><strong>{user.display_name || "Tanpa nama"}</strong><code>{user.id.slice(0, 12)}...</code></td>
@@ -650,6 +679,12 @@ export default function AdminPage() {
                         ? <span className="reviewed-label">Akun yang sedang digunakan</span>
                         : <select className="admin-role-select" aria-label={`Ubah peran ${user.display_name}`} value={user.role} onChange={(event) => updateUserRole(user, event.target.value as "reader" | "creator")} disabled={actionId === user.id}><option value="reader">Pembaca</option><option value="creator">Kreator</option></select>}
                     </td>
+                    <td><select className="admin-role-select" aria-label={`Ubah paket reader ${user.display_name}`} value={user.membershipTier} onChange={(event) => {
+                      const selectedTier = READER_MEMBERSHIP_TIERS.find((tier) => tier.value === event.target.value)?.value;
+                      if (selectedTier) void updateReaderMembership(user, selectedTier);
+                    }} disabled={actionId === user.id}>
+                      {READER_MEMBERSHIP_TIERS.map((tier) => <option key={tier.value} value={tier.value}>{tier.label}</option>)}
+                    </select></td>
                   </tr>
                 ))}</tbody>
               </table>

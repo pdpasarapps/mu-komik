@@ -9,6 +9,7 @@ import SponsoredAd from "@/components/sponsored-ad";
 import DeviceUnavailableNotice from "@/components/device-unavailable-notice";
 import { useCurrentDevice } from "@/components/use-current-device";
 import { COMIC_TARGET_DEVICES, isComicAvailableOnDevice, type ComicTargetDevice } from "@/lib/comic-target-device";
+import { useReaderMembership } from "@/app/membership-runtime";
 
 const supabase = createClient();
 const TRANSITION_AD_LOAD_TIMEOUT_MS = 2000;
@@ -22,6 +23,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const { slug, chapterId } = useParams<{ slug: string; chapterId: string }>();
   const router = useRouter();
   const currentDevice = useCurrentDevice();
+  const membership = useReaderMembership();
   const [chapter, setChapter] = useState<Chapter | null>(seed.chapter);
   const [comic, setComic] = useState<Comic | null>(seed.comic);
   const [chapterList, setChapterList] = useState<Chapter[]>([]);
@@ -47,7 +49,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   useEffect(() => {
     let active = true;
     const loadChapter = async () => {
-      if (currentDevice === null) return;
+      if (currentDevice === null || !membership.ready) return;
       if (!isComicAvailableOnDevice(seed.comic.target_device, currentDevice)) {
         setLoading(false);
         return;
@@ -187,7 +189,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         return chapterPages.length === 0 || (savedPagesByChapter.get(item.id)?.size ?? 0) < chapterPages.length;
       });
       const completedEveryChapter = firstIncompleteIndex < 0;
-      if (!completedEveryChapter && targetChapterIndex > firstIncompleteIndex) {
+      if (membership.tier !== "vip" && !completedEveryChapter && targetChapterIndex > firstIncompleteIndex) {
         const firstIncompleteChapter = chapters[firstIncompleteIndex];
         router.replace(`/comic/${comicData.slug}/chapter/${firstIncompleteChapter.id}`);
         return;
@@ -222,7 +224,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     };
     void loadChapter();
     return () => { active = false; };
-  }, [chapterId, currentDevice, router, seed.comic.target_device, slug]);
+  }, [chapterId, currentDevice, membership.ready, membership.tier, router, seed.comic.target_device, slug]);
 
   useEffect(() => {
     if (loading || !chapter || !pages.length) return;
@@ -467,7 +469,8 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const currentChapterRead = pages.length > 0 && readPageIds.size >= pages.length;
   const nextChapterUnlocked = Boolean(
     nextChapterCandidate &&
-    (allChaptersRead ||
+    (membership.tier === "vip" ||
+      allChaptersRead ||
       chapterIndex + 1 <= firstIncompleteChapterIndex ||
       (chapterIndex === firstIncompleteChapterIndex && currentChapterRead)),
   );
@@ -491,7 +494,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
           <div className="reader-episode-menu-popover">
             <p>Daftar episode</p>
             {chapterList.map((item, index) => {
-              const unlocked = allChaptersRead || index <= firstIncompleteChapterIndex || (index === firstIncompleteChapterIndex + 1 && chapterIndex === firstIncompleteChapterIndex && currentChapterRead);
+              const unlocked = membership.tier === "vip" || allChaptersRead || index <= firstIncompleteChapterIndex || (index === firstIncompleteChapterIndex + 1 && chapterIndex === firstIncompleteChapterIndex && currentChapterRead);
               return unlocked
                 ? <Link className={item.id === chapter.id ? "reader-menu-current" : ""} key={item.id} href={`/comic/${comic.slug}/chapter/${item.id}`} onClick={(event) => {
                     if (item.id !== chapter.id) {

@@ -14,6 +14,8 @@ import { getComicGenreLabel } from "@/lib/comic-genres";
 import { createCreatorHandle, isValidCreatorHandle } from "@/lib/creator-handle";
 import { getCreatorSocialPlaceholder, isValidCreatorSocialUrl, normalizeCreatorSocialUrl, parseCreatorSocialLinks, type CreatorSocialLink } from "@/lib/creator-social-links";
 import { usePlatformSettings } from "../platform-runtime";
+import { useReaderMembership } from "../membership-runtime";
+import { READER_MEMBERSHIP_TIERS } from "@/lib/reader-membership";
 
 export type AccountSection = "overview" | "reading" | "favorites" | "account-settings" | "creator-profile" | "creator-guide" | "comic-editor" | "analitik-komik" | CreatorArea;
 const isCreatorArea = (section: AccountSection): section is CreatorArea =>
@@ -51,6 +53,7 @@ const requestStatusLabels: Record<CreatorRequest["status"], string> = {
 
 export default function AccountContent({ section, children }: { section: AccountSection; children?: ReactNode }) {
   const { settings } = usePlatformSettings();
+  const membership = useReaderMembership();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -438,7 +441,7 @@ export default function AccountContent({ section, children }: { section: Account
       </aside>
       <div className={`account-main${section === "creator-profile" ? " account-profile-focus" : ""}${section === "creator-guide" ? " account-guide-focus" : ""}${section !== "overview" ? " account-subpage" : ""}${isCreatorArea(section) ? " account-creator-area" : ""}${section === "comic-editor" ? " account-comic-editor-area" : ""}`}>
       <div className="account-mobile-header"><Link href="/account" aria-label="Ruang Bacamu"><BrandLogo linked={false} /></Link><button className="account-logout" onClick={handleLogout} disabled={loggingOut}><LogOut size={16} /> {loggingOut ? "Keluar..." : "Keluar"}</button></div>
-      {!isCreatorArea(section) && section !== "comic-editor" && section !== "analitik-komik" && <header className="account-header"><p className="eyebrow">{section === "overview" ? "Ruang Bacamu" : "Akun"}</p><h1>{section === "overview" ? `Hai, ${profile?.display_name || "Pembaca"}.` : section === "reading" ? "Lanjut membaca" : section === "favorites" ? "Favorit" : section === "account-settings" ? "Pengaturan" : section === "creator-profile" ? "Profil kreator" : "Panduan MU-Komik"}</h1>{section === "overview" && <p className="account-email">{email}</p>}</header>}
+      {!isCreatorArea(section) && section !== "comic-editor" && section !== "analitik-komik" && <header className="account-header"><p className="eyebrow">{section === "overview" ? "Ruang Bacamu" : "Akun"}</p><h1>{section === "overview" ? `Hai, ${profile?.display_name || "Pembaca"}.` : section === "reading" ? "Lanjut membaca" : section === "favorites" ? "Favorit" : section === "account-settings" ? "Pengaturan" : section === "creator-profile" ? "Profil kreator" : "Panduan MU-Komik"}</h1>{section === "overview" && <><p className="account-email">{email}</p><p className="account-email">{membership.ready ? `Paket ${READER_MEMBERSHIP_TIERS.find((item) => item.value === membership.tier)?.label || "Free"}` : "Memuat paket..."}</p></>}</header>}
       {section === "comic-editor" ? children : section === "analitik-komik" ? (
         profile?.role === "creator"
           ? <CreatorAnalytics />

@@ -21,6 +21,12 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.reader_memberships (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  tier text not null default 'free' check (tier in ('free', 'premium', 'vip')),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.comics (
   id uuid primary key default gen_random_uuid(),
   creator_id uuid not null references public.profiles(id),
@@ -85,6 +91,8 @@ create table if not exists public.bookmarks (
 );
 
 alter table public.profiles enable row level security;
+alter table public.reader_memberships enable row level security;
+grant select, insert, update on public.reader_memberships to authenticated;
 alter table public.comics enable row level security;
 alter table public.chapters enable row level security;
 alter table public.pages enable row level security;
@@ -126,6 +134,14 @@ create policy "Published pages are public" on public.pages for select using (
   )
 );
 create policy "Users read own profile" on public.profiles for select using (id = auth.uid());
+drop policy if exists "Users and admins view reader memberships" on public.reader_memberships;
+drop policy if exists "Admins manage reader memberships" on public.reader_memberships;
+create policy "Users and admins view reader memberships" on public.reader_memberships for select using (
+  user_id = auth.uid() or exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'admin')
+);
+create policy "Admins manage reader memberships" on public.reader_memberships for all
+using (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'admin'))
+with check (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'admin'));
 create policy "Public creator profiles are readable" on public.profiles for select using (role = 'creator' and public_profile = true);
 create policy "Users update own profile" on public.profiles for update using (id = auth.uid()) with check (id = auth.uid());
 create policy "Users manage own history" on public.reading_history for all using (user_id = auth.uid()) with check (user_id = auth.uid());
@@ -162,6 +178,13 @@ begin
 end;
 $$;
 
+create or replace function public.create_reader_membership() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.reader_memberships (user_id) values (new.id) on conflict (user_id) do nothing;
+  return new;
+end;
+$$;
+
 create or replace function public.protect_profile_role() returns trigger language plpgsql security definer set search_path = public as $$
 begin
   if auth.uid() is not null and old.role is distinct from new.role and not exists (
@@ -175,5 +198,8 @@ $$;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
+drop trigger if exists create_reader_membership_on_profile on public.profiles;
+create trigger create_reader_membership_on_profile after insert on public.profiles for each row execute procedure public.create_reader_membership();
+insert into public.reader_memberships (user_id) select id from public.profiles on conflict (user_id) do nothing;
 drop trigger if exists protect_profile_role on public.profiles;
 create trigger protect_profile_role before update on public.profiles for each row execute procedure public.protect_profile_role();

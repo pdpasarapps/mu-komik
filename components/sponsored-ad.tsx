@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { ExternalLink, Megaphone } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { useReaderMembership } from "@/app/membership-runtime";
 
 type SponsoredCampaign = {
   campaign_id: string;
@@ -20,10 +21,16 @@ type SponsoredCampaign = {
 const supabase = createClient();
 
 export default function SponsoredAd({ slotKey, placement, comicId, matchPageIndex, readerStopId, onCampaignAvailability }: { slotKey: string; placement: "home" | "comic" | "reader" | "catalog" | "transition"; comicId?: string; matchPageIndex?: number; readerStopId?: string; onCampaignAvailability?: (available: boolean) => void }) {
+  const membership = useReaderMembership();
   const [campaign, setCampaign] = useState<SponsoredCampaign | null>(null);
   const [matchedPageHeight, setMatchedPageHeight] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!membership.ready) return;
+    if (membership.tier !== "free") {
+      onCampaignAvailability?.(false);
+      return;
+    }
     let cancelled = false;
     const load = async () => {
       const { data, error } = await supabase.rpc("get_active_sponsor_campaign", {
@@ -73,9 +80,10 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
     };
     void load();
     return () => { cancelled = true; };
-  }, [comicId, onCampaignAvailability, slotKey]);
+  }, [comicId, membership.ready, membership.tier, onCampaignAvailability, slotKey]);
 
   useEffect(() => {
+    if (!membership.ready || membership.tier !== "free") return;
     if (placement !== "reader" || matchPageIndex === undefined) return;
     const frame = document.querySelector<HTMLElement>(`[data-reader-page="${matchPageIndex}"]`);
     if (!frame) return;
@@ -91,9 +99,9 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
     const image = frame.querySelector("img");
     if (image) observer.observe(image);
     return () => observer.disconnect();
-  }, [matchPageIndex, placement]);
+  }, [matchPageIndex, membership.ready, membership.tier, placement]);
 
-  if (!campaign) return null;
+  if (!membership.ready || membership.tier !== "free" || !campaign) return null;
   const sponsorLabel = campaign.format === "sponsor" ? "Sponsor" : "Iklan";
   const nativeReaderAd = (placement === "reader" || placement === "transition") && campaign.format === "native";
   const fallbackImage = campaign.image_url || campaign.image_url_tablet || campaign.image_url_mobile;

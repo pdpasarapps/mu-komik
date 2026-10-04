@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { siteUrl } from "@/lib/seo";
 import { getPlatformSettings } from "@/lib/platform-settings";
 import PlatformRuntime from "./platform-runtime";
+import ReaderMembershipRuntime from "./membership-runtime";
 import PwaSupport from "./pwa-support";
 import "./globals.css";
 
@@ -72,7 +73,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="id" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
-        <PlatformRuntime initialSettings={settings}>{children}</PlatformRuntime>
+        <ReaderMembershipRuntime>
+          <PlatformRuntime initialSettings={settings}>{children}</PlatformRuntime>
+        </ReaderMembershipRuntime>
         <PwaSupport />
       </body>
     </html>
