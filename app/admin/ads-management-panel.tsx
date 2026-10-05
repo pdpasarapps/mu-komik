@@ -118,6 +118,12 @@ function logDatabaseError(action: string, error: DatabaseError) {
   });
 }
 
+function normalizeTargetGenres(genres: unknown): string[] {
+  return Array.isArray(genres)
+    ? genres.filter((genre): genre is string => typeof genre === "string")
+    : [];
+}
+
 export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaigns" }) {
   const [slots, setSlots] = useState<AdSlot[]>([]);
   const [publishedComics, setPublishedComics] = useState<PublishedComic[]>([]);
@@ -150,7 +156,10 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
         setMessage(databaseErrorMessage(error));
       } else {
         setSlots((slotResult.data ?? []) as AdSlot[]);
-        setCampaigns((campaignResult.data ?? []) as SponsorCampaign[]);
+        setCampaigns((campaignResult.data ?? []).map((campaign) => ({
+          ...campaign,
+          target_genres: normalizeTargetGenres(campaign.target_genres),
+        })) as SponsorCampaign[]);
         setPublishedComics((comicsResult.data ?? []) as PublishedComic[]);
       }
       setLoading(false);
@@ -248,7 +257,7 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
       slot_id: campaignForm.target_comic_id ? null : campaignForm.slot_id || null,
       target_comic_id: campaignForm.target_comic_id || null,
       target_placement: campaignForm.target_placement,
-      target_genres: campaignForm.target_genres,
+      target_genres: normalizeTargetGenres(campaignForm.target_genres),
       starts_on: campaignForm.starts_on,
       ends_on: campaignForm.ends_on,
       status: campaignForm.status,
@@ -324,6 +333,7 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
   const editCampaign = (campaign: SponsorCampaign) => {
     setCampaignForm({
       ...campaign,
+      target_genres: normalizeTargetGenres(campaign.target_genres),
       image_url: campaign.image_url || "",
       image_url_tablet: campaign.image_url_tablet || "",
       image_url_mobile: campaign.image_url_mobile || "",
@@ -519,13 +529,16 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
                   <label className="reader-interest-option" key={genre}>
                     <input
                       type="checkbox"
-                      checked={campaignForm.target_genres.includes(genre)}
-                      onChange={() => setCampaignForm((current) => ({
+                      checked={normalizeTargetGenres(campaignForm.target_genres).includes(genre)}
+                      onChange={() => setCampaignForm((current) => {
+                        const targetGenres = normalizeTargetGenres(current.target_genres);
+                        return {
                         ...current,
-                        target_genres: current.target_genres.includes(genre)
-                          ? current.target_genres.filter((item) => item !== genre)
-                          : [...current.target_genres, genre],
-                      }))}
+                        target_genres: targetGenres.includes(genre)
+                          ? targetGenres.filter((item) => item !== genre)
+                          : [...targetGenres, genre],
+                        };
+                      })}
                     />
                     <span>{getComicGenreLabel(genre)}</span>
                   </label>
