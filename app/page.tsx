@@ -506,6 +506,31 @@ export default function Home() {
         </section>
       </div>
 
+      <section className="reader-seo-about" aria-labelledby="reader-seo-about-title">
+        <header className="reader-seo-about-header">
+          <p className="reader-section-kicker">TENTANG MU KOMIK</p>
+          <h2 id="reader-seo-about-title">Cerita komik Indonesia dari kreator lokal</h2>
+          <p>MU Komik adalah platform untuk membaca komik Indonesia dan menjelajahi cerita karya kreator lokal. Temukan komik berdasarkan genre, ikuti episode yang terbit, atau mulai berkarya sebagai kreator.</p>
+        </header>
+        <div className="reader-seo-about-grid">
+          <article>
+            <h3>Jelajahi beragam genre</h3>
+            <p>Katalog MU Komik menyediakan penelusuran berdasarkan genre, seperti fantasi, fiksi ilmiah, drama, komedi, aksi, romansa, horor, misteri, dan petualangan. Ketersediaan judul bergantung pada komik yang telah diterbitkan.</p>
+            <a href="#genre">Jelajahi genre komik</a>
+          </article>
+          <article>
+            <h3>Baca cerita dan episode</h3>
+            <p>Buka halaman komik untuk membaca sinopsis, melihat informasi cerita, dan menemukan episode yang tersedia. Komik dapat dibaca pada perangkat yang didukung oleh kreatornya.</p>
+            <a href="#jelajah">Lihat katalog komik</a>
+          </article>
+          <article>
+            <h3>Ruang untuk kreator lokal</h3>
+            <p>Kreator dapat mengajukan akses kreator, menerbitkan komik, dan mengelola episode karyanya. MU Komik juga menjelaskan pandangannya tentang penggunaan AI dalam proses kreatif.</p>
+            <Link href="/manifesto">Baca manifesto AI MU Komik</Link>
+          </article>
+        </div>
+      </section>
+
       {settings.feature_flags.creators && <section className="reader-creator-cta" id="creator">
         <div><p className="reader-section-kicker">PUNYA CERITA?</p><h2>Terbitkan komikmu dan temukan pembaca baru.</h2></div>
         <Link className="reader-primary-button" href={signedIn ? "/account" : "/login"}>Jadi kreator <ArrowRight size={17} /></Link>

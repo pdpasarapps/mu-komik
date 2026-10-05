@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     default: "MU Komik — Platform Komik Indonesia",
     template: "%s | MU Komik",
   },
-  description: "Baca komik Indonesia terbaru dari kreator lokal. Temukan komik komedi, horor, romance, slice of life, dan berbagai cerita menarik di MU Komik.",
+  description: "Baca komik Indonesia terbaru dari kreator lokal. Temukan komik komedi, horor, romansa, kehidupan sehari-hari, dan berbagai cerita menarik di MU Komik.",
   applicationName: "mu-komik",
   authors: [{ name: "mu-komik" }],
   creator: "mu-komik",
@@ -29,12 +29,12 @@ export const metadata: Metadata = {
     siteName: "mu-komik",
     url: siteUrl.toString(),
     title: "MU Komik — Platform Komik Indonesia",
-    description: "Baca komik Indonesia terbaru dari kreator lokal. Temukan komik komedi, horor, romance, slice of life, dan berbagai cerita menarik di MU Komik.",
+    description: "Baca komik Indonesia terbaru dari kreator lokal. Temukan komik komedi, horor, romansa, kehidupan sehari-hari, dan berbagai cerita menarik di MU Komik.",
   },
   twitter: {
     card: "summary",
     title: "MU Komik — Platform Komik Indonesia",
-    description: "Baca komik Indonesia terbaru dari kreator lokal. Temukan komik komedi, horor, romance, slice of life, dan berbagai cerita menarik di MU Komik.",
+    description: "Baca komik Indonesia terbaru dari kreator lokal. Temukan komik komedi, horor, romansa, kehidupan sehari-hari, dan berbagai cerita menarik di MU Komik.",
   },
   robots: {
     index: true,
@@ -68,11 +68,44 @@ export const viewport: Viewport = {
   themeColor: "#f7f6f2",
 };
 
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": new URL("#organization", siteUrl).toString(),
+      name: "MU Komik",
+      url: siteUrl.toString(),
+      logo: {
+        "@type": "ImageObject",
+        url: new URL("/logo_mukomik.jpg", siteUrl).toString(),
+      },
+      sameAs: [
+        "https://www.instagram.com/mu_komik/",
+        "https://www.tiktok.com/@mukomikz",
+      ],
+    },
+    {
+      "@type": "WebSite",
+      "@id": new URL("#website", siteUrl).toString(),
+      name: "MU Komik",
+      url: siteUrl.toString(),
+      inLanguage: "id-ID",
+      description: "Platform untuk membaca komik Indonesia dan menjelajahi cerita karya kreator lokal.",
+      publisher: { "@id": new URL("#organization", siteUrl).toString() },
+    },
+  ],
+};
+
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const { settings } = await getPlatformSettings();
   return (
     <html lang="id" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
+        />
         <ReaderMembershipRuntime>
           <PlatformRuntime initialSettings={settings}>{children}</PlatformRuntime>
         </ReaderMembershipRuntime>
