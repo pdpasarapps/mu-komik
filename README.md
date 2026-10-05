@@ -45,7 +45,7 @@ The local `.env.local` file does not configure the production Worker.
 
 For search indexing, set `NEXT_PUBLIC_SITE_URL` to the canonical public origin (`https://mu-komik.com`) in both local and production environments. The app exposes `robots.txt` and a sitemap containing published comics and episodes; submit `https://mu-komik.com/sitemap.xml` to Google Search Console and Bing Webmaster Tools after deployment.
 
-The home page includes visible Indonesian platform information, and the global layout emits `Organization` and `WebSite` JSON-LD structured data. Keep structured data accurate and consistent with visible page content. After deploying SEO changes, inspect the canonical home page and sitemap in Google Search Console; indexing and search snippets are determined by search engines and are not guaranteed.
+The home page renders its published comic catalog on the server and includes visible Indonesian platform information. The global layout emits `Organization` and `WebSite` JSON-LD; published comic pages emit `CreativeWorkSeries` and `BreadcrumbList` data. Keep structured data accurate and consistent with visible page content. After deploying SEO changes, inspect the canonical home page and sitemap in Google Search Console; indexing and search snippets are determined by search engines and are not guaranteed.
 
 The Facebook App ID is configured in the global metadata and is emitted as the `fb:app_id` tag.
 
