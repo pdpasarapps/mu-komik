@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useEffectEvent, useState } from "react";
-import { ArrowUpRight, BookOpen, Eye, LoaderCircle, Pencil, Plus } from "lucide-react";
+import { ArrowUpRight, BookOpen, Eye, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -14,6 +14,7 @@ export type CreatorArea = "creator" | "komiku" | "terbitkan-komik";
 
 type ComicStatus = "draft" | "pending_review" | "published" | "archived";
 type Comic = { id: string; title: string; slug: string; genre: string; synopsis: string; contributor: string; cover_key: string | null; coverUrl: string | null; status: ComicStatus; created_at: string };
+type ComicContributor = { role: string; name: string };
 
 const supabase = createClient();
 const comicStatusLabel: Record<ComicStatus, string> = {
@@ -45,7 +46,7 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
     otherLanguage: "",
     originType: "original",
     sourceInfo: "",
-    credits: { writer: "", illustrator: "", colorist: "", translator: "" },
+    contributors: [{ role: "Penulis", name: "" }] as ComicContributor[],
   });
 
   const loadCreator = useEffectEvent(async () => {
@@ -91,6 +92,11 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
       setMessage("Cantumkan sumber karya yang diadaptasi.");
       return;
     }
+    const contributors = form.contributors.map((item) => ({ role: item.role.trim(), name: item.name.trim() }));
+    if (!contributors.length || contributors.some((item) => !item.role || !item.name)) {
+      setMessage("Isi peran dan nama untuk minimal satu kredit kreator.");
+      return;
+    }
     setSaving(true);
     setMessage("");
     const { data: userData } = await supabase.auth.getUser();
@@ -105,14 +111,6 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
       setSaving(false);
       return;
     }
-    const credits = [
-      { role: "Penulis", name: form.credits.writer.trim() },
-      { role: "Ilustrator", name: form.credits.illustrator.trim() },
-      { role: "Pewarna", name: form.credits.colorist.trim() },
-      { role: "Penerjemah", name: form.credits.translator.trim() },
-    ];
-    const contributors = credits.filter((item) => item.name);
-    const storedContributors = contributors.length ? contributors : [{ role: "Penulis", name: "" }];
     const contributor = contributors.map((item) => `${item.role}: ${item.name}`).join(" · ");
     const { data, error } = await supabase.from("comics").insert({
       creator_id: userData.user.id,
@@ -121,7 +119,7 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
       genre: form.genre,
       synopsis: form.synopsis.trim(),
       contributor,
-      contributors: storedContributors,
+      contributors,
       production_technique: form.technique,
       story_status: form.storyStatus,
       target_audience: form.targetAudience,
@@ -151,11 +149,28 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
         otherLanguage: "",
         originType: "original",
         sourceInfo: "",
-        credits: { writer: "", illustrator: "", colorist: "", translator: "" },
+        contributors: [{ role: "Penulis", name: "" }],
       });
       setMessage("Komik berhasil dibuat.");
     }
     setSaving(false);
+  };
+
+  const updateContributor = (index: number, field: keyof ComicContributor, value: string) => {
+    setForm((current) => ({
+      ...current,
+      contributors: current.contributors.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item),
+    }));
+  };
+
+  const addContributor = () => {
+    setForm((current) => ({ ...current, contributors: [...current.contributors, { role: "", name: "" }] }));
+  };
+
+  const removeContributor = (index: number) => {
+    setForm((current) => current.contributors.length <= 1
+      ? current
+      : { ...current, contributors: current.contributors.filter((_, itemIndex) => itemIndex !== index) });
   };
 
   const submitForReview = async (comic: Comic) => {
@@ -210,11 +225,51 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
           <label>Target perangkat<select value={form.targetDevice} onChange={(event) => setForm({ ...form, targetDevice: COMIC_TARGET_DEVICES.find((device) => device.value === event.target.value)?.value || "all" })}>{COMIC_TARGET_DEVICES.map((device) => <option key={device.value} value={device.value}>{device.label}</option>)}</select><small>Komik hanya akan ditampilkan dan dapat dibaca di perangkat yang dipilih.</small></label>
           <label>Sinopsis<textarea required value={form.synopsis} onChange={(event) => setForm({ ...form, synopsis: event.target.value })} placeholder="Ceritakan tentang komik ini" rows={4} /></label>
           <fieldset className="comic-contributors-fieldset">
-            <legend>Kredit kreator</legend>
-            <label>Penulis<input maxLength={120} value={form.credits.writer} onChange={(event) => setForm({ ...form, credits: { ...form.credits, writer: event.target.value } })} placeholder="Nama penulis" /></label>
-            <label>Ilustrator<input maxLength={120} value={form.credits.illustrator} onChange={(event) => setForm({ ...form, credits: { ...form.credits, illustrator: event.target.value } })} placeholder="Nama ilustrator" /></label>
-            <label>Pewarna<input maxLength={120} value={form.credits.colorist} onChange={(event) => setForm({ ...form, credits: { ...form.credits, colorist: event.target.value } })} placeholder="Nama pewarna" /></label>
-            <label>Penerjemah<input maxLength={120} value={form.credits.translator} onChange={(event) => setForm({ ...form, credits: { ...form.credits, translator: event.target.value } })} placeholder="Nama penerjemah" /></label>
+            <legend>Kredit kreator (minimal satu)</legend>
+            <datalist id="new-comic-contributor-roles">
+              <option value="Penulis" />
+              <option value="Ilustrator" />
+              <option value="Pewarna" />
+              <option value="Penerjemah" />
+              <option value="Inker" />
+              <option value="Outline" />
+              <option value="Coloring" />
+              <option value="Editor" />
+              <option value="Letterer" />
+            </datalist>
+            {form.contributors.map((item, index) => (
+              <div className="comic-contributor-row" key={index}>
+                <input
+                  required
+                  maxLength={60}
+                  list="new-comic-contributor-roles"
+                  aria-label={`Peran contributor ${index + 1}`}
+                  placeholder="Peran, mis. Ilustrator"
+                  value={item.role}
+                  onChange={(event) => updateContributor(index, "role", event.target.value)}
+                />
+                <input
+                  required
+                  maxLength={120}
+                  aria-label={`Nama contributor ${index + 1}`}
+                  placeholder="Nama"
+                  value={item.name}
+                  onChange={(event) => updateContributor(index, "name", event.target.value)}
+                />
+                <button
+                  type="button"
+                  className="chapter-action chapter-action-danger"
+                  aria-label={`Hapus contributor ${index + 1}`}
+                  onClick={() => removeContributor(index)}
+                  disabled={form.contributors.length === 1 || saving}
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+            <button type="button" className="button button-light contributor-add-button" onClick={addContributor} disabled={saving}>
+              <Plus size={15} /> Tambah contributor
+            </button>
           </fieldset>
           <label>Teknik produksi<select value={form.technique} onChange={(event) => setForm({ ...form, technique: event.target.value })}>{PRODUCTION_TECHNIQUES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
           <label>Status cerita<select value={form.storyStatus} onChange={(event) => setForm({ ...form, storyStatus: event.target.value })}>{STORY_STATUSES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>

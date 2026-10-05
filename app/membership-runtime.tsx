@@ -7,6 +7,19 @@ import type { ReaderMembershipTier } from "@/lib/reader-membership";
 const supabase = createClient();
 const ReaderMembershipContext = createContext<{ tier: ReaderMembershipTier; ready: boolean } | null>(null);
 
+function shouldSilenceMembershipError(error: { code?: string; message?: string } | null | undefined) {
+  if (!error) return true;
+  const code = error.code?.toLowerCase() ?? "";
+  const message = (error.message ?? "").toLowerCase();
+  return [
+    "pgrst301",
+    "42501",
+    "row level security",
+    "permission denied",
+    "anonymous",
+  ].some((needle) => code.includes(needle) || message.includes(needle));
+}
+
 export function useReaderMembership() {
   const context = useContext(ReaderMembershipContext);
   if (!context) throw new Error("useReaderMembership must be used inside ReaderMembershipRuntime.");
@@ -36,7 +49,9 @@ export default function ReaderMembershipRuntime({ children }: { children: ReactN
         .eq("user_id", userId)
         .maybeSingle();
       if (error) {
-        console.error("Unable to load reader membership:", error);
+        if (!shouldSilenceMembershipError(error)) {
+          console.error("Unable to load reader membership:", error);
+        }
         if (active && currentRequest === requestId.current) setTier("free");
       } else if (active) {
         const loadedTier = data?.tier;

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
 import { COMIC_LANGUAGES, ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES } from "@/lib/comic-metadata";
+import { COMIC_TARGET_DEVICES, type ComicTargetDevice } from "@/lib/comic-target-device";
 import { createComicSharePreview } from "@/lib/comic-share-preview";
 import { usePlatformSettings } from "../../../platform-runtime";
 
@@ -19,6 +20,7 @@ type Comic = {
   contributor: string;
   contributors: ComicContributor[];
   genre: string;
+  target_device: ComicTargetDevice;
   production_technique: string;
   story_status: string;
   target_audience: string;
@@ -33,6 +35,7 @@ type ComicForm = {
   title: string;
   synopsis: string;
   genre: string;
+  targetDevice: ComicTargetDevice;
   contributors: ComicContributor[];
   technique: string;
   storyStatus: string;
@@ -50,6 +53,7 @@ const initialComicForm: ComicForm = {
   title: "",
   synopsis: "",
   genre: "Fantasy",
+  targetDevice: "all",
   contributors: [{ role: "Penulis", name: "" }],
   technique: "traditional_drawing",
   storyStatus: "ongoing",
@@ -69,6 +73,7 @@ function getComicForm(comic: Comic): ComicForm {
     title: comic.title,
     synopsis: comic.synopsis,
     genre: comic.genre,
+    targetDevice: COMIC_TARGET_DEVICES.find((device) => device.value === comic.target_device)?.value ?? "all",
     contributors: namedContributors.length
       ? namedContributors.map((item) => ({ role: item.role || "", name: item.name || "" }))
       : [{ role: "Penulis", name: comic.contributor || "" }],
@@ -128,7 +133,7 @@ export default function CreatorComicPage() {
         router.replace("/account");
         return;
       }
-      const comicQuery = supabase.from("comics").select("id, title, slug, synopsis, contributor, contributors, genre, production_technique, story_status, target_audience, language, origin_type, source_info, status, cover_key, share_preview_key").eq("id", comicId);
+      const comicQuery = supabase.from("comics").select("id, title, slug, synopsis, contributor, contributors, genre, target_device, production_technique, story_status, target_audience, language, origin_type, source_info, status, cover_key, share_preview_key").eq("id", comicId);
       const { data: comicData } = profile.role === "admin" ? await comicQuery.single() : await comicQuery.eq("creator_id", userData.user.id).single();
       if (!comicData) {
         router.replace("/account/creator");
@@ -304,6 +309,7 @@ export default function CreatorComicPage() {
           title: comicForm.title.trim(),
           synopsis: comicForm.synopsis.trim(),
           genre: comicForm.genre,
+          target_device: comicForm.targetDevice,
           contributor: contributors.map((item) => `${item.role}: ${item.name}`).join(" · "),
           contributors,
           production_technique: comicForm.technique,
@@ -317,7 +323,7 @@ export default function CreatorComicPage() {
           status: comic.status === "published" ? "pending_review" : comic.status,
         })
         .eq("id", comic.id)
-        .select("id, title, slug, synopsis, contributor, contributors, genre, production_technique, story_status, target_audience, language, origin_type, source_info, status, cover_key, share_preview_key")
+        .select("id, title, slug, synopsis, contributor, contributors, genre, target_device, production_technique, story_status, target_audience, language, origin_type, source_info, status, cover_key, share_preview_key")
         .single();
       if (error) throw new Error(error.message);
 
@@ -563,6 +569,7 @@ export default function CreatorComicPage() {
           </div>
           <label>Judul Komik<input required maxLength={120} value={comicForm.title} onChange={(event) => setComicForm({ ...comicForm, title: event.target.value })} /></label>
           <label>Genre<select value={comicForm.genre} onChange={(event) => setComicForm({ ...comicForm, genre: event.target.value })}>{COMIC_GENRES.map((genre) => <option key={genre} value={genre}>{getComicGenreLabel(genre)}</option>)}</select></label>
+          <label>Target perangkat<select value={comicForm.targetDevice} onChange={(event) => setComicForm({ ...comicForm, targetDevice: COMIC_TARGET_DEVICES.find((device) => device.value === event.target.value)?.value ?? "all" })}>{COMIC_TARGET_DEVICES.map((device) => <option key={device.value} value={device.value}>{device.label}</option>)}</select><small>Komik hanya akan ditampilkan dan dapat dibaca di perangkat yang dipilih.</small></label>
           <label>Deskripsi<textarea required maxLength={3000} rows={4} value={comicForm.synopsis} onChange={(event) => setComicForm({ ...comicForm, synopsis: event.target.value })} /></label>
           <fieldset className="comic-contributors-fieldset">
             <legend>Kredit kreator (minimal satu)</legend>
