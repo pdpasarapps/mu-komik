@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { LoaderCircle, Search } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { getComicGenreLabel } from "@/lib/comic-genres";
 
 type CampaignStatus = "draft" | "active" | "paused" | "completed";
 type TargetPlacement = "all" | "comic_detail" | "reader" | "episode_transition" | "both";
@@ -27,6 +28,7 @@ type SponsorCampaign = {
   slot_id: string | null;
   target_comic_id: string | null;
   target_placement: TargetPlacement;
+  target_genres: string[];
   starts_on: string;
   ends_on: string;
   status: CampaignStatus;
@@ -47,7 +49,7 @@ function databaseErrorMessage(error: { code?: string; message: string }) {
     return "Tabel iklan belum tersedia. Jalankan supabase/ads-management.sql di Supabase SQL Editor.";
   }
   if (error.code === "42703" || error.code === "PGRST202") {
-    return "Skema penargetan iklan belum diterapkan. Jalankan ulang supabase/ads-management.sql di Supabase SQL Editor, lalu muat ulang halaman.";
+    return "Skema penargetan minat belum diterapkan. Jalankan supabase/reader-profiling.sql setelah supabase/ads-management.sql di Supabase SQL Editor, lalu muat ulang halaman.";
   }
   if (error.code === "42501" || error.code === "PGRST301") {
     return "Akses ditolak. Pastikan akun memiliki peran admin dan kebijakan database sudah diterapkan.";
@@ -80,7 +82,7 @@ export default function AdsListPanel() {
     let cancelled = false;
     const load = async () => {
       const [campaignResult, slotResult, comicResult] = await Promise.all([
-        supabase.from("sponsor_campaigns").select("id, sponsor_name, title, description, destination_url, slot_id, target_comic_id, target_placement, starts_on, ends_on, status, created_at").order("created_at", { ascending: false }),
+        supabase.from("sponsor_campaigns").select("id, sponsor_name, title, description, destination_url, slot_id, target_comic_id, target_placement, target_genres, starts_on, ends_on, status, created_at").order("created_at", { ascending: false }),
         supabase.from("ad_slots").select("id, name, slot_key, format, description, is_active, created_at").order("created_at", { ascending: false }),
         supabase.from("comics").select("id, title"),
       ]);
@@ -117,6 +119,7 @@ export default function AdsListPanel() {
         campaign.description,
         slot?.name ?? "",
         comic?.title ?? "",
+        ...campaign.target_genres.map(getComicGenreLabel),
       ].some((value) => value.toLocaleLowerCase("id-ID").includes(query));
       return matchesStatus && matchesSearch;
     });
@@ -191,7 +194,7 @@ export default function AdsListPanel() {
                       ? "Detail & baca"
                       : "Semua komik";
                 return <tr key={campaign.id}>
-                  <td><strong>{campaign.title}</strong>{campaign.description && <small>{campaign.description}</small>}</td>
+                  <td><strong>{campaign.title}</strong>{campaign.description && <small>{campaign.description}</small>}{campaign.target_genres.length > 0 && <small>Minat: {campaign.target_genres.map(getComicGenreLabel).join(", ")}</small>}</td>
                   <td>{campaign.sponsor_name}</td>
                   <td>{comic ? <><strong>{comic.title}</strong><small>{placementLabel}</small></> : slot ? <><strong>{slot.name}</strong><small>{formatLabels[slot.format]}{slot.is_active ? "" : " · Nonaktif"}</small></> : <span className="ads-list-muted">Belum ditentukan</span>}</td>
                   <td>{formatDate(campaign.starts_on)}<small>s.d. {formatDate(campaign.ends_on)}</small></td>

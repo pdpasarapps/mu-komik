@@ -4,6 +4,7 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Check, LoaderCircle, Megaphone, Pencil, Plus, ToggleLeft, ToggleRight, X } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
 
 type AdFormat = "banner" | "native" | "sponsor";
 type CampaignStatus = "draft" | "active" | "paused" | "completed";
@@ -30,6 +31,7 @@ type SponsorCampaign = {
   slot_id: string | null;
   target_comic_id: string | null;
   target_placement: TargetPlacement;
+  target_genres: string[];
   starts_on: string;
   ends_on: string;
   status: CampaignStatus;
@@ -61,6 +63,7 @@ const emptyCampaign = {
   slot_id: "",
   target_comic_id: "",
   target_placement: "all" as TargetPlacement,
+  target_genres: [] as string[],
   starts_on: "",
   ends_on: "",
   status: "draft" as CampaignStatus,
@@ -98,7 +101,7 @@ function databaseErrorMessage(error: DatabaseError) {
     return "Kolom gambar responsif belum tersedia di database. Jalankan ulang supabase/ads-management.sql di Supabase SQL Editor, lalu muat ulang halaman.";
   }
   if (error.code === "42703" || error.code === "PGRST202") {
-    return "Skema penargetan iklan belum diterapkan. Jalankan ulang supabase/ads-management.sql di Supabase SQL Editor, lalu muat ulang halaman.";
+    return "Skema penargetan minat belum diterapkan. Jalankan supabase/reader-profiling.sql setelah supabase/ads-management.sql di Supabase SQL Editor, lalu muat ulang halaman.";
   }
   if (error.code === "42501" || error.code === "PGRST301") {
     return "Akses ditolak. Pastikan akun memiliki peran admin dan kebijakan database sudah diterapkan.";
@@ -137,7 +140,7 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
     const load = async () => {
       const [slotResult, campaignResult, comicsResult] = await Promise.all([
         supabase.from("ad_slots").select("id, name, slot_key, format, description, is_active, created_at").order("created_at", { ascending: false }),
-        supabase.from("sponsor_campaigns").select("id, sponsor_name, title, description, destination_url, image_url, image_url_tablet, image_url_mobile, slot_id, target_comic_id, target_placement, starts_on, ends_on, status, created_at").order("created_at", { ascending: false }),
+        supabase.from("sponsor_campaigns").select("id, sponsor_name, title, description, destination_url, image_url, image_url_tablet, image_url_mobile, slot_id, target_comic_id, target_placement, target_genres, starts_on, ends_on, status, created_at").order("created_at", { ascending: false }),
         supabase.from("comics").select("id, title, slug").eq("status", "published").order("title"),
       ]);
       if (cancelled) return;
@@ -245,14 +248,15 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
       slot_id: campaignForm.target_comic_id ? null : campaignForm.slot_id || null,
       target_comic_id: campaignForm.target_comic_id || null,
       target_placement: campaignForm.target_placement,
+      target_genres: campaignForm.target_genres,
       starts_on: campaignForm.starts_on,
       ends_on: campaignForm.ends_on,
       status: campaignForm.status,
       updated_at: new Date().toISOString(),
     };
     const result = campaignForm.id
-      ? await supabase.from("sponsor_campaigns").update(values).eq("id", campaignForm.id).select("id, sponsor_name, title, description, destination_url, image_url, image_url_tablet, image_url_mobile, slot_id, target_comic_id, target_placement, starts_on, ends_on, status, created_at").single()
-      : await supabase.from("sponsor_campaigns").insert(values).select("id, sponsor_name, title, description, destination_url, image_url, image_url_tablet, image_url_mobile, slot_id, target_comic_id, target_placement, starts_on, ends_on, status, created_at").single();
+      ? await supabase.from("sponsor_campaigns").update(values).eq("id", campaignForm.id).select("id, sponsor_name, title, description, destination_url, image_url, image_url_tablet, image_url_mobile, slot_id, target_comic_id, target_placement, target_genres, starts_on, ends_on, status, created_at").single()
+      : await supabase.from("sponsor_campaigns").insert(values).select("id, sponsor_name, title, description, destination_url, image_url, image_url_tablet, image_url_mobile, slot_id, target_comic_id, target_placement, target_genres, starts_on, ends_on, status, created_at").single();
     if (result.error) {
       logDatabaseError("Unable to save sponsor campaign:", result.error);
       setMessage(databaseErrorMessage(result.error));
@@ -507,6 +511,27 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
             </div>
             <label>URL gambar desktop (opsional)<input type="text" inputMode="url" aria-invalid={Boolean(campaignUrlErrors.image_url)} aria-describedby="campaign-image-help" value={campaignForm.image_url} onChange={(event) => { setCampaignForm((current) => ({ ...current, image_url: event.target.value })); setCampaignUrlErrors((current) => ({ ...current, image_url: "" })); }} onBlur={() => normalizeCampaignUrlField("image_url")} placeholder="https://contoh.id/banner.jpg" />{campaignUrlErrors.image_url ? <small className="ads-field-error" id="campaign-image-help" role="alert">{campaignUrlErrors.image_url}</small> : <small id="campaign-image-help">Opsional. URL ini menjadi gambar desktop dan fallback untuk perangkat lain.</small>}</label>
             <label>Target komik<select value={campaignForm.target_comic_id} onChange={(event) => setCampaignForm((current) => ({ ...current, target_comic_id: event.target.value, slot_id: event.target.value ? "" : current.slot_id, target_placement: event.target.value ? current.target_placement === "all" ? "comic_detail" : current.target_placement : "all" }))}><option value="">Semua komik / penempatan slot</option>{publishedComics.map((comic) => <option value={comic.id} key={comic.id}>{comic.title}</option>)}</select><small>Kosongkan untuk memakai slot umum. Pilih komik untuk menargetkan kampanye hanya ke judul tersebut.</small></label>
+            <fieldset className="campaign-genre-targeting">
+              <legend>Target minat genre <span>(opsional)</span></legend>
+              <p>Tanpa pilihan genre, kampanye dapat ditayangkan untuk semua pembaca. Jika dipilih, iklan dapat dicocokkan dengan komik yang sedang dibaca atau minat pembaca yang menyetujui personalisasi.</p>
+              <div className="reader-interest-options">
+                {COMIC_GENRES.map((genre) => (
+                  <label className="reader-interest-option" key={genre}>
+                    <input
+                      type="checkbox"
+                      checked={campaignForm.target_genres.includes(genre)}
+                      onChange={() => setCampaignForm((current) => ({
+                        ...current,
+                        target_genres: current.target_genres.includes(genre)
+                          ? current.target_genres.filter((item) => item !== genre)
+                          : [...current.target_genres, genre],
+                      }))}
+                    />
+                    <span>{getComicGenreLabel(genre)}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             {campaignForm.target_comic_id ? <label>Penempatan untuk komik ini<select value={campaignForm.target_placement} onChange={(event) => setCampaignForm((current) => ({ ...current, target_placement: event.target.value as TargetPlacement }))}><option value="comic_detail">Halaman detail komik</option><option value="reader">Halaman baca (tengah bab)</option><option value="episode_transition">Antar episode</option><option value="both">Detail dan halaman baca</option></select></label> : <label>Slot<select value={campaignForm.slot_id} onChange={(event) => setCampaignForm((current) => ({ ...current, slot_id: event.target.value }))}><option value="">Pilih slot aktif</option>{slots.filter((slot) => slot.is_active || slot.id === campaignForm.slot_id).map((slot) => <option value={slot.id} key={slot.id}>{slot.name}{slot.is_active ? "" : " (nonaktif)"}</option>)}</select></label>}
             <div className="ads-form-two-columns">
               <label>Status<select value={campaignForm.status} onChange={(event) => setCampaignForm((current) => ({ ...current, status: event.target.value as CampaignStatus }))}>{Object.entries(campaignStatusLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>

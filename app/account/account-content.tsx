@@ -10,6 +10,7 @@ import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import CreatorContent, { type CreatorArea } from "./creator-content";
 import CreatorAnalytics from "./creator-analytics";
+import ReaderPreferencesPanel from "@/components/reader-preferences-panel";
 import { getComicGenreLabel } from "@/lib/comic-genres";
 import { createCreatorHandle, isValidCreatorHandle } from "@/lib/creator-handle";
 import { getCreatorSocialPlaceholder, isValidCreatorSocialUrl, normalizeCreatorSocialUrl, parseCreatorSocialLinks, type CreatorSocialLink } from "@/lib/creator-social-links";
@@ -494,6 +495,7 @@ export default function AccountContent({ section, children }: { section: Account
           <div className="panel-heading"><div><p className="eyebrow">Ruang pribadimu</p><h2>Pengaturan</h2></div><Settings2 size={22} /></div>
           <div className="settings-row"><span>Jenis akun</span><strong>{roleLabel}</strong></div>
           <div className="settings-row"><span>Alamat email</span><strong>{email}</strong></div>
+          <ReaderPreferencesPanel />
           {profile?.role === "creator" && <Link className="account-creator-link" href="/account/creator"><Sparkles size={16} /> Buka Ruang Kreator <ArrowUpRight size={15} /></Link>}
           {profile?.role === "creator" && (
             <div className="creator-profile-setting">
