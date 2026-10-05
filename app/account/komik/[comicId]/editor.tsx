@@ -64,6 +64,18 @@ const initialComicForm: ComicForm = {
   sourceInfo: "",
 };
 
+function getLocalizedContributorRole(role: string) {
+  const localizedRoles: Record<string, string> = {
+    inker: "Penintaan",
+    outline: "Pembuat outline",
+    coloring: "Pewarnaan",
+    outlet: "Penintaan",
+    editor: "Penyunting",
+    letterer: "Penata huruf",
+  };
+  return localizedRoles[role.trim().toLowerCase()] ?? role;
+}
+
 function getComicForm(comic: Comic): ComicForm {
   const storedContributors = Array.isArray(comic.contributors) ? comic.contributors : [];
   const namedContributors = storedContributors.filter((item) => item.name?.trim());
@@ -75,7 +87,7 @@ function getComicForm(comic: Comic): ComicForm {
     genre: comic.genre,
     targetDevice: COMIC_TARGET_DEVICES.find((device) => device.value === comic.target_device)?.value ?? "all",
     contributors: namedContributors.length
-      ? namedContributors.map((item) => ({ role: item.role || "", name: item.name || "" }))
+      ? namedContributors.map((item) => ({ role: getLocalizedContributorRole(item.role || ""), name: item.name || "" }))
       : [{ role: "Penulis", name: comic.contributor || "" }],
     technique: comic.production_technique || "traditional_drawing",
     storyStatus: comic.story_status || "ongoing",
@@ -88,7 +100,7 @@ function getComicForm(comic: Comic): ComicForm {
 }
 
 function getPageLabel(pageNumber: number) {
-  const label = `Page ${pageNumber}`;
+  const label = `Hal ${pageNumber}`;
   return label.length > 8 ? `${label.slice(0, 7)}…` : label;
 }
 
@@ -166,7 +178,7 @@ export default function CreatorComicPage() {
     setMessage("");
     const chapterNumber = Number(form.chapterNumber);
     if (!Number.isInteger(chapterNumber) || chapterNumber < 1) {
-      setMessage("Chapter number must be a positive whole number.");
+      setMessage("Nomor bab harus berupa bilangan bulat positif.");
       setSaving(false);
       return;
     }
@@ -181,13 +193,13 @@ export default function CreatorComicPage() {
         .select("id, title, chapter_number, published_at")
         .single();
       if (error) {
-        setMessage(error.code === "23505" ? "This chapter number already exists." : error.message);
+        setMessage(error.code === "23505" ? "Nomor bab ini sudah digunakan." : error.message);
       } else {
         setChapters((current) => current.map((chapter) => chapter.id === data.id ? data : chapter).sort((a, b) => a.chapter_number - b.chapter_number));
         setShowForm(false);
         setEditingChapterId(null);
         setForm({ title: "", chapterNumber: "", published: false });
-        setMessage("Chapter updated.");
+        setMessage("Bab berhasil diperbarui.");
       }
     } else {
       const { data, error } = await supabase
@@ -196,12 +208,12 @@ export default function CreatorComicPage() {
         .select("id, title, chapter_number, published_at")
         .single();
       if (error) {
-        setMessage(error.code === "23505" ? "This chapter number already exists." : error.message);
+        setMessage(error.code === "23505" ? "Nomor bab ini sudah digunakan." : error.message);
       } else {
         setChapters((current) => [...current, data].sort((a, b) => a.chapter_number - b.chapter_number));
         setForm({ title: "", chapterNumber: "", published: false });
         setShowForm(false);
-        setMessage("Chapter created. You can add pages next.");
+        setMessage("Bab berhasil dibuat. Selanjutnya, kamu dapat menambahkan halaman.");
       }
     }
     setSaving(false);
@@ -242,7 +254,7 @@ export default function CreatorComicPage() {
     if (!comic) return;
     const contributors = comicForm.contributors.map((item) => ({ role: item.role.trim(), name: item.name.trim() }));
     if (!contributors.length || contributors.some((item) => !item.role || !item.name)) {
-      setMessage("At least one contributor with a role and name is required.");
+      setMessage("Lengkapi peran dan nama untuk minimal satu kontributor.");
       return;
     }
     const language = comicForm.language === "other" ? comicForm.otherLanguage.trim() : comicForm.language;
@@ -264,7 +276,7 @@ export default function CreatorComicPage() {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
-      if (!token) throw new Error("Your session expired. Please log in again.");
+      if (!token) throw new Error("Sesi kamu telah berakhir. Silakan masuk kembali.");
 
       let coverKey = previousCoverKey;
       let sharePreviewKey = comic.share_preview_key;
@@ -280,7 +292,7 @@ export default function CreatorComicPage() {
         });
         const uploadResult = await signResponse.json() as { objectKey?: string; error?: string };
         if (!signResponse.ok || !uploadResult.objectKey) {
-          throw new Error(uploadResult.error || "Could not upload cover.");
+          throw new Error(uploadResult.error || "Sampul komik tidak dapat diunggah.");
         }
         uploadedCoverKey = uploadResult.objectKey;
         coverKey = uploadedCoverKey;
@@ -297,7 +309,7 @@ export default function CreatorComicPage() {
         });
         const previewUploadResult = await previewSignResponse.json() as { objectKey?: string; error?: string };
         if (!previewSignResponse.ok || !previewUploadResult.objectKey) {
-          throw new Error(previewUploadResult.error || "Could not upload comic share preview.");
+          throw new Error(previewUploadResult.error || "Pratinjau berbagi komik tidak dapat diunggah.");
         }
         uploadedSharePreviewKey = previewUploadResult.objectKey;
         sharePreviewKey = uploadedSharePreviewKey;
@@ -346,10 +358,10 @@ export default function CreatorComicPage() {
         }
       }
       setMessage(cleanupPending
-        ? "Comic updated, but the previous cover could not be removed from storage."
+        ? "Komik berhasil diperbarui, tetapi sampul sebelumnya tidak dapat dihapus dari penyimpanan."
         : comic.status === "published"
-          ? "Comic updated and submitted for admin review."
-          : "Comic details updated.");
+          ? "Komik berhasil diperbarui dan dikirim untuk ditinjau admin."
+          : "Detail komik berhasil diperbarui.");
     } catch (error) {
       if (uploadedCoverKey && !comicSaved) {
         const { data: sessionData } = await supabase.auth.getSession();
@@ -379,7 +391,7 @@ export default function CreatorComicPage() {
           });
         }
       }
-      setMessage(error instanceof Error ? error.message : "Could not update comic.");
+      setMessage(error instanceof Error ? error.message : "Detail komik tidak dapat diperbarui.");
     } finally {
       setSavingComic(false);
     }
@@ -395,26 +407,26 @@ export default function CreatorComicPage() {
   };
 
   const deleteChapter = async (chapter: Chapter) => {
-    if (!comic || !window.confirm(`Delete "${chapter.title}" and all its pages? This cannot be undone.`)) return;
+    if (!comic || !window.confirm(`Hapus "${chapter.title}" beserta semua halamannya? Tindakan ini tidak dapat dibatalkan.`)) return;
     setDeletingChapterId(chapter.id);
     setMessage("");
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
-      if (!token) throw new Error("Your session expired. Please log in again.");
+      if (!token) throw new Error("Sesi kamu telah berakhir. Silakan masuk kembali.");
       const response = await fetch("/api/r2/delete-chapter", {
         method: "DELETE",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ comicId: comic.id, chapterId: chapter.id }),
       });
       const result = await response.json() as { deleted?: boolean; storageCleanupPending?: boolean; error?: string };
-      if (!response.ok || !result.deleted) throw new Error(result.error || "Could not delete chapter.");
+      if (!response.ok || !result.deleted) throw new Error(result.error || "Bab tidak dapat dihapus.");
       setChapters((current) => current.filter((item) => item.id !== chapter.id));
       setMessage(result.storageCleanupPending
-        ? "Chapter deleted, but some image files could not be removed from storage."
-        : "Chapter and its pages deleted.");
+        ? "Bab berhasil dihapus, tetapi beberapa berkas gambar tidak dapat dihapus dari penyimpanan."
+        : "Bab dan semua halamannya berhasil dihapus.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not delete chapter.");
+      setMessage(error instanceof Error ? error.message : "Bab tidak dapat dihapus.");
     }
     setDeletingChapterId(null);
   };
@@ -429,7 +441,7 @@ export default function CreatorComicPage() {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
-      if (!token) throw new Error("Your session expired. Please log in again.");
+      if (!token) throw new Error("Sesi kamu telah berakhir. Silakan masuk kembali.");
       for (const file of files) {
         const uploadForm = new FormData();
         uploadForm.set("kind", "page");
@@ -442,43 +454,43 @@ export default function CreatorComicPage() {
           body: uploadForm,
         });
         const uploadResult = await uploadResponse.json() as { page?: ChapterPage; error?: string };
-        if (!uploadResponse.ok || !uploadResult.page) throw new Error(uploadResult.error || `Upload failed for ${file.name}.`);
+        if (!uploadResponse.ok || !uploadResult.page) throw new Error(uploadResult.error || `Halaman ${file.name} gagal diunggah.`);
         const page = uploadResult.page;
         setPagesByChapter((current) => ({ ...current, [chapter.id]: [...(current[chapter.id] ?? []), page] }));
       }
-      setMessage(`${files.length} page${files.length > 1 ? "s" : ""} uploaded successfully.`);
+      setMessage(`${files.length} halaman berhasil diunggah.`);
       setUploadChapter(null);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Upload failed.");
+      setMessage(error instanceof Error ? error.message : "Halaman gagal diunggah.");
     }
     setUploading(false);
     event.target.value = "";
   };
 
   const deletePage = async (chapter: Chapter, page: ChapterPage) => {
-    if (!comic || !window.confirm(`Delete page ${page.page_number}? This cannot be undone.`)) return;
+    if (!comic || !window.confirm(`Hapus halaman ${page.page_number}? Tindakan ini tidak dapat dibatalkan.`)) return;
     setDeletingPageId(page.id);
     setMessage("");
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
-      if (!token) throw new Error("Your session expired. Please log in again.");
+      if (!token) throw new Error("Sesi kamu telah berakhir. Silakan masuk kembali.");
       const response = await fetch("/api/r2/delete-page", {
         method: "DELETE",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ comicId: comic.id, chapterId: chapter.id, pageId: page.id }),
       });
       const result = await response.json() as { deleted?: boolean; storageCleanupPending?: boolean; error?: string };
-      if (!response.ok || !result.deleted) throw new Error(result.error || "Could not delete page.");
+      if (!response.ok || !result.deleted) throw new Error(result.error || "Halaman tidak dapat dihapus.");
       setPagesByChapter((current) => ({
         ...current,
         [chapter.id]: (current[chapter.id] ?? []).filter((item) => item.id !== page.id),
       }));
       setMessage(result.storageCleanupPending
-        ? "Page deleted, but its image file could not be removed from storage."
-        : "Page and image deleted.");
+        ? "Halaman berhasil dihapus, tetapi berkas gambarnya tidak dapat dihapus dari penyimpanan."
+        : "Halaman dan gambarnya berhasil dihapus.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not delete page.");
+      setMessage(error instanceof Error ? error.message : "Halaman tidak dapat dihapus.");
     }
     setDeletingPageId(null);
   };
@@ -491,14 +503,14 @@ export default function CreatorComicPage() {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
-      if (!token) throw new Error("Your session expired. Please log in again.");
+      if (!token) throw new Error("Sesi kamu telah berakhir. Silakan masuk kembali.");
       const response = await fetch("/api/r2/reorder-page", {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ comicId: comic.id, chapterId: chapter.id, pageId: page.id, targetPageId: targetPage.id }),
       });
       const result = await response.json() as { reordered?: boolean; pages?: Array<{ id: string; page_number: number }>; error?: string };
-      if (!response.ok || !result.reordered || !result.pages) throw new Error(result.error || "Could not reorder pages.");
+      if (!response.ok || !result.reordered || !result.pages) throw new Error(result.error || "Urutan halaman tidak dapat diubah.");
       const updatedNumbers = new Map(result.pages.map((item) => [item.id, item.page_number]));
       setPagesByChapter((current) => ({
         ...current,
@@ -506,9 +518,9 @@ export default function CreatorComicPage() {
           .map((item) => updatedNumbers.has(item.id) ? { ...item, page_number: updatedNumbers.get(item.id)! } : item)
           .sort((first, second) => first.page_number - second.page_number),
       }));
-      setMessage("Page order updated.");
+      setMessage("Urutan halaman berhasil diperbarui.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not reorder pages.");
+      setMessage(error instanceof Error ? error.message : "Urutan halaman tidak dapat diubah.");
     } finally {
       reorderInFlightRef.current = false;
       setReorderingPageId(null);
@@ -521,7 +533,7 @@ export default function CreatorComicPage() {
   const thumbnailKey = comic.cover_key || pagesByChapter[chapters[0]?.id]?.[0]?.object_key;
   const coverUrl = thumbnailKey && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${thumbnailKey}` : null;
   const contributorSummary = Array.isArray(comic.contributors) && comic.contributors.length
-    ? comic.contributors.map((item) => `${item.role}: ${item.name}`).join(" · ")
+    ? comic.contributors.map((item) => `${getLocalizedContributorRole(item.role)}: ${item.name}`).join(" · ")
     : comic.contributor;
 
   return (
@@ -531,11 +543,11 @@ export default function CreatorComicPage() {
         <div className="chapter-manager-intro">
           <div className={`chapter-manager-cover ${coverUrl ? "has-cover" : ""}`}>
             {coverUrl
-              ? <img src={coverUrl} alt={`Cover for ${comic.title}`} />
-              : <div className="chapter-manager-cover-fallback" role="img" aria-label={`Cover for ${comic.title}`}><span>{comic.genre}</span><strong>{comic.title.slice(0, 2).toUpperCase()}</strong></div>}
+              ? <img src={coverUrl} alt={`Sampul ${comic.title}`} />
+              : <div className="chapter-manager-cover-fallback" role="img" aria-label={`Sampul ${comic.title}`}><span>{getComicGenreLabel(comic.genre)}</span><strong>{comic.title.slice(0, 2).toUpperCase()}</strong></div>}
           </div>
           <div className="chapter-manager-title">
-            <p className="eyebrow"><span /> Chapter manager</p>
+            <p className="eyebrow"><span /> Kelola komik</p>
             <h1>{comic.title}</h1>
             {contributorSummary && <p className="chapter-manager-contributors">{contributorSummary}</p>}
             <div className="chapter-manager-description-row">
@@ -543,10 +555,10 @@ export default function CreatorComicPage() {
             </div>
             <div className="chapter-manager-inline-actions">
               <span className={`request-status request-${comic.status === "published" ? "approved" : "pending"}`}>
-                {comic.status === "pending_review" ? "Menunggu kurasi" : comic.status === "published" ? "Published" : comic.status === "draft" ? "Draft" : "Archived"}
+                {comic.status === "pending_review" ? "Menunggu kurasi" : comic.status === "published" ? "Terbit" : comic.status === "draft" ? "Draf" : "Diarsipkan"}
               </span>
               <button className="button button-light chapter-manager-inline-edit" onClick={startComicEdit}>
-                <Pencil size={16} /> Edit comic
+                <Pencil size={16} /> Ubah komik
               </button>
             </div>
           </div>
@@ -554,7 +566,7 @@ export default function CreatorComicPage() {
       </header>
       {message && <p className="creator-message" role="status">{message}</p>}
       <div className="comic-editor-tabs" role="tablist" aria-label="Kelola komik">
-        <button id="comic-details-tab" type="button" role="tab" aria-selected={activeTab === "comic"} aria-controls="comic-details-panel" onClick={() => switchEditorTab("comic")}>Edit komik</button>
+        <button id="comic-details-tab" type="button" role="tab" aria-selected={activeTab === "comic"} aria-controls="comic-details-panel" onClick={() => switchEditorTab("comic")}>Ubah komik</button>
         <button id="comic-chapters-tab" type="button" role="tab" aria-selected={activeTab === "chapters"} aria-controls="comic-chapters-panel" onClick={() => switchEditorTab("chapters")}>Bab &amp; halaman <span>{chapters.length}</span></button>
       </div>
       {activeTab === "comic" && (
@@ -562,8 +574,8 @@ export default function CreatorComicPage() {
         <form className="comic-form" onSubmit={updateComic}>
           <div className="form-heading">
             <div>
-              <p className="eyebrow">Comic settings</p>
-              <h2>Edit comic</h2>
+              <p className="eyebrow">Pengaturan komik</p>
+              <h2>Ubah komik</h2>
             </div>
             <button type="button" className="form-close" aria-label="Kembali ke bab dan halaman" onClick={() => switchEditorTab("chapters")}>&times;</button>
           </div>
@@ -578,12 +590,11 @@ export default function CreatorComicPage() {
               <option value="Ilustrator" />
               <option value="Pewarna" />
               <option value="Penerjemah" />
-              <option value="Inker" />
-              <option value="Outline" />
-              <option value="Coloring" />
-              <option value="Outlet" />
-              <option value="Editor" />
-              <option value="Letterer" />
+              <option value="Penintaan" />
+              <option value="Pembuat outline" />
+              <option value="Pewarnaan" />
+              <option value="Penyunting" />
+              <option value="Penata huruf" />
             </datalist>
             {comicForm.contributors.map((item, index) => (
               <div className="comic-contributor-row" key={index}>
@@ -591,7 +602,7 @@ export default function CreatorComicPage() {
                   required
                   maxLength={60}
                   list="comic-contributor-roles"
-                  aria-label={`Peran contributor ${index + 1}`}
+                  aria-label={`Peran kontributor ${index + 1}`}
                   placeholder="Peran, mis. Ilustrator"
                   value={item.role}
                   onChange={(event) => updateContributor(index, "role", event.target.value)}
@@ -599,7 +610,7 @@ export default function CreatorComicPage() {
                 <input
                   required
                   maxLength={120}
-                  aria-label={`Nama contributor ${index + 1}`}
+                  aria-label={`Nama kontributor ${index + 1}`}
                   placeholder="Nama"
                   value={item.name}
                   onChange={(event) => updateContributor(index, "name", event.target.value)}
@@ -607,7 +618,7 @@ export default function CreatorComicPage() {
                 <button
                   type="button"
                   className="chapter-action chapter-action-danger"
-                  aria-label={`Hapus contributor ${index + 1}`}
+                  aria-label={`Hapus kontributor ${index + 1}`}
                   onClick={() => removeContributor(index)}
                   disabled={comicForm.contributors.length === 1 || savingComic}
                 >
@@ -616,7 +627,7 @@ export default function CreatorComicPage() {
               </div>
             ))}
             <button type="button" className="button button-light contributor-add-button" onClick={addContributor} disabled={savingComic}>
-              <Plus size={15} /> Tambah contributor
+              <Plus size={15} /> Tambah kontributor
             </button>
           </fieldset>
           <label>Teknik produksi<select value={comicForm.technique} onChange={(event) => setComicForm({ ...comicForm, technique: event.target.value })}>{PRODUCTION_TECHNIQUES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
@@ -627,13 +638,13 @@ export default function CreatorComicPage() {
           <label>Asal karya<select value={comicForm.originType} onChange={(event) => setComicForm({ ...comicForm, originType: event.target.value })}>{ORIGIN_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
           {comicForm.originType === "adaptation" && <label>Sumber adaptasi<input required maxLength={500} value={comicForm.sourceInfo} onChange={(event) => setComicForm({ ...comicForm, sourceInfo: event.target.value })} placeholder="Judul dan pencipta karya sumber" /></label>}
           <p className="comic-form-note">Semua komik di mu-komik gratis untuk dibaca.</p>
-          <label className="cover-upload-field">Cover komik
+          <label className="cover-upload-field">Sampul komik
             <input type="file" accept={settings.allowed_image_types.join(",")} onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)} />
-            <span>{coverFile ? `Dipilih: ${coverFile.name}` : comic.cover_key ? "Cover saat ini dipertahankan jika tidak memilih file baru." : "Belum ada cover."} Maks. {settings.max_upload_size_mb} MB.</span>
+            <span>{coverFile ? `Dipilih: ${coverFile.name}` : comic.cover_key ? "Sampul saat ini tetap digunakan jika kamu tidak memilih berkas baru." : "Belum ada sampul."} Maks. {settings.max_upload_size_mb} MB.</span>
           </label>
           <div className="comic-form-actions">
             <button className="button button-dark" type="submit" disabled={savingComic}>
-              {savingComic ? <><LoaderCircle className="spin" size={16} /> Saving...</> : <>Simpan perubahan <ArrowUpRight size={16} /></>}
+              {savingComic ? <><LoaderCircle className="spin" size={16} /> Menyimpan...</> : <>Simpan perubahan <ArrowUpRight size={16} /></>}
             </button>
             <button className="button button-light" type="button" onClick={() => { if (comic) setComicForm(getComicForm(comic)); setCoverFile(null); switchEditorTab("chapters"); }} disabled={savingComic}>Batal</button>
           </div>
@@ -645,28 +656,28 @@ export default function CreatorComicPage() {
         <form className="comic-form" onSubmit={createChapter}>
           <div className="form-heading">
             <div>
-              <p className="eyebrow">{editingChapterId ? "Update this chapter" : "Build the next part"}</p>
-              <h2>{editingChapterId ? "Edit chapter" : "Chapter details"}</h2>
+              <p className="eyebrow">{editingChapterId ? "Perbarui bab ini" : "Lanjutkan ceritamu"}</p>
+              <h2>{editingChapterId ? "Ubah bab" : "Detail bab"}</h2>
             </div>
-            <button type="button" className="form-close" aria-label="Close chapter form" onClick={() => { setShowForm(false); setEditingChapterId(null); }}>&times;</button>
+            <button type="button" className="form-close" aria-label="Tutup formulir bab" onClick={() => { setShowForm(false); setEditingChapterId(null); }}>&times;</button>
           </div>
-          <label>Chapter title<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="The name of this chapter" /></label>
-          <label>Chapter number<input required type="number" min="1" step="1" value={form.chapterNumber} onChange={(event) => setForm({ ...form, chapterNumber: event.target.value })} placeholder="1" /></label>
-          <label className="checkbox-label"><input type="checkbox" checked={form.published} onChange={(event) => setForm({ ...form, published: event.target.checked })} /> Publish chapter</label>
+          <label>Judul bab<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Nama bab ini" /></label>
+          <label>Nomor bab<input required type="number" min="1" step="1" value={form.chapterNumber} onChange={(event) => setForm({ ...form, chapterNumber: event.target.value })} placeholder="1" /></label>
+          <label className="checkbox-label"><input type="checkbox" checked={form.published} onChange={(event) => setForm({ ...form, published: event.target.checked })} /> Terbitkan bab</label>
           <button className="button button-dark" type="submit" disabled={saving}>
-            {saving ? <><LoaderCircle className="spin" size={16} /> Saving...</> : <>{editingChapterId ? "Save changes" : "Create chapter"} <ArrowUpRight size={16} /></>}
+            {saving ? <><LoaderCircle className="spin" size={16} /> Menyimpan...</> : <>{editingChapterId ? "Simpan perubahan" : "Buat bab"} <ArrowUpRight size={16} /></>}
           </button>
         </form>
       )}
       <section className="chapter-manager-list">
         <div className="creator-section-heading">
-          <div><p className="eyebrow">{chapters.length} bab</p><h2>Alur Cerita</h2></div>
+          <div><p className="eyebrow">{chapters.length} bab</p><h2>Alur cerita</h2></div>
           <div className="chapter-list-heading-actions">
-            <button className="button button-dark" onClick={() => startChapterForm()}><Plus size={17} /> New chapter</button>
+            <button className="button button-dark" onClick={() => startChapterForm()}><Plus size={17} /> Bab baru</button>
           </div>
         </div>
         {chapters.length === 0 ? (
-          <div className="creator-empty"><BookOpen size={26} /><h3>No chapters yet.</h3><p>Create the first chapter for this story.</p></div>
+          <div className="creator-empty"><BookOpen size={26} /><h3>Belum ada bab.</h3><p>Buat bab pertama untuk cerita ini.</p></div>
         ) : (
           <div className="chapter-manager-rows">
             {chapters.map((chapter) => (
@@ -674,45 +685,45 @@ export default function CreatorComicPage() {
                 <div className="chapter-number">{String(chapter.chapter_number).padStart(2, "0")}</div>
                 <div className="chapter-manager-copy">
                   <h3>{chapter.title}</h3>
-                  <p>{chapter.published_at ? `Published ${new Date(chapter.published_at).toLocaleDateString()}` : "Draft chapter"}</p>
+                  <p>{chapter.published_at ? `Terbit ${new Date(chapter.published_at).toLocaleDateString("id-ID")}` : "Bab draf"}</p>
                 </div>
                 <div className="chapter-row-actions">
-                  <span className={`request-status request-${chapter.published_at ? "approved" : "pending"}`}>{chapter.published_at ? "Published" : "Draft"}</span>
-                  <button type="button" className="chapter-action" aria-label={`Edit ${chapter.title}`} title="Edit chapter" onClick={() => startChapterForm(chapter)} disabled={deletingChapterId !== null}>
+                  <span className={`request-status request-${chapter.published_at ? "approved" : "pending"}`}>{chapter.published_at ? "Terbit" : "Draf"}</span>
+                  <button type="button" className="chapter-action" aria-label={`Ubah ${chapter.title}`} title="Ubah bab" onClick={() => startChapterForm(chapter)} disabled={deletingChapterId !== null}>
                     <Pencil size={16} />
                   </button>
-                  <button type="button" className="chapter-action chapter-action-danger" aria-label={`Delete ${chapter.title}`} title="Delete chapter" onClick={() => void deleteChapter(chapter)} disabled={deletingChapterId !== null || uploading}>
+                  <button type="button" className="chapter-action chapter-action-danger" aria-label={`Hapus ${chapter.title}`} title="Hapus bab" onClick={() => void deleteChapter(chapter)} disabled={deletingChapterId !== null || uploading}>
                     {deletingChapterId === chapter.id ? <LoaderCircle className="spin" size={16} /> : <Trash2 size={16} />}
                   </button>
                   <label className="page-upload-button">
                     <input type="file" accept={settings.allowed_image_types.join(",")} multiple disabled={uploading || deletingChapterId !== null || (pagesByChapter[chapter.id]?.length ?? 0) >= settings.max_pages_per_chapter} onChange={(event) => { setUploadChapter(chapter); void uploadPages(event); }} />
                     <small>Maks. {settings.max_pages_per_chapter} halaman per bab, {settings.max_upload_size_mb} MB per gambar.</small>
-                    Upload pages
+                    Unggah halaman
                   </label>
-                  <Link className="round-arrow" href={`/comic/${comic.slug}/chapter/${chapter.id}`} aria-label={`Preview ${chapter.title}`}><ArrowUpRight size={17} /></Link>
+                  <Link className="round-arrow" href={`/comic/${comic.slug}/chapter/${chapter.id}`} aria-label={`Pratinjau ${chapter.title}`}><ArrowUpRight size={17} /></Link>
                 </div>
                 {(pagesByChapter[chapter.id]?.length ?? 0) > 0 && (
-                  <div className="chapter-page-list" aria-label={`Pages in ${chapter.title}`}>
+                  <div className="chapter-page-list" aria-label={`Halaman dalam ${chapter.title}`}>
                     {pagesByChapter[chapter.id].map((page, pageIndex) => (
                       <div className="chapter-page-item" key={page.id}>
                         <div
                           className="chapter-page-thumbnail"
                           style={publicUrl ? { backgroundImage: `url(${publicUrl.replace(/\/$/, "")}/${page.object_key})` } : undefined}
                           role="img"
-                          aria-label={`Thumbnail for page ${page.page_number}`}
+                          aria-label={`Gambar kecil halaman ${page.page_number}`}
                         >
                           {!publicUrl && <BookOpen size={16} />}
                         </div>
                         <div className="chapter-page-meta">
                           <div className="chapter-page-meta-row">
-                            <span className="chapter-page-label" title={`Page ${page.page_number}`}>
+                            <span className="chapter-page-label" title={`Halaman ${page.page_number}`}>
                               {getPageLabel(page.page_number)}
                             </span>
                             <button
                               type="button"
                               className="chapter-action chapter-action-danger"
-                              aria-label={`Delete page ${page.page_number} from ${chapter.title}`}
-                              title="Delete page"
+                              aria-label={`Hapus halaman ${page.page_number} dari ${chapter.title}`}
+                              title="Hapus halaman"
                               onClick={() => void deletePage(chapter, page)}
                               disabled={deletingPageId !== null || uploading || deletingChapterId !== null || reorderingPageId !== null}
                             >
@@ -723,8 +734,8 @@ export default function CreatorComicPage() {
                             <button
                               type="button"
                               className="chapter-action"
-                              aria-label={`Move page ${page.page_number} left`}
-                              title="Move page left"
+                              aria-label={`Pindahkan halaman ${page.page_number} ke kiri`}
+                              title="Pindahkan halaman ke kiri"
                               onClick={() => void reorderPage(chapter, page, pagesByChapter[chapter.id][pageIndex - 1])}
                               disabled={pageIndex === 0 || reorderingPageId !== null || deletingPageId !== null || uploading || deletingChapterId !== null}
                             >
@@ -733,8 +744,8 @@ export default function CreatorComicPage() {
                             <button
                               type="button"
                               className="chapter-action"
-                              aria-label={`Move page ${page.page_number} right`}
-                              title="Move page right"
+                              aria-label={`Pindahkan halaman ${page.page_number} ke kanan`}
+                              title="Pindahkan halaman ke kanan"
                               onClick={() => void reorderPage(chapter, page, pagesByChapter[chapter.id][pageIndex + 1])}
                               disabled={pageIndex === pagesByChapter[chapter.id].length - 1 || reorderingPageId !== null || deletingPageId !== null || uploading || deletingChapterId !== null}
                             >
