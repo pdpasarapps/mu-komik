@@ -486,7 +486,7 @@ export default function AdminPage() {
         </section>}
         {(section === "ads-management" || section === "sponsor-campaigns") && <section className="admin-management-section">
           <div className="admin-section-heading">
-            <div><p className="eyebrow">Monetisasi platform</p><h2>Kampanye sponsor</h2><p>Kelola kampanye, materi, target komik, dan periode tayang. Kampanye di sini belum ditayangkan sebelum diaktifkan.</p></div>
+            <div><p className="eyebrow">Monetisasi platform</p><h2>Kampanye sponsor</h2><p>Kelola kampanye, materi, target komik, dan periode tayang. Kampanye aktif ditayangkan pada slot selama periode kampanye.</p></div>
           </div>
           <AdsManagementPanel key="campaigns" mode="campaigns" />
         </section>}
@@ -498,7 +498,7 @@ export default function AdminPage() {
         </section>}
         {section === "ad-requests" && <section className="admin-management-section">
           <div className="admin-section-heading">
-            <div><p className="eyebrow">Monetisasi platform</p><h2>Pengajuan iklan</h2><p>Tinjau materi dan kebutuhan pengiklan. Pengajuan yang disetujui masih perlu dikonfirmasi jadwal serta pembayarannya dan dibuat sebagai kampanye sebelum tayang.</p></div>
+            <div><p className="eyebrow">Monetisasi platform</p><h2>Pengajuan iklan</h2><p>Persetujuan mengaktifkan kampanye di sistem iklan publik untuk setiap slot yang dipilih. Pastikan materi, jadwal, dan ketersediaan slot sudah dikonfirmasi.</p></div>
           </div>
           <AdRequestsPanel />
         </section>}

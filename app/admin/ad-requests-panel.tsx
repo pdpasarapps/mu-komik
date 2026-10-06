@@ -51,6 +51,79 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function addDays(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+async function publishCampaignsFromRequest(request: AdRequest) {
+  const { data: slots, error: slotsError } = await supabase
+    .from("ad_slots")
+    .select("id, slot_key, is_active")
+    .in("slot_key", request.placements);
+  if (slotsError) throw slotsError;
+
+  const availableSlots = slots ?? [];
+  const missingPlacements = request.placements.filter(
+    (placement) => !availableSlots.some((slot) => slot.slot_key === placement),
+  );
+  if (missingPlacements.length) {
+    throw new Error(`Slot iklan belum tersedia: ${missingPlacements.map((key) => placementLabels[key] ?? key).join(", ")}.`);
+  }
+  const inactiveSlots = availableSlots.filter((slot) => !slot.is_active);
+  if (inactiveSlots.length) {
+    throw new Error(`Aktifkan slot iklan berikut sebelum menyetujui: ${inactiveSlots.map((slot) => placementLabels[slot.slot_key] ?? slot.slot_key).join(", ")}.`);
+  }
+
+  const { data: existingCampaigns, error: existingError } = await supabase
+    .from("sponsor_campaigns")
+    .select("id, sponsor_name, title, description, destination_url, image_url, image_url_tablet, image_url_mobile, slot_id")
+    .in("slot_id", availableSlots.map((slot) => slot.id));
+  if (existingError) throw existingError;
+
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
+  const startsOn = request.requested_start && request.requested_start > today ? request.requested_start : today;
+  const endsOn = request.requested_end && request.requested_end >= startsOn
+    ? request.requested_end
+    : addDays(startsOn, 30);
+  let publishedCount = 0;
+
+  for (const slot of availableSlots) {
+    const existingCampaign = (existingCampaigns ?? []).find((campaign) =>
+      campaign.slot_id === slot.id
+      && campaign.sponsor_name === request.advertiser_name
+      && campaign.title === request.campaign_title
+      && campaign.description === request.description
+      && campaign.destination_url === request.destination_url
+      && campaign.image_url === request.image_url
+      && campaign.image_url_tablet === request.image_url_tablet
+      && campaign.image_url_mobile === request.image_url_mobile,
+    );
+
+    const values = {
+        sponsor_name: request.advertiser_name,
+        title: request.campaign_title,
+        description: request.description,
+        destination_url: request.destination_url,
+        image_url: request.image_url,
+        image_url_tablet: request.image_url_tablet,
+        image_url_mobile: request.image_url_mobile,
+        slot_id: slot.id,
+        starts_on: startsOn,
+        ends_on: endsOn,
+        status: "active",
+        updated_at: new Date().toISOString(),
+      };
+    const result = existingCampaign
+      ? await supabase.from("sponsor_campaigns").update(values).eq("id", existingCampaign.id)
+      : await supabase.from("sponsor_campaigns").insert(values);
+    if (result.error) throw result.error;
+    publishedCount += 1;
+  }
+  return publishedCount;
+}
+
 function AdCreativePreview({ request }: { request: AdRequest }) {
   const [device, setDevice] = useState<CreativeDevice>("desktop");
   const images: Record<CreativeDevice, string | null> = {
@@ -110,6 +183,28 @@ function ReviewCard({ request, onUpdated }: { request: AdRequest; onUpdated: (re
     event.preventDefault();
     setSaving(true);
     setMessage("");
+    if (status === "approved") {
+      try {
+        const publishedCount = await publishCampaignsFromRequest(request);
+        const { error: updateError } = await supabase
+          .from("ad_requests")
+          .update({ status: "approved", admin_note: adminNote.trim(), updated_at: new Date().toISOString() })
+          .eq("id", request.id);
+        if (updateError) throw updateError;
+        onUpdated({ ...request, status: "approved", admin_note: adminNote.trim() });
+        setMessage(publishedCount
+          ? `Pengajuan disetujui. ${publishedCount} kampanye diaktifkan untuk sistem iklan publik.`
+          : "Pengajuan disetujui. Kampanyenya sudah aktif di sistem iklan publik.");
+      } catch (publishError) {
+        console.error("Unable to approve advertiser request and publish sponsor campaigns:", publishError);
+        setMessage(publishError instanceof Error && (publishError.message.startsWith("Slot iklan belum tersedia:") || publishError.message.startsWith("Aktifkan slot iklan berikut"))
+          ? publishError.message
+          : "Kampanye gagal diaktifkan. Pastikan slot dan tabel sponsor_campaigns tersedia, lalu coba lagi.");
+      }
+      setSaving(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("ad_requests")
       .update({ status, admin_note: adminNote.trim(), updated_at: new Date().toISOString() })
