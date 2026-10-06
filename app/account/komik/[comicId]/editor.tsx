@@ -125,13 +125,19 @@ export default function CreatorComicPage() {
   const [form, setForm] = useState({ title: "", chapterNumber: "", published: false });
   const [comicForm, setComicForm] = useState<ComicForm>(initialComicForm);
   const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [, setUploadChapterState] = useState<Chapter | null>(null);
+  const [uploadingChapter, setUploadChapterState] = useState<Chapter | null>(null);
   const uploadChapterRef = useRef<Chapter | null>(null);
   const setUploadChapter = (chapter: Chapter | null) => {
     uploadChapterRef.current = chapter;
     setUploadChapterState(chapter);
   };
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{
+    percent: number;
+    fileName: string;
+    fileIndex: number;
+    totalFiles: number;
+  } | null>(null);
 
   useEffect(() => {
     const loadComic = async () => {
@@ -444,21 +450,51 @@ export default function CreatorComicPage() {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) throw new Error("Sesi kamu telah berakhir. Silakan masuk kembali.");
-      for (const file of files) {
+      const totalBytes = files.reduce((total, file) => total + file.size, 0);
+      let completedBytes = 0;
+      for (const [fileIndex, file] of files.entries()) {
         const uploadForm = new FormData();
         uploadForm.set("kind", "page");
         uploadForm.set("comicId", comic.id);
         uploadForm.set("chapterId", chapter.id);
         uploadForm.set("file", file);
-        const uploadResponse = await fetch("/api/r2/upload-image", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: uploadForm,
+        setUploadProgress({
+          percent: Math.floor((completedBytes / totalBytes) * 100),
+          fileName: file.name,
+          fileIndex: fileIndex + 1,
+          totalFiles: files.length,
         });
-        const uploadResult = await uploadResponse.json() as { page?: ChapterPage; error?: string };
-        if (!uploadResponse.ok || !uploadResult.page) throw new Error(uploadResult.error || `Halaman ${file.name} gagal diunggah.`);
-        const page = uploadResult.page;
+        const page = await new Promise<ChapterPage>((resolve, reject) => {
+          const request = new XMLHttpRequest();
+          request.open("POST", "/api/r2/upload-image");
+          request.setRequestHeader("Authorization", `Bearer ${token}`);
+          request.responseType = "json";
+          request.upload.onprogress = (progressEvent) => {
+            if (!progressEvent.lengthComputable || totalBytes === 0) return;
+            const currentFileProgress = Math.min(progressEvent.loaded / progressEvent.total, 1);
+            const percent = Math.min(99, Math.floor(((completedBytes + file.size * currentFileProgress) / totalBytes) * 100));
+            setUploadProgress({ percent, fileName: file.name, fileIndex: fileIndex + 1, totalFiles: files.length });
+          };
+          request.onload = () => {
+            const result = request.response as { page?: ChapterPage; error?: string } | null;
+            if (request.status < 200 || request.status >= 300 || !result?.page) {
+              reject(new Error(result?.error || `Halaman ${file.name} gagal diunggah.`));
+              return;
+            }
+            resolve(result.page);
+          };
+          request.onerror = () => reject(new Error(`Koneksi gagal saat mengunggah halaman ${file.name}.`));
+          request.onabort = () => reject(new Error(`Unggah halaman ${file.name} dibatalkan.`));
+          request.send(uploadForm);
+        });
         setPagesByChapter((current) => ({ ...current, [chapter.id]: [...(current[chapter.id] ?? []), page] }));
+        completedBytes += file.size;
+        setUploadProgress({
+          percent: Math.min(99, Math.floor((completedBytes / totalBytes) * 100)),
+          fileName: file.name,
+          fileIndex: fileIndex + 1,
+          totalFiles: files.length,
+        });
       }
       setMessage(`${files.length} halaman berhasil diunggah.`);
       setUploadChapter(null);
@@ -466,6 +502,7 @@ export default function CreatorComicPage() {
       setMessage(error instanceof Error ? error.message : "Halaman gagal diunggah.");
     }
     setUploading(false);
+    setUploadProgress(null);
     event.target.value = "";
   };
 
@@ -704,6 +741,15 @@ export default function CreatorComicPage() {
                   </label>
                   <Link className="round-arrow" href={`/comic/${comic.slug}/chapter/${chapter.id}`} aria-label={`Pratinjau ${chapter.title}`}><ArrowUpRight size={17} /></Link>
                 </div>
+                {uploading && uploadProgress && uploadingChapter?.id === chapter.id && (
+                  <div className="chapter-page-upload-progress">
+                    <div className="chapter-page-upload-progress-copy">
+                      <span aria-live="polite">Mengunggah halaman {uploadProgress.fileIndex} dari {uploadProgress.totalFiles}: {uploadProgress.fileName}</span>
+                      <span>{uploadProgress.percent}%</span>
+                    </div>
+                    <progress value={uploadProgress.percent} max={100} aria-label={`Progres unggah halaman ke ${chapter.title}`} />
+                  </div>
+                )}
                 {(pagesByChapter[chapter.id]?.length ?? 0) > 0 && (
                   <div className="chapter-page-list" aria-label={`Halaman dalam ${chapter.title}`}>
                     {pagesByChapter[chapter.id].map((page, pageIndex) => (
