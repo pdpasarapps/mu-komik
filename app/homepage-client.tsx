@@ -387,7 +387,7 @@ export default function HomePageClient({
         <BrandLogo className="wordmark reader-wordmark" />
         <p>Tempat cerita Indonesia menemukan pembacanya.</p>
         <PlatformLinks />
-        <nav className="reader-footer-links" aria-label="Tautan footer"><a href="#jelajah">Jelajah</a><a href="#genre">Genre</a><a href="#creator">Kreator</a><Link href="/manifesto">Manifesto AI</Link></nav>
+        <nav className="reader-footer-links" aria-label="Tautan footer"><a href="#jelajah">Jelajah</a><a href="#genre">Genre</a><a href="#creator">Kreator</a><Link href="/push-ads">Pasang iklan</Link><Link href="/manifesto">Manifesto AI</Link></nav>
         <span>© 2026 mu-komik</span>
       </footer>
     </main>

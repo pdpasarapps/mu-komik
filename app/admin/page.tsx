@@ -9,6 +9,7 @@ import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import AdminAnalyticsPanel from "./analytics-panel";
 import AdsManagementPanel from "./ads-management-panel";
+import AdRequestsPanel from "./ad-requests-panel";
 import { createComicSharePreview } from "@/lib/comic-share-preview";
 import { defaultPlatformSettings, type PlatformSettings } from "@/lib/platform-settings";
 import { usePlatformSettings } from "../platform-runtime";
@@ -20,7 +21,7 @@ type ComicReview = { id: string; title: string; slug: string; synopsis: string; 
 type AdminUser = { id: string; display_name: string; role: "reader" | "creator" | "admin"; membershipTier: ReaderMembershipTier; created_at: string };
 type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string };
 type SettingsAuditEntry = { id: number; changed_by: string | null; changed_at: string; previous_values: Record<string, unknown>; new_values: Record<string, unknown> };
-type AdminSection = "overview" | "analytics" | "comic-review" | "creator-requests" | "users" | "comics" | "share-previews" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "platform-settings";
+type AdminSection = "overview" | "analytics" | "comic-review" | "creator-requests" | "users" | "comics" | "share-previews" | "ad-requests" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "platform-settings";
 
 const supabase = createClient();
 const adminSections: Record<AdminSection, { label: string; description: string }> = {
@@ -31,6 +32,7 @@ const adminSections: Record<AdminSection, { label: string; description: string }
   users: { label: "Manajemen pengguna", description: "Kelola akun dan peran pengguna." },
   comics: { label: "Katalog komik", description: "Cari komik dan kelola status publikasinya." },
   "share-previews": { label: "Pratinjau berbagi komik", description: "Buat gambar pratinjau statis di R2 agar dapat ditampilkan di WhatsApp dan platform sosial." },
+  "ad-requests": { label: "Pengajuan iklan", description: "Tinjau kebutuhan kampanye iklan dari calon pengiklan." },
   "ads-management": { label: "Kampanye sponsor", description: "Kelola kampanye, materi, target, dan periode tayang sponsor." },
   "ads-list": { label: "Slot iklan", description: "Kelola inventaris penempatan iklan di MU-Komik." },
   "sponsor-campaigns": { label: "Kampanye sponsor", description: "Kelola kampanye, materi, target, dan periode tayang sponsor." },
@@ -452,6 +454,7 @@ export default function AdminPage() {
             <div className="admin-sidebar-group" aria-label="Manajemen iklan">
               <p className="admin-sidebar-group-label">Manajemen iklan</p>
               <Link href="/admin/sponsor-campaigns" aria-current={section === "sponsor-campaigns" || section === "ads-management" ? "page" : undefined}><Megaphone size={18} /><span>Kampanye sponsor</span></Link>
+              <Link href="/admin/ad-requests" aria-current={section === "ad-requests" ? "page" : undefined}><ClipboardList size={18} /><span>Pengajuan iklan</span></Link>
               <Link href="/admin/ad-slots" aria-current={section === "ad-slots" || section === "ads-list" ? "page" : undefined}><List size={18} /><span>Slot iklan</span></Link>
             </div>
             <div className="admin-sidebar-group" aria-label="Pengaturan">
@@ -492,6 +495,12 @@ export default function AdminPage() {
             <div><p className="eyebrow">Monetisasi platform</p><h2>Slot iklan</h2><p>Kelola lokasi penayangan, format, kode, serta status aktif setiap slot.</p></div>
           </div>
           <AdsManagementPanel key="slots" mode="slots" />
+        </section>}
+        {section === "ad-requests" && <section className="admin-management-section">
+          <div className="admin-section-heading">
+            <div><p className="eyebrow">Monetisasi platform</p><h2>Pengajuan iklan</h2><p>Tinjau materi dan kebutuhan pengiklan. Pengajuan yang disetujui masih perlu dikonfirmasi jadwal serta pembayarannya dan dibuat sebagai kampanye sebelum tayang.</p></div>
+          </div>
+          <AdRequestsPanel />
         </section>}
         {section === "platform-settings" && <section className="admin-management-section admin-platform-settings">
           <div className="admin-section-heading">
