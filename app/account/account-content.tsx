@@ -444,7 +444,7 @@ export default function AccountContent({ section, children }: { section: Account
           <button className="account-logout" onClick={handleLogout} disabled={loggingOut}><LogOut size={17} /><span>{loggingOut ? "Keluar..." : "Keluar"}</span></button>
         </div>
       </aside>
-      <div className={`account-main${section === "creator-profile" ? " account-profile-focus" : ""}${section === "creator-guide" ? " account-guide-focus" : ""}${section !== "overview" ? " account-subpage" : ""}${isCreatorArea(section) ? " account-creator-area" : ""}${section === "comic-editor" ? " account-comic-editor-area" : ""}`}>
+      <div className={`account-main${profile?.role === "creator" ? " account-main-creator" : ""}${section === "creator-profile" ? " account-profile-focus" : ""}${section === "creator-guide" ? " account-guide-focus" : ""}${section !== "overview" ? " account-subpage" : ""}${isCreatorArea(section) ? " account-creator-area" : ""}${section === "comic-editor" ? " account-comic-editor-area" : ""}`}>
       <div className="account-mobile-header"><Link href="/account" aria-label="Ruang Bacamu"><BrandLogo linked={false} /></Link><button className="account-logout" onClick={handleLogout} disabled={loggingOut}><LogOut size={16} /> {loggingOut ? "Keluar..." : "Keluar"}</button></div>
       {!isCreatorArea(section) && section !== "comic-editor" && section !== "analitik-komik" && <header className="account-header"><p className="eyebrow">{section === "overview" ? "Ruang Bacamu" : "Akun"}</p><h1>{section === "overview" ? `Hai, ${profile?.display_name || "Pembaca"}.` : section === "reading" ? "Lanjut membaca" : section === "favorites" ? "Favorit" : section === "account-settings" ? "Pengaturan" : section === "creator-application" ? "Jadi kreator" : section === "creator-profile" ? "Profil kreator" : "Panduan MU-Komik"}</h1>{section === "overview" && <><p className="account-email">{email}</p><p className="account-email">{membership.ready ? `Paket ${READER_MEMBERSHIP_TIERS.find((item) => item.value === membership.tier)?.label || "Free"}` : "Memuat paket..."}</p></>}</header>}
       {section === "comic-editor" ? children : section === "analitik-komik" ? (
@@ -789,7 +789,7 @@ export default function AccountContent({ section, children }: { section: Account
       )}
       </>}
       </div>
-      <nav className="account-mobile-nav" aria-label="Navigasi akun">
+      <nav className={`account-mobile-nav${profile?.role === "creator" ? " account-mobile-nav-floating" : ""}`} aria-label="Navigasi akun">
         <Link href="/account" className={section === "overview" ? "active" : ""} aria-current={section === "overview" ? "page" : undefined}><LayoutDashboard size={19} /><span>Ringkasan</span></Link>
         <Link href="/"><Home size={19} /><span>Beranda</span></Link>
         <Link href="/account/reading" className={section === "reading" ? "active" : ""}><BookOpen size={19} /><span>Baca</span></Link>
