@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, ArrowUpRight, BookOpen, Eye, Heart, Menu, Search, Share2, Sparkles, UserRound, X } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -358,16 +359,19 @@ export default function HomePageClient({
         </header>
         <div className="reader-seo-about-grid">
           <article>
+            <div className="reader-seo-about-image"><Image src="/genre.png" alt="" fill sizes="(max-width: 760px) 100vw, (max-width: 1100px) 50vw, 33vw" /></div>
             <h3>Jelajahi beragam genre</h3>
             <p>Katalog MU Komik menyediakan penelusuran berdasarkan genre, seperti fantasi, fiksi ilmiah, drama, komedi, aksi, romansa, horor, misteri, dan petualangan. Ketersediaan judul bergantung pada komik yang telah diterbitkan.</p>
             <a href="#genre">Jelajahi genre komik</a>
           </article>
           <article>
+            <div className="reader-seo-about-image"><Image src="/reading.png" alt="" fill sizes="(max-width: 760px) 100vw, (max-width: 1100px) 50vw, 33vw" /></div>
             <h3>Baca cerita dan episode</h3>
             <p>Buka halaman komik untuk membaca sinopsis, melihat informasi cerita, dan menemukan episode yang tersedia. Komik dapat dibaca pada perangkat yang didukung oleh kreatornya.</p>
             <a href="#jelajah">Lihat katalog komik</a>
           </article>
           <article>
+            <div className="reader-seo-about-image"><Image src="/ruang_kreator.png" alt="" fill sizes="(max-width: 760px) 100vw, (max-width: 1100px) 50vw, 33vw" /></div>
             <h3>Ruang untuk kreator lokal</h3>
             <p>Kreator dapat mengajukan akses kreator, menerbitkan komik, dan mengelola episode karyanya. MU Komik juga menjelaskan pandangannya tentang penggunaan AI dalam proses kreatif.</p>
             <Link href="/manifesto">Baca manifesto AI MU Komik</Link>

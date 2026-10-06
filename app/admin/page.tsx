@@ -24,13 +24,13 @@ type AdminSection = "overview" | "analytics" | "comic-review" | "creator-request
 
 const supabase = createClient();
 const adminSections: Record<AdminSection, { label: string; description: string }> = {
-  overview: { label: "Dashboard admin", description: "Kelola akun, komik, kurasi, dan pengajuan kreator mu-komik." },
+  overview: { label: "Dasbor admin", description: "Kelola akun, komik, kurasi, dan pengajuan kreator mu-komik." },
   analytics: { label: "Analitik", description: "Pantau aktivitas membaca dan komik yang paling banyak dibaca." },
   "comic-review": { label: "Kurasi komik", description: "Tinjau komik yang menunggu persetujuan untuk diterbitkan." },
   "creator-requests": { label: "Pengajuan kreator", description: "Tinjau permohonan akses kreator." },
   users: { label: "Manajemen pengguna", description: "Kelola akun dan peran pengguna." },
   comics: { label: "Katalog komik", description: "Cari komik dan kelola status publikasinya." },
-  "share-previews": { label: "Preview share komik", description: "Buat gambar preview statis di R2 untuk dibaca WhatsApp dan platform sosial." },
+  "share-previews": { label: "Pratinjau berbagi komik", description: "Buat gambar pratinjau statis di R2 agar dapat ditampilkan di WhatsApp dan platform sosial." },
   "ads-management": { label: "Kampanye sponsor", description: "Kelola kampanye, materi, target, dan periode tayang sponsor." },
   "ads-list": { label: "Slot iklan", description: "Kelola inventaris penempatan iklan di MU-Komik." },
   "sponsor-campaigns": { label: "Kampanye sponsor", description: "Kelola kampanye, materi, target, dan periode tayang sponsor." },
@@ -41,8 +41,8 @@ const roleLabels = { reader: "Pembaca", creator: "Kreator", admin: "Admin" };
 const comicStatusLabels = { draft: "Draf", pending_review: "Menunggu kurasi", published: "Terbit", archived: "Diarsipkan" };
 const requestStatusLabels = { pending: "Menunggu", approved: "Disetujui", rejected: "Ditolak" };
 const platformSettingLabels: Record<string, string> = {
-  maintenance_enabled: "Mode maintenance",
-  maintenance_message: "Pesan maintenance",
+  maintenance_enabled: "Mode pemeliharaan",
+  maintenance_message: "Pesan pemeliharaan",
   announcement_enabled: "Banner pengumuman",
   announcement_message: "Isi pengumuman",
   require_comic_review: "Wajib kurasi sebelum terbit",
@@ -137,7 +137,8 @@ export default function AdminPage() {
       .eq("status", "pending_review")
       .order("created_at", { ascending: true });
     if (comicError) {
-      setMessage(comicError.message);
+      console.error("Unable to load comics pending review:", comicError);
+      setMessage("Daftar komik yang menunggu kurasi gagal dimuat. Coba muat ulang halaman.");
     } else {
       setComicReviews((pendingComics ?? []).map((comic) => ({
         ...comic,
@@ -230,14 +231,14 @@ export default function AdminPage() {
           });
           const signResult = await signResponse.json() as { objectKey?: string; error?: string };
           if (!signResponse.ok || !signResult.objectKey) {
-            throw new Error(signResult.error || "Preview share gagal diunggah.");
+            throw new Error(signResult.error || "Pratinjau berbagi gagal diunggah.");
           }
           const { error: savePreviewError } = await supabase
             .from("comics")
             .update({ share_preview_key: signResult.objectKey })
             .eq("id", comic.id)
             .eq("status", "published");
-          if (savePreviewError) throw new Error(`Preview terunggah tetapi belum tertaut ke komik: ${savePreviewError.message}`);
+          if (savePreviewError) throw new Error("Pratinjau berhasil diunggah, tetapi belum tertaut ke komik.");
           setComics((current) => current.map((item) => item.id === comic.id
             ? { ...item, share_preview_key: signResult.objectKey! }
             : item));
@@ -245,16 +246,16 @@ export default function AdminPage() {
         } catch (error) {
           const errorMessage = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
           console.error("Unable to generate comic share preview:", { comicId: comic.id, error: errorMessage });
-          failures.push(`${comic.title}: ${errorMessage}`);
+          failures.push(`${comic.title}: Pratinjau berbagi gagal dibuat.`);
         }
         setSharePreviewProgress(`${index + 1} dari ${comicsToProcess.length} komik`);
       }
       setMessage(failures.length
-        ? `${generated} preview berhasil dibuat; ${failures.length} gagal. ${failures.slice(0, 3).join(" · ")}`
-        : `${generated} preview share komik berhasil dibuat dan disimpan di R2.`);
+        ? `${generated} pratinjau berhasil dibuat; ${failures.length} gagal. ${failures.slice(0, 3).join(" · ")}`
+        : `${generated} pratinjau berbagi komik berhasil dibuat dan disimpan di R2.`);
     } catch (error) {
       console.error("Comic share preview generation failed:", error);
-      setMessage(error instanceof Error ? error.message : "Preview share komik tidak dapat dibuat.");
+      setMessage("Pratinjau berbagi komik gagal dibuat. Periksa koneksi dan coba lagi.");
     } finally {
       setGeneratingSharePreviews(false);
     }
@@ -279,7 +280,7 @@ export default function AdminPage() {
       return;
     }
     if (platformSettings.maintenance_enabled && !platformSettings.maintenance_message.trim()) {
-      setPlatformSettingsMessage("Isi pesan maintenance sebelum mengaktifkannya.");
+      setPlatformSettingsMessage("Isi pesan pemeliharaan sebelum mengaktifkannya.");
       return;
     }
     if (!platformSettings.allowed_image_types.length) {
@@ -298,7 +299,7 @@ export default function AdminPage() {
       console.error("Unable to save platform settings:", error);
       setPlatformSettingsMessage(error.code === "42P01" || error.code === "PGRST205"
         ? "Tabel pengaturan belum tersedia. Jalankan supabase/platform-settings.sql di Supabase SQL Editor."
-        : `Pengaturan gagal disimpan: ${error.message}`);
+        : "Pengaturan gagal disimpan. Periksa koneksi dan coba lagi.");
     } else {
       updateSettings(platformSettings);
       setPlatformSettingsMessage("Pengaturan platform berhasil disimpan.");
@@ -313,7 +314,8 @@ export default function AdminPage() {
     setMessage("");
     const { error } = await supabase.rpc("review_creator_request", { p_request_id: request.id, p_decision: status });
     if (error) {
-      setMessage(error.message);
+      console.error("Unable to review creator request:", error);
+      setMessage("Pengajuan kreator gagal diperbarui. Periksa koneksi dan coba lagi.");
       setActionId(null);
       return;
     }
@@ -334,7 +336,8 @@ export default function AdminPage() {
     setMessage("");
     const { error } = await supabase.from("profiles").update({ role }).eq("id", user.id);
     if (error) {
-      setMessage(error.message);
+      console.error("Unable to update user role:", error);
+      setMessage("Peran pengguna gagal diperbarui. Periksa koneksi dan coba lagi.");
     } else {
       setUsers((current) => current.map((item) => item.id === user.id ? { ...item, role } : item));
       setMessage(`Peran ${user.display_name} diubah menjadi ${roleLabels[role]}.`);
@@ -351,7 +354,8 @@ export default function AdminPage() {
       updated_at: new Date().toISOString(),
     });
     if (error) {
-      setMessage(`Paket tidak dapat diperbarui: ${error.message}`);
+      console.error("Unable to update reader membership:", error);
+      setMessage("Paket keanggotaan tidak dapat diperbarui. Periksa koneksi dan coba lagi.");
     } else {
       setUsers((current) => current.map((item) => item.id === user.id ? { ...item, membershipTier: tier } : item));
       setMessage(`Paket ${user.display_name} diubah menjadi ${tier.toUpperCase()}.`);
@@ -370,7 +374,10 @@ export default function AdminPage() {
       .select("id")
       .maybeSingle();
     if (error || !data) {
-      setMessage(error?.message || "Status komik sudah berubah. Muat ulang halaman.");
+      if (error) console.error("Unable to update comic status:", error);
+      setMessage(error
+        ? "Status komik gagal diperbarui. Periksa koneksi dan coba lagi."
+        : "Status komik sudah berubah. Muat ulang halaman.");
     } else {
       setComics((current) => current.map((item) => item.id === comic.id ? { ...item, status } : item));
       if (status === "pending_review") {
@@ -395,7 +402,10 @@ export default function AdminPage() {
       .select("id")
       .maybeSingle();
     if (error || !data) {
-      setMessage(error?.message || "Komik ini sudah dikurasi admin lain. Muat ulang halaman.");
+      if (error) console.error("Unable to review comic:", error);
+      setMessage(error
+        ? "Kurasi komik gagal diperbarui. Periksa koneksi dan coba lagi."
+        : "Komik ini sudah dikurasi admin lain. Muat ulang halaman.");
       setComicActionId(null);
       return;
     }
@@ -423,8 +433,8 @@ export default function AdminPage() {
           <Link className="admin-brand" href="/account" aria-label="Kembali ke Akun"><BrandLogo linked={false} /></Link>
           <nav className="admin-sidebar-links" aria-label="Navigasi dashboard admin">
             <p className="admin-sidebar-label">Administrasi</p>
-            <div className="admin-sidebar-group" aria-label="Dashboard">
-              <p className="admin-sidebar-group-label">Dashboard</p>
+            <div className="admin-sidebar-group" aria-label="Dasbor">
+              <p className="admin-sidebar-group-label">Dasbor</p>
               <Link href="/admin/overview" aria-current={section === "overview" ? "page" : undefined}><LayoutDashboard size={18} /><span>Ringkasan</span></Link>
               <Link href="/admin/analytics" aria-current={section === "analytics" ? "page" : undefined}><ChartNoAxesColumn size={18} /><span>Analitik</span></Link>
             </div>
@@ -437,10 +447,10 @@ export default function AdminPage() {
               <p className="admin-sidebar-group-label">Kelola konten</p>
               <Link href="/admin/users" aria-current={section === "users" ? "page" : undefined}><Users size={18} /><span>Pengguna</span></Link>
               <Link href="/admin/comics" aria-current={section === "comics" ? "page" : undefined}><BookOpen size={18} /><span>Katalog komik</span></Link>
-              <Link href="/admin/share-previews" aria-current={section === "share-previews" ? "page" : undefined}><ImageIcon size={18} /><span>Preview share</span></Link>
+              <Link href="/admin/share-previews" aria-current={section === "share-previews" ? "page" : undefined}><ImageIcon size={18} /><span>Pratinjau berbagi</span></Link>
             </div>
-            <div className="admin-sidebar-group" aria-label="Ads Management">
-              <p className="admin-sidebar-group-label">Ads Management</p>
+            <div className="admin-sidebar-group" aria-label="Manajemen iklan">
+              <p className="admin-sidebar-group-label">Manajemen iklan</p>
               <Link href="/admin/sponsor-campaigns" aria-current={section === "sponsor-campaigns" || section === "ads-management" ? "page" : undefined}><Megaphone size={18} /><span>Kampanye sponsor</span></Link>
               <Link href="/admin/ad-slots" aria-current={section === "ad-slots" || section === "ads-list" ? "page" : undefined}><List size={18} /><span>Slot iklan</span></Link>
             </div>
@@ -485,12 +495,12 @@ export default function AdminPage() {
         </section>}
         {section === "platform-settings" && <section className="admin-management-section admin-platform-settings">
           <div className="admin-section-heading">
-            <div><p className="eyebrow">Operasional</p><h2>Website dan platform</h2></div>
+            <div><p className="eyebrow">Operasional</p><h2>Situs web dan platform</h2></div>
           </div>
           {platformSettingsError ? <p className="admin-settings-error" role="alert">{platformSettingsError}</p> : <>
             <article className="admin-setting-card">
-              <div className="admin-setting-heading"><div><h3>Mode maintenance</h3><p>Pengunjung akan melihat halaman maintenance. Panel admin dan halaman masuk tetap bisa digunakan.</p></div><label className="admin-switch"><input type="checkbox" checked={platformSettings.maintenance_enabled} onChange={(event) => setPlatformSettings((current) => ({ ...current, maintenance_enabled: event.target.checked }))} /><span /></label></div>
-              <label className="admin-setting-field">Pesan maintenance<textarea value={platformSettings.maintenance_message} onChange={(event) => setPlatformSettings((current) => ({ ...current, maintenance_message: event.target.value }))} maxLength={500} rows={3} /></label>
+              <div className="admin-setting-heading"><div><h3>Mode pemeliharaan</h3><p>Pengunjung akan melihat halaman pemeliharaan. Panel admin dan halaman masuk tetap bisa digunakan.</p></div><label className="admin-switch"><input type="checkbox" checked={platformSettings.maintenance_enabled} onChange={(event) => setPlatformSettings((current) => ({ ...current, maintenance_enabled: event.target.checked }))} /><span /></label></div>
+              <label className="admin-setting-field">Pesan pemeliharaan<textarea value={platformSettings.maintenance_message} onChange={(event) => setPlatformSettings((current) => ({ ...current, maintenance_message: event.target.value }))} maxLength={500} rows={3} /></label>
             </article>
             <article className="admin-setting-card">
               <div className="admin-setting-heading"><div><h3>Banner pengumuman</h3><p>Tampilkan pengumuman di bagian atas halaman untuk semua pengunjung.</p></div><label className="admin-switch"><input type="checkbox" checked={platformSettings.announcement_enabled} onChange={(event) => setPlatformSettings((current) => ({ ...current, announcement_enabled: event.target.checked }))} /><span /></label></div>
@@ -550,24 +560,24 @@ export default function AdminPage() {
         {section === "analytics" && <AdminAnalyticsPanel />}
         {section === "share-previews" && <section className="admin-management-section">
           <div className="admin-section-heading">
-            <div><p className="eyebrow">Gambar sosial</p><h2>Preview share komik</h2></div>
-            <span>{comics.filter((comic) => comic.status === "published" && comic.cover_key && !comic.share_preview_key).length} komik belum memiliki preview</span>
+            <div><p className="eyebrow">Gambar sosial</p><h2>Pratinjau berbagi komik</h2></div>
+            <span>{comics.filter((comic) => comic.status === "published" && comic.cover_key && !comic.share_preview_key).length} komik belum memiliki pratinjau</span>
           </div>
-          <p>Cover diproses di browser menjadi JPG landscape, lalu disimpan sebagai file statis di R2. Worker hanya memberikan URL upload dan tidak merender gambar. Tombol ini membuat preview yang belum tersedia untuk komik terbit.</p>
+          <p>Sampul diolah di peramban menjadi JPG lanskap, lalu disimpan sebagai berkas statis di R2. Layanan penyimpanan hanya menyediakan alamat unggah dan tidak mengolah gambar. Tombol ini membuat pratinjau untuk komik terbit yang belum memilikinya.</p>
           {sharePreviewProgress && <p role="status">{sharePreviewProgress}</p>}
           <button className="approve-button" type="button" onClick={() => void generateSharePreviews()} disabled={generatingSharePreviews}>
             {generatingSharePreviews ? <LoaderCircle className="spin" size={16} /> : <ImageIcon size={16} />}
-            {generatingSharePreviews ? "Membuat preview..." : "Buat preview untuk semua komik terbit"}
+            {generatingSharePreviews ? "Membuat pratinjau..." : "Buat pratinjau untuk semua komik terbit"}
           </button>
           <div className="admin-section-heading">
-            <div><p className="eyebrow">Tersimpan di R2</p><h2>Preview yang sudah dibuat</h2></div>
+            <div><p className="eyebrow">Tersimpan di R2</p><h2>Pratinjau yang sudah dibuat</h2></div>
             <span>{generatedSharePreviews.length} komik</span>
           </div>
           {generatedSharePreviews.length ? (
             <div className="request-table-wrap">
               <table className="request-table">
                 <thead>
-                  <tr><th>Preview</th><th>Komik</th><th>Status</th><th>File R2</th></tr>
+                  <tr><th>Pratinjau</th><th>Komik</th><th>Status</th><th>Berkas R2</th></tr>
                 </thead>
                 <tbody>
                   {generatedSharePreviews.map((comic) => {
@@ -578,10 +588,10 @@ export default function AdminPage() {
                       <tr key={comic.id}>
                         <td>
                           {previewUrl && (
-                            <a href={previewUrl} target="_blank" rel="noreferrer" aria-label={`Buka preview share ${comic.title}`}>
+                            <a href={previewUrl} target="_blank" rel="noreferrer" aria-label={`Buka pratinjau berbagi ${comic.title}`}>
                               <Image
                                 src={previewUrl}
-                                alt={`Preview share ${comic.title}`}
+                                alt={`Pratinjau berbagi ${comic.title}`}
                                 width={120}
                                 height={63}
                                 unoptimized
@@ -592,7 +602,7 @@ export default function AdminPage() {
                         </td>
                         <td><strong>{comic.title}</strong><code>{comic.slug}</code></td>
                         <td><span className="request-status request-approved">Sudah dibuat</span></td>
-                        <td>{previewUrl && <a href={previewUrl} target="_blank" rel="noreferrer">Lihat file JPG</a>}</td>
+                        <td>{previewUrl && <a href={previewUrl} target="_blank" rel="noreferrer">Lihat berkas JPG</a>}</td>
                       </tr>
                     );
                   })}
@@ -600,7 +610,7 @@ export default function AdminPage() {
               </table>
             </div>
           ) : (
-            <div className="admin-empty"><ImageIcon size={26} /><h2>Belum ada preview yang dibuat.</h2><p>Preview komik akan tercatat di tabel ini setelah proses berhasil.</p></div>
+            <div className="admin-empty"><ImageIcon size={26} /><h2>Belum ada pratinjau yang dibuat.</h2><p>Pratinjau komik akan tercatat di tabel ini setelah proses berhasil.</p></div>
           )}
         </section>}
         {section === "comic-review" && <section className="comic-review-section" id="comic-review">

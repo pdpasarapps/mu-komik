@@ -193,7 +193,8 @@ export default function CreatorComicPage() {
         .select("id, title, chapter_number, published_at")
         .single();
       if (error) {
-        setMessage(error.code === "23505" ? "Nomor bab ini sudah digunakan." : error.message);
+        console.error("Unable to update chapter:", error);
+        setMessage(error.code === "23505" ? "Nomor bab ini sudah digunakan." : "Bab gagal diperbarui. Periksa koneksi dan coba lagi.");
       } else {
         setChapters((current) => current.map((chapter) => chapter.id === data.id ? data : chapter).sort((a, b) => a.chapter_number - b.chapter_number));
         setShowForm(false);
@@ -208,7 +209,8 @@ export default function CreatorComicPage() {
         .select("id, title, chapter_number, published_at")
         .single();
       if (error) {
-        setMessage(error.code === "23505" ? "Nomor bab ini sudah digunakan." : error.message);
+        console.error("Unable to create chapter:", error);
+        setMessage(error.code === "23505" ? "Nomor bab ini sudah digunakan." : "Bab gagal dibuat. Periksa koneksi dan coba lagi.");
       } else {
         setChapters((current) => [...current, data].sort((a, b) => a.chapter_number - b.chapter_number));
         setForm({ title: "", chapterNumber: "", published: false });

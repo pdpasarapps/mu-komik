@@ -47,7 +47,7 @@ const campaignStatusLabels: Record<CampaignStatus, string> = {
 };
 const formatLabels: Record<AdFormat, string> = {
   banner: "Banner",
-  native: "Native",
+  native: "Terintegrasi",
   sponsor: "Sponsor",
 };
 const emptySlot = { id: "", name: "", slot_key: "", format: "banner" as AdFormat, description: "" };
@@ -106,7 +106,7 @@ function databaseErrorMessage(error: DatabaseError) {
   if (error.code === "42501" || error.code === "PGRST301") {
     return "Akses ditolak. Pastikan akun memiliki peran admin dan kebijakan database sudah diterapkan.";
   }
-  return `Operasi gagal${error.code ? ` (${error.code})` : ""}: ${error.message}${error.details ? ` ${error.details}` : ""}${error.hint ? ` Petunjuk: ${error.hint}` : ""}`;
+  return "Operasi iklan gagal. Periksa koneksi dan pengaturan database, lalu coba lagi.";
 }
 
 function logDatabaseError(action: string, error: DatabaseError) {
@@ -387,7 +387,10 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
     setMessage("");
     try {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) throw new Error(`Tidak dapat memeriksa sesi admin: ${sessionError.message}`);
+      if (sessionError) {
+        console.error("Unable to check admin session before campaign image upload:", sessionError);
+        throw new Error("Sesi admin tidak dapat diperiksa. Silakan masuk kembali.");
+      }
       const accessToken = sessionData.session?.access_token;
       if (!accessToken) throw new Error("Sesi admin berakhir. Silakan masuk kembali.");
 
@@ -407,7 +410,7 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
       setMessage(`Gambar ${imageField === "image_url" ? "desktop" : imageField === "image_url_tablet" ? "tablet" : "mobile"} berhasil diunggah.`);
     } catch (error) {
       console.error("Campaign image upload failed:", error);
-      setMessage(error instanceof Error ? error.message : "Gagal mengunggah gambar kampanye.");
+      setMessage("Gambar kampanye gagal diunggah. Periksa format berkas dan koneksi internet, lalu coba lagi.");
     } finally {
       setUploadingCampaignImage(false);
       event.target.value = "";
@@ -441,7 +444,7 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
             <h3>{slotForm.id ? "Ubah slot" : "Tambah slot"}</h3>
             <label>Nama slot<input required maxLength={80} value={slotForm.name} onChange={(event) => setSlotForm((current) => ({ ...current, name: event.target.value }))} placeholder="Contoh: Header halaman utama" /></label>
             <label>Kode slot<input required maxLength={60} pattern="[a-z0-9]+(?:_[a-z0-9]+)*" value={slotForm.slot_key} onChange={(event) => setSlotForm((current) => ({ ...current, slot_key: event.target.value }))} placeholder="home_header" /></label>
-            <label>Format<select value={slotForm.format} onChange={(event) => setSlotForm((current) => ({ ...current, format: event.target.value as AdFormat }))}><option value="banner">Banner</option><option value="native">Native</option><option value="sponsor">Sponsor</option></select></label>
+            <label>Format<select value={slotForm.format} onChange={(event) => setSlotForm((current) => ({ ...current, format: event.target.value as AdFormat }))}><option value="banner">Banner</option><option value="native">Terintegrasi</option><option value="sponsor">Sponsor</option></select></label>
             <label>Catatan<textarea maxLength={300} rows={2} value={slotForm.description} onChange={(event) => setSlotForm((current) => ({ ...current, description: event.target.value }))} placeholder="Lokasi atau panduan ukuran materi." /></label>
             <div className="ads-form-actions">
               <button className="approve-button" type="submit" disabled={saving}><Check size={15} /> {saving ? "Menyimpan..." : slotForm.id ? "Simpan slot" : "Tambah slot"}</button>
@@ -490,11 +493,11 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
             <label>Deskripsi<textarea maxLength={500} rows={2} value={campaignForm.description} onChange={(event) => setCampaignForm((current) => ({ ...current, description: event.target.value }))} /></label>
             <label>URL tujuan<input required type="text" inputMode="url" aria-invalid={Boolean(campaignUrlErrors.destination_url)} aria-describedby="campaign-destination-help" value={campaignForm.destination_url} onChange={(event) => { setCampaignForm((current) => ({ ...current, destination_url: event.target.value })); setCampaignUrlErrors((current) => ({ ...current, destination_url: "" })); }} onBlur={() => normalizeCampaignUrlField("destination_url")} placeholder="https://contoh.id" />{campaignUrlErrors.destination_url ? <small className="ads-field-error" id="campaign-destination-help" role="alert">{campaignUrlErrors.destination_url}</small> : <small id="campaign-destination-help">Jika tidak mencantumkan https://, HTTPS akan ditambahkan otomatis.</small>}</label>
             <div className="ads-responsive-images">
-              <p>Unggah materi terpisah untuk menyesuaikan tampilan di tiap perangkat. Jika salah satu ukuran tidak diisi, gambar desktop akan digunakan sebagai fallback.</p>
+              <p>Unggah materi terpisah untuk menyesuaikan tampilan di tiap perangkat. Jika salah satu ukuran tidak diisi, gambar untuk komputer akan digunakan sebagai pengganti.</p>
               {([
-                { field: "image_url_mobile", label: "Mobile", recommendation: imageRecommendations.mobile },
+                { field: "image_url_mobile", label: "Ponsel", recommendation: imageRecommendations.mobile },
                 { field: "image_url_tablet", label: "Tablet", recommendation: imageRecommendations.tablet },
-                { field: "image_url", label: "Desktop", recommendation: imageRecommendations.desktop },
+                { field: "image_url", label: "Komputer", recommendation: imageRecommendations.desktop },
               ] as const).map(({ field, label, recommendation }) => (
                 <div className="ads-campaign-image-field" key={field}>
                   <label htmlFor={`campaign-image-${label.toLowerCase()}`}>{label} · rekomendasi {recommendation}</label>
@@ -519,7 +522,7 @@ export default function AdsManagementPanel({ mode }: { mode: "slots" | "campaign
                 </div>
               ))}
             </div>
-            <label>URL gambar desktop (opsional)<input type="text" inputMode="url" aria-invalid={Boolean(campaignUrlErrors.image_url)} aria-describedby="campaign-image-help" value={campaignForm.image_url} onChange={(event) => { setCampaignForm((current) => ({ ...current, image_url: event.target.value })); setCampaignUrlErrors((current) => ({ ...current, image_url: "" })); }} onBlur={() => normalizeCampaignUrlField("image_url")} placeholder="https://contoh.id/banner.jpg" />{campaignUrlErrors.image_url ? <small className="ads-field-error" id="campaign-image-help" role="alert">{campaignUrlErrors.image_url}</small> : <small id="campaign-image-help">Opsional. URL ini menjadi gambar desktop dan fallback untuk perangkat lain.</small>}</label>
+            <label>URL gambar komputer (opsional)<input type="text" inputMode="url" aria-invalid={Boolean(campaignUrlErrors.image_url)} aria-describedby="campaign-image-help" value={campaignForm.image_url} onChange={(event) => { setCampaignForm((current) => ({ ...current, image_url: event.target.value })); setCampaignUrlErrors((current) => ({ ...current, image_url: "" })); }} onBlur={() => normalizeCampaignUrlField("image_url")} placeholder="https://contoh.id/banner.jpg" />{campaignUrlErrors.image_url ? <small className="ads-field-error" id="campaign-image-help" role="alert">{campaignUrlErrors.image_url}</small> : <small id="campaign-image-help">Opsional. URL ini menjadi gambar untuk komputer dan gambar pengganti untuk perangkat lain.</small>}</label>
             <label>Target komik<select value={campaignForm.target_comic_id} onChange={(event) => setCampaignForm((current) => ({ ...current, target_comic_id: event.target.value, slot_id: event.target.value ? "" : current.slot_id, target_placement: event.target.value ? current.target_placement === "all" ? "comic_detail" : current.target_placement : "all" }))}><option value="">Semua komik / penempatan slot</option>{publishedComics.map((comic) => <option value={comic.id} key={comic.id}>{comic.title}</option>)}</select><small>Kosongkan untuk memakai slot umum. Pilih komik untuk menargetkan kampanye hanya ke judul tersebut.</small></label>
             <fieldset className="campaign-genre-targeting">
               <legend>Target minat genre <span>(opsional)</span></legend>

@@ -12,6 +12,34 @@ const supabase = createClient();
 
 type Mode = "login" | "signup";
 
+function getAuthErrorMessage(error: { code?: string; message: string }, mode: Mode) {
+  switch (error.code) {
+    case "invalid_credentials":
+    case "invalid_login_credentials":
+      return "Email atau kata sandi tidak sesuai.";
+    case "email_not_confirmed":
+      return "Konfirmasi alamat email kamu sebelum masuk.";
+    case "user_already_exists":
+    case "email_exists":
+      return "Email ini sudah terdaftar. Silakan masuk.";
+    case "email_address_invalid":
+      return "Format alamat email tidak valid.";
+    case "weak_password":
+      return "Kata sandi terlalu lemah. Gunakan kata sandi yang lebih kuat.";
+    case "signup_disabled":
+      return "Pendaftaran akun sedang dinonaktifkan.";
+    case "over_email_send_rate_limit":
+    case "over_request_rate_limit":
+      return "Terlalu banyak permintaan. Tunggu sebentar, lalu coba lagi.";
+    case "same_password":
+      return "Kata sandi baru harus berbeda dari kata sandi sebelumnya.";
+    default:
+      return mode === "signup"
+        ? "Akun belum dapat dibuat. Periksa kembali data dan koneksi internet, lalu coba lagi."
+        : "Kamu belum dapat masuk. Periksa email dan kata sandi, lalu coba lagi.";
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("login");
@@ -39,41 +67,69 @@ export default function LoginPage() {
     setError("");
     setMessage("");
 
-    const result = mode === "login"
-      ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              display_name: displayName || "Pembaca",
-              preferred_genres: preferredGenres,
-              personalized_ads_consent: personalizedAdsConsent,
+    try {
+      const result = mode === "login"
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                display_name: displayName || "Pembaca",
+                preferred_genres: preferredGenres,
+                personalized_ads_consent: personalizedAdsConsent,
+              },
             },
-          },
-        });
+          });
 
-    if (result.error) {
-      setError(result.error.message);
-    } else if (mode === "signup") {
-      setMessage("Akun dibuat. Cek email kamu untuk konfirmasi sebelum login.");
-      setMode("login");
-      setPassword("");
-      setPreferredGenres([]);
-      setPersonalizedAdsConsent(false);
-    } else {
-      setSignedInEmail(result.data.user?.email ?? email);
-      setMessage("Login berhasil.");
-      router.push("/account");
+      if (result.error) {
+        console.error("Authentication request failed:", {
+          code: result.error.code,
+          message: result.error.message,
+        });
+        setError(getAuthErrorMessage(result.error, mode));
+      } else if (mode === "signup") {
+        setMessage("Akun berhasil dibuat. Periksa email kamu untuk konfirmasi sebelum masuk.");
+        setMode("login");
+        setPassword("");
+        setPreferredGenres([]);
+        setPersonalizedAdsConsent(false);
+      } else {
+        setSignedInEmail(result.data.user?.email ?? email);
+        setMessage("Berhasil masuk.");
+        router.push("/account");
+      }
+    } catch (authError) {
+      console.error("Authentication request could not be completed:", authError);
+      setError(mode === "signup"
+        ? "Akun belum dapat dibuat. Periksa koneksi internet, lalu coba lagi."
+        : "Kamu belum dapat masuk. Periksa koneksi internet, lalu coba lagi.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSignOut = async () => {
     setLoading(true);
-    await supabase.auth.signOut();
-    setSignedInEmail(null);
-    setMessage("Kamu sudah logout.");
+    setError("");
+    try {
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) {
+        console.error("Unable to sign out:", {
+          code: signOutError.code,
+          message: signOutError.message,
+        });
+        setError("Kamu belum dapat keluar. Periksa koneksi internet, lalu coba lagi.");
+      } else {
+        setSignedInEmail(null);
+        setMessage("Kamu berhasil keluar.");
+      }
+    } catch (signOutError) {
+      console.error("Sign-out request could not be completed:", signOutError);
+      setError("Kamu belum dapat keluar. Periksa koneksi internet, lalu coba lagi.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const togglePreferredGenre = (genre: string) => {
@@ -95,7 +151,7 @@ export default function LoginPage() {
         <div className="auth-card">
           <div className="auth-card-top"><div className="auth-icon"><UserRound size={20} /></div><span>{signedInEmail ? "Akun" : mode === "login" ? "Selamat datang kembali" : "Pembaca baru"}</span></div>
           {signedInEmail ? (
-            <div className="signed-in-state"><CheckCircle2 size={32} /><h2>Kamu sudah masuk.</h2><p>{signedInEmail}</p><button className="button button-dark auth-submit" onClick={handleSignOut} disabled={loading}>{loading ? "Sedang keluar..." : "Keluar"}</button></div>
+            <div className="signed-in-state"><CheckCircle2 size={32} /><h2>Kamu sudah masuk.</h2><p>{signedInEmail}</p>{error && <p className="form-error" role="alert">{error}</p>}{message && <p className="form-message" role="status">{message}</p>}<button className="button button-dark auth-submit" onClick={handleSignOut} disabled={loading}>{loading ? "Sedang keluar..." : "Keluar"}</button></div>
           ) : (
             <>
               <h2>{mode === "login" ? "Buka ruang bacamu" : "Buat akun pembaca"}</h2>

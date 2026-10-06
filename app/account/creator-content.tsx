@@ -185,7 +185,8 @@ export default function CreatorContent({ area }: { area: CreatorArea }) {
       .select("id, status")
       .single();
     if (error) {
-      setMessage(error.message);
+      console.error("Unable to submit comic for review:", error);
+      setMessage("Komik gagal diajukan. Periksa koneksi dan coba lagi.");
     } else {
       setComics((current) => current.map((item) => item.id === data.id ? { ...item, status: nextStatus } : item));
       setMessage(settings.require_comic_review ? "Komik diajukan dan menunggu kurasi admin." : "Komik berhasil diterbitkan.");

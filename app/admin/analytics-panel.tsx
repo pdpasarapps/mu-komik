@@ -141,7 +141,7 @@ export default function AdminAnalyticsPanel() {
                 <article className="admin-stat"><span>Pembaca unik*</span><strong>{formatCount(analytics.uniqueVisitors)}</strong><Users size={20} /></article>
                 <article className="admin-stat"><span>Pembaca login</span><strong>{formatCount(analytics.registeredReaders)}</strong><UserRound size={20} /></article>
               </div>
-              <p className="admin-analytics-note">*Pembaca unik dihitung berdasarkan cookie acak di browser; dapat terhitung kembali setelah cookie dihapus atau pada browser/perangkat lain. Satu episode dihitung maksimal sekali per pembaca setiap 30 menit.</p>
+              <p className="admin-analytics-note">*Pembaca unik dihitung berdasarkan kuki acak di peramban; dapat terhitung kembali setelah kuki dihapus atau pada peramban/perangkat lain. Satu episode dihitung maksimal sekali per pembaca setiap 30 menit.</p>
               <div className="admin-analytics-chart-panel">
                 <div className="admin-analytics-subheading"><h3>Tren kunjungan harian</h3><span><BarChart3 size={15} /> UTC</span></div>
                 {analytics.daily.length === 0

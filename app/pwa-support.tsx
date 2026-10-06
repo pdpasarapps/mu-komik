@@ -101,7 +101,7 @@ export default function PwaSupport() {
               </>
             ) : installInstructions === "android-manual" ? (
               <>
-                <p>Tombol pemasangan cepat Chrome tidak tersedia saat ini. Pastikan halaman dibuka langsung di Chrome, bukan browser dalam aplikasi lain.</p>
+                <p>Tombol pemasangan cepat Chrome tidak tersedia saat ini. Pastikan halaman dibuka langsung di Chrome, bukan peramban di dalam aplikasi lain.</p>
                 <ol><li>Buka menu Chrome <strong>⋮</strong> lalu pilih <strong>Instal aplikasi</strong> jika tersedia.</li><li>Jika pilihan itu tidak muncul, perbarui Chrome, muat ulang situs, lalu periksa lagi menu tersebut.</li></ol>
               </>
             ) : installInstructions === "ios" ? (

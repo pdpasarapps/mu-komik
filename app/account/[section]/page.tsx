@@ -5,6 +5,7 @@ const accountSections = [
   "reading",
   "favorites",
   "account-settings",
+  "creator-application",
   "creator-profile",
   "creator-guide",
   "creator",

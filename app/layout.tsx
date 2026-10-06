@@ -100,7 +100,14 @@ const structuredData = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const { settings } = await getPlatformSettings();
   return (
-    <html lang="id" className="h-full antialiased">
+    <html lang="id" className="h-full antialiased" data-theme="light" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var root=document.documentElement;var theme=localStorage.getItem("mu-komik-theme");if(theme==="dark"||theme==="light")root.setAttribute("data-theme",theme);var textSize=localStorage.getItem("mu-komik-ui-text-size");if(textSize==="large"||textSize==="standard")root.setAttribute("data-ui-text-size",textSize)}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <script
           type="application/ld+json"

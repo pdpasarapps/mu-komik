@@ -69,7 +69,7 @@ export async function generateMetadata({
       url: canonicalUrl,
       images: [{
         url: image,
-        alt: `Preview komik ${comic.title}`,
+        alt: `Pratinjau komik ${comic.title}`,
         ...(comic.share_preview_key ? { width: 1200, height: 630, type: "image/jpeg" } : {}),
       }],
     },

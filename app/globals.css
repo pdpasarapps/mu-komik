@@ -1,6 +1,114 @@
 @import "tailwindcss";
 
 :root { --ink: #1e2524; --paper: #f1efe8; --mint: #b9ded0; --orange: #f26b43; --line: rgba(30, 37, 36, .17); }
+
+.account-extra-settings { display: grid; gap: 18px; margin-top: 26px; padding-top: 23px; border-top: 1px solid var(--line); }
+.account-extra-settings .reader-preferences-heading { margin: 0; }
+.account-extra-settings .reader-preferences-heading h3 { margin: 0; font-size: 1.25rem; letter-spacing: -.04em; }
+.account-extra-settings .reader-preferences-heading .eyebrow { margin-bottom: 7px; }
+.account-extra-setting { display: grid; justify-items: start; gap: 14px; padding: 17px; border: 1px solid var(--line); border-radius: 8px; }
+.account-extra-setting-heading { display: flex; align-items: flex-start; gap: 11px; }
+.account-extra-setting-icon { width: 34px; height: 34px; display: grid; flex: 0 0 auto; place-items: center; border-radius: 8px; background: rgba(242,107,67,.12); color: #a8492f; }
+.account-extra-setting-heading > div { display: grid; gap: 4px; }
+.account-extra-setting-heading strong { font-size: .84rem; }
+.account-extra-setting-heading small { color: #69766e; font-size: .72rem; line-height: 1.5; }
+.account-theme-options { display: flex; flex-wrap: wrap; gap: 8px; margin-left: 45px; }
+.account-theme-options button { min-height: 42px; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid var(--line); border-radius: 7px; background: transparent; color: var(--ink); font-size: .75rem; font-weight: 700; cursor: pointer; }
+.account-theme-options button.selected { border-color: var(--orange); background: rgba(242,107,67,.1); color: #a8492f; }
+.account-password-form { width: 100%; }
+.account-password-fields { width: calc(100% - 45px); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-left: 45px; }
+.account-password-fields label { display: grid; gap: 6px; color: #69766e; font-size: .72rem; }
+.account-password-fields label > span:first-child { color: var(--ink); font-weight: 700; }
+.account-password-fields label > small { min-height: 1em; color: #69766e; font-size: .68rem; }
+.account-password-input-wrap { position: relative; display: block; }
+.account-password-fields input { width: 100%; min-height: 44px; padding: 9px 42px 9px 11px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
+.account-password-fields input[aria-invalid="true"] { border-color: #aa3d2c; }
+.account-password-fields input:focus-visible, .account-password-visibility:focus-visible, .account-theme-options button:focus-visible, .account-security-button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.account-password-visibility { position: absolute; top: 50%; right: 5px; width: 34px; height: 34px; display: grid; place-items: center; transform: translateY(-50%); border: 0; border-radius: 5px; background: transparent; color: #69766e; cursor: pointer; }
+.account-password-visibility:hover { background: rgba(30,37,36,.07); color: var(--ink); }
+.account-password-fields label > small.account-password-mismatch { color: #aa3d2c; }
+.account-security-button { min-height: 42px; padding: 0 13px; border-radius: 7px; }
+.account-security-message { margin: 0; color: #69766e; font-size: .74rem; }
+.account-security-message.error { color: #aa3d2c; }
+.account-security-message.success { color: #28744e; }
+.account-password-reset { display: grid; gap: 7px; }
+.account-password-reset-link { width: fit-content; min-height: 38px; border: 0; padding: 0; background: transparent; color: #a8492f; font: inherit; font-size: .72rem; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.account-password-reset-link:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
+.account-password-reset-link:disabled { opacity: .65; cursor: wait; }
+html[data-theme="dark"] .account-security-message.error, html[data-theme="dark"] .account-password-fields label > small.account-password-mismatch { color: #ff9a89; }
+html[data-theme="dark"] .account-security-message.success { color: #8bd8ac; }
+html[data-theme="dark"] .account-password-visibility { color: #a9b2ab; }
+html[data-theme="dark"] .account-password-visibility:hover { background: rgba(225,234,227,.1); color: var(--ink); }
+html[data-theme="dark"] .account-password-reset-link { color: #ff9a7c; }
+@media (max-width: 600px) {
+  .account-extra-setting { padding: 14px; }
+  .account-password-fields { width: 100%; grid-template-columns: 1fr; margin-left: 0; }
+  .account-theme-options { margin-left: 0; }
+  .account-password-form .account-security-button { width: 100%; }
+}
+.account-password-recovery-shell { display: grid; grid-template-rows: auto 1fr; }
+.account-password-recovery-card { width: min(480px, 100%); align-self: center; justify-self: center; }
+.account-password-recovery-card h1 { margin: 0 0 9px; font-size: 2.15rem; letter-spacing: -.07em; }
+.account-password-recovery-card .auth-card-top { margin-bottom: 25px; }
+.account-password-recovery-card .auth-subtitle { display: flex; align-items: center; gap: 8px; margin: 0 0 24px; }
+.account-password-recovery-card .auth-form label { display: grid; gap: 6px; }
+.account-password-recovery-card .auth-form label > span { margin: 0; }
+.account-password-recovery-card .auth-form input { width: 100%; min-height: 44px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
+.account-password-recovery-card .auth-form input:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.account-password-recovery-card .auth-form label > small { min-height: 1em; color: #69766e; font-size: .68rem; }
+.account-password-recovery-card .auth-form label > small.account-password-mismatch { color: #aa3d2c; }
+.account-password-recovery-state { display: grid; gap: 18px; }
+html[data-theme="dark"] .account-password-recovery-card .auth-form input { border-color: var(--reader-border); background: #1a1f1c; color: var(--ink); }
+html[data-theme="dark"] .account-password-recovery-card .auth-form label > small.account-password-mismatch { color: #ff9a89; }
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #e8ece8;
+  --paper: #171b19;
+  --mint: #26332e;
+  --line: rgba(225, 234, 227, .16);
+  --reader-bg: #171b19;
+  --reader-surface: #222825;
+  --reader-text: #e8ece8;
+  --reader-muted: #a4ada6;
+  --reader-border: #3a433e;
+  --reader-accent: #ff8a67;
+  --reader-green: #293831;
+}
+html[data-theme="dark"] body { background: var(--paper); color: var(--ink); }
+html[data-theme="dark"] :is(.account-sidebar, .admin-sidebar, .ads-form, .reader-header-search, .reader-login-button, .reader-continue-card, .reader-detail-action, .reader-share-dialog, .reader-share-url, .account-panel, .account-dashboard-grid > .account-panel, .manifesto-contrast p, .manifesto-home blockquote, .request-card, .request-table-wrap, .comic-form, .creator-comic-card, .request-modal, .auth-card, .chapter-manager-cover, .comic-review-card, .admin-stat, .admin-analytics-chart-panel, .admin-analytics-list, .ads-management-card, .ads-form input, .ads-form select, .ads-form textarea, .ads-campaign-image-field, .ads-slot-list > li, .ads-campaign-list > li, .ads-list-status-filter select, .admin-search, .admin-comic-filters > select, .admin-role-select, .admin-setting-card, .admin-setting-field textarea, .admin-setting-number-grid input, .account-extra-setting) { background-color: #222825; color: var(--ink); }
+html[data-theme="dark"] :is(.reader-header, .admin-sidebar, .account-sidebar) { border-color: var(--line); }
+html[data-theme="dark"] .reader-header { background: rgba(23, 27, 25, .94); }
+html[data-theme="dark"] :is(.reader-header-search, .reader-login-button, .reader-share-url, .account-password-fields input, .creator-profile-field input, .creator-profile-field textarea, .creator-social-add, .creator-social-row input, .creator-social-row select, .admin-setting-field textarea, .admin-setting-number-grid input) { border-color: var(--reader-border); background: #1a1f1c; color: var(--ink); }
+html[data-theme="dark"] :is(.account-dashboard-grid > .account-panel, .account-panel, .auth-card, .comic-form, .request-card, .request-table-wrap, .creator-comic-card, .request-modal, .comic-review-card, .admin-stat, .admin-analytics-chart-panel, .admin-analytics-list, .ads-management-card, .admin-setting-card, .reader-share-dialog) { border-color: var(--line); }
+html[data-theme="dark"] :is(.account-extra-setting-heading small, .account-password-fields label, .account-security-message, .reader-nav-links a, .reader-footer > a:not(.wordmark), .reader-featured-genre, .reader-kicker, .reader-section-kicker, .reader-share-dialog > .reader-section-kicker, .nav-link, .icon-button, .eyebrow, .hero-text, .comic-meta p, .empty-state, .account-email, .account-user-copy small, .account-nav-link, .admin-sidebar-links a, .admin-section-heading .eyebrow, .comic-form-note, .request-meta, .reader-muted) { color: #a9b2ab; }
+html[data-theme="dark"] :is(.reader-detail-page, .reader-home, .account-shell, .account-sidebar, .admin-sidebar, .creator-shell, .reader-home, .reader-detail-page) { background-color: var(--paper); color: var(--ink); }
+html[data-theme="dark"] :is(.account-reading-card, .account-bookmark-cover, .reader-continue-cover, .reader-detail-cover, .reader-comic-cover, .reader-comic-card-compact .reader-comic-cover, .reader-comic-skeleton i, .reader-sponsored-ad-image, .chapter-page-thumbnail, .creator-public-cover, .creator-public-avatar) { background-color: #303733; }
+html[data-theme="dark"] :is(.reader-episode-row:hover, .reader-episode-last-read, .admin-sidebar-links a:hover, .admin-sidebar-links a:focus-visible, .admin-sidebar-links a[aria-current="page"], .account-nav-link:hover) { background-color: #2b332f; }
+html[data-theme="dark"] :is(.account-nav-link.active, .admin-sidebar-links a > small, .reader-detail-action:hover, .reader-detail-action-saved, .reader-detail-actions .reader-detail-action-saved) { background-color: #402b24; }
+html[data-theme="dark"] .reader-inline-message { background: #402b24; color: #ffb19a; }
+html[data-theme="dark"] .platform-announcement { background: #402b24; color: #ffb19a; }
+html[data-theme="dark"] :is(.reader-mobile-search-inline, .reader-mobile-search-inline input) { background: #222825; color: var(--ink); }
+html[data-theme="dark"] :is(.account-theme-options button, .account-password-fields input) { color: var(--ink); }
+html[data-theme="dark"] .account-extra-setting-icon { color: #ff9a7c; }
+html[data-theme="dark"] .account-theme-options button.selected { color: #ffb19a; }
+html[data-theme="dark"] :is(.reader-featured-synopsis, .reader-featured-episode, .reader-welcome > p:not(.reader-kicker), .reader-section-heading > a, .reader-section-heading > span, .reader-featured-genre) { color: #b4beb6; }
+html[data-theme="dark"] .reader-primary-button { background: var(--reader-accent); color: #171b19; }
+html[data-theme="dark"] .reader-primary-button:hover { background: #ff9b7b; color: #171b19; }
+html[data-theme="dark"] .reader-card-read { background: #343c37; color: #e8ece8; }
+html[data-theme="dark"] .reader-card-read:hover { background: var(--reader-accent); color: #171b19; }
+html[data-theme="dark"] .admin-sidebar-links a { background: #222825; color: #a9b2ab; }
+html[data-theme="dark"] .admin-sidebar-links a[aria-current="page"] { background: #402b24; color: #ffb19a; }
+html[data-theme="dark"] .account-mobile-nav { background: rgba(23, 27, 25, .96); }
+html[data-theme="dark"] .account-mobile-nav a,
+html[data-theme="dark"] .account-mobile-nav button { color: #a9b2ab; }
+html[data-theme="dark"] .account-mobile-nav .active { color: #ffb19a; }
+html[data-theme="dark"] :is(.reader-seo-about-header > p:last-child, .reader-seo-about-grid p, .reader-comic-cover > span:not(.reader-cover-episode), .reader-cover-episode, .reader-card-genre, .reader-comic-info p, .reader-card-engagement, .reader-card-engagement > span b, .reader-card-latest, .reader-empty-state, .reader-continue-info > span:first-child, .reader-continue-info p, .reader-continue-progress, .reader-editorial-callout > div > p:last-child, .reader-genre-chip, .reader-footer p, .reader-footer > span, .reader-back-link, .reader-detail-access, .reader-detail-genre-count, .reader-detail-creator, .reader-detail-engagement, .reader-detail-synopsis, .reader-detail-synopsis-toggle, .reader-detail-resume, .reader-comic-metadata dt, .reader-detail-loading-label, .reader-detail-unavailable, .reader-episode-number, .reader-episode-title small, .reader-episode-latest-badge, .reader-episode-row-locked, .reader-episode-date, .reader-detail-secondary-link, .reader-detail-action-message) { color: #a9b2ab; }
+html[data-theme="dark"] .reader-comic-metadata-access dt,
+html[data-theme="dark"] .reader-comic-metadata-access dd { color: #a9b2ab !important; }
+html[data-theme="dark"] .reader-episode-latest-badge { background: #293831; color: #b8d8c1; }
+html[data-theme="dark"] .reader-genre-chip { border-color: var(--reader-border); background: #222825; }
+html[data-theme="dark"] .reader-genre-chip-active { background: var(--reader-accent); color: #171b19; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--paper); color: var(--ink); font-family: "Trebuchet MS", "Segoe UI", sans-serif; }
@@ -354,6 +462,8 @@ button, input, select { font: inherit; }
 .reader-seo-about-header > p:last-child { margin: 0; color: #59645d; font-size: .88rem; line-height: 1.7; }
 .reader-seo-about-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .reader-seo-about-grid article { display: grid; align-content: start; gap: 11px; padding: 19px; border: 1px solid var(--reader-border); border-radius: 10px; background: rgba(255,255,255,.48); }
+.reader-seo-about-image { position: relative; overflow: hidden; aspect-ratio: 3 / 4; margin: -19px -19px 5px; border-radius: 9px 9px 0 0; background: #e8f4f7; }
+.reader-seo-about-image img { object-fit: cover; object-position: center 42%; }
 .reader-seo-about-grid h3 { margin: 0; font-size: .98rem; letter-spacing: -.025em; }
 .reader-seo-about-grid p { margin: 0; color: #5e6961; font-size: .77rem; line-height: 1.65; }
 .reader-seo-about-grid a { width: fit-content; color: var(--reader-text); font-size: .73rem; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
@@ -608,7 +718,7 @@ button, input, select { font: inherit; }
   .reader-featured-cover { width: 112px; height: 150px; border-radius: 8px; box-shadow: 0 8px 19px rgba(31,39,33,.13); }.reader-featured-cover > span { font-size: 2.7rem; }.reader-welcome { min-height: 265px; gap: 12px; padding: 28px 20px; }.reader-welcome h1, .reader-welcome h2 { font-size: 2.55rem; }.reader-welcome > p:not(.reader-kicker) { font-size: .83rem; }
   .reader-featured-loading { min-height: 210px; grid-template-columns: minmax(0,1fr) 92px; }.reader-featured-loading .reader-featured-skeleton-kicker { width: 110px; margin-bottom: 14px; }.reader-featured-loading .reader-featured-skeleton-meta { width: 84px; height: 8px; margin-bottom: 10px; }.reader-featured-loading .reader-featured-skeleton-title { width: 100px; height: 25px; margin-bottom: 10px; }.reader-featured-loading .reader-featured-skeleton-description { width: 100%; height: 30px; margin-bottom: 11px; }.reader-featured-loading .reader-featured-skeleton-button { width: 100px; height: 39px; }.reader-featured-cover-skeleton { width: 92px; height: 124px; border-radius: 8px; }
   .reader-home-content { padding: 0 16px; }.reader-home-section { padding: 34px 0 5px; scroll-margin-top: 70px; }.reader-section-heading { min-height: 45px; margin-bottom: 14px; }.reader-section-heading h2 { font-size: 1.45rem; }.reader-section-heading > a { font-size: .67rem; }.reader-section-heading > a svg { width: 14px; }
-  .reader-seo-about { margin-top: 25px; padding: 27px 16px; }.reader-seo-about-grid { grid-template-columns: 1fr; gap: 10px; }.reader-seo-about-grid article { padding: 16px; }
+  .reader-seo-about { margin-top: 25px; padding: 27px 16px; }.reader-seo-about-grid { grid-template-columns: 1fr; gap: 10px; }.reader-seo-about-grid article { padding: 16px; }.reader-seo-about-image { margin: -16px -16px 5px; }
   .reader-comic-rail { grid-auto-columns: 136px; gap: 12px; margin-right: -16px; padding-right: 16px; }.reader-comic-info h3 { font-size: .85rem; }.reader-comic-info p { font-size: .66rem; }.reader-card-engagement { gap: 7px; }.reader-card-engagement > span { gap: 2px; font-size: .59rem; }.reader-card-engagement > span svg { width: 12px; height: 12px; }.reader-card-engagement > span b { font-size: .59rem; }
   .reader-comic-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 20px 12px; }.reader-comic-card-compact .reader-comic-cover { aspect-ratio: 1.12; }
   .reader-empty-state { min-height: 90px; align-items: start; flex-direction: column; gap: 12px; padding: 15px; font-size: .77rem; }
@@ -1011,6 +1121,23 @@ button, input, select { font: inherit; }
 .account-dashboard-grid .panel-heading h2, .account-creator-faq .panel-heading h2 { font-size: 1.9rem; line-height: 1.05; letter-spacing: -.06em; }
 .account-dashboard-grid .panel-heading .eyebrow, .account-creator-faq .panel-heading .eyebrow { margin-bottom: 8px; }
 .account-settings-panel { grid-column: 1 / -1; }
+.account-creator-request-panel { grid-column: 1 / -1; }
+.account-dashboard-grid > .account-creator-request-teaser { grid-row: 2; }
+.account-dashboard-grid > .account-settings-panel { grid-row: 3; }
+.account-creator-request-teaser > p { max-width: 680px; margin: 0 0 16px; color: #69766e; font-size: .82rem; line-height: 1.6; }
+.account-creator-application-link { width: fit-content; min-height: 44px; justify-content: center; gap: 9px; }
+.account-creator-application-panel { width: 100%; max-width: 980px; }
+.account-creator-request-panel > .panel-heading { margin-bottom: 12px; }
+.account-creator-benefits-intro { max-width: 680px; margin: 0 0 17px; color: #69766e; font-size: .82rem; line-height: 1.6; }
+.account-creator-benefits { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 11px; }
+.account-creator-benefits > article { min-width: 0; display: grid; align-content: start; gap: 12px; padding: 15px; border: 1px solid rgba(30,37,36,.1); border-radius: 8px; background: rgba(248,246,240,.72); }
+.account-creator-benefits > article > span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; background: #fff0e9; color: #a8492f; }
+.account-creator-benefits h3 { margin: 0 0 5px; font-size: .8rem; letter-spacing: -.02em; }
+.account-creator-benefits p { margin: 0; color: #69766e; font-size: .7rem; line-height: 1.5; }
+.account-creator-benefits-note { margin: 13px 0 20px; color: #78827b; font-size: .68rem; line-height: 1.5; }
+.account-creator-request-panel .creator-request { margin: 0; padding: 0; border-top: 0; }
+.account-creator-request-panel .creator-request p { max-width: 680px; margin-top: 0; font-size: .82rem; line-height: 1.6; }
+.account-creator-request-panel .request-button { min-height: 44px; justify-content: center; margin-top: 15px; padding: 0 16px; border-bottom: 0; }
 .account-settings-content { display: grid; grid-template-columns: minmax(230px, .7fr) minmax(0, 1.3fr); align-items: start; gap: 28px; }
 .account-settings-details { border-top: 1px solid var(--line); }
 .account-settings-panel .settings-row { padding: 14px 0; }
@@ -1023,7 +1150,9 @@ button, input, select { font: inherit; }
 .account-reading-card { grid-template-columns: 90px minmax(0, 1fr); border: 0; padding: 0; background: transparent; }
 .account-reading-cover { width: 90px; height: 120px; border-radius: 6px; }
 .account-reading-info > strong { font-size: 1.1rem; }
-.account-reading-action { grid-column: 2; justify-self: start; color: #a8492f; }
+.account-reading-action { min-height: 42px; display: inline-flex; grid-column: 2; justify-self: start; align-items: center; gap: 8px; padding: 0 14px; border-radius: 7px; background: var(--ink); color: #fffdf8; font-size: .75rem; font-weight: 800; transition: background .16s ease, transform .16s ease; }
+.account-reading-card:hover .account-reading-action { transform: translateX(2px); background: #a8492f; }
+.account-reading-card:focus-visible { outline: 3px solid rgba(242,107,67,.55); outline-offset: 3px; }
 .account-profile-editor { margin-top: 23px; padding: 25px 0 0; border-top: 1px solid var(--line); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 22px; }
 .account-profile-editor .creator-profile-editor-heading, .account-profile-editor .creator-social-editor, .account-profile-editor .creator-profile-save, .account-profile-editor > .creator-profile-message { grid-column: 1 / -1; }
 .account-profile-editor .creator-profile-editor-heading { grid-template-columns: 1fr auto; align-items: center; padding-bottom: 2px; }
@@ -1102,6 +1231,7 @@ button, input, select { font: inherit; }
   .account-dashboard-grid { grid-template-columns: minmax(0, 1.6fr) minmax(230px, 1fr); }
   .account-dashboard-grid > .account-panel { padding: 20px; }
   .account-settings-content { grid-template-columns: 1fr; gap: 14px; }
+  .account-creator-benefits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
   .account-shell { padding: 0 0 82px; }
@@ -1116,8 +1246,11 @@ button, input, select { font: inherit; }
   .account-email { font-size: .78rem; }
   .account-dashboard-grid { grid-template-columns: minmax(0, 1fr); gap: 13px; }
   .account-dashboard-grid > .account-panel { padding: 19px; }
+  .account-dashboard-grid > .account-panel { grid-row: auto; }
   .account-dashboard-grid .panel-heading h2, .account-creator-faq .panel-heading h2 { font-size: 1.65rem; }
   .account-settings-panel { grid-column: auto; }
+  .account-creator-benefits { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .account-creator-benefits > article { padding: 12px; }
   .account-settings-content { grid-template-columns: minmax(0,1fr); gap: 15px; }
   .account-profile-editor { grid-template-columns: minmax(0,1fr); gap: 16px; }
   .account-profile-editor .creator-profile-editor-heading, .account-profile-editor .creator-social-editor, .account-profile-editor .creator-profile-save, .account-profile-editor > .creator-profile-message, .account-profile-editor .creator-banner-field { grid-column: 1; }
@@ -1138,7 +1271,8 @@ button, input, select { font: inherit; }
 }
 @media (max-width: 390px) {
   .account-main { padding-right: 14px; padding-left: 14px; }
-  .account-mobile-nav a, .account-mobile-nav button { min-width: 45px; font-size: .57rem; }
+  .account-mobile-nav { padding-right: 6px; padding-left: 6px; }
+  .account-mobile-nav a, .account-mobile-nav button { min-width: 45px; flex-basis: 56px; font-size: .57rem; }
   .account-profile-editor .creator-social-row { grid-template-columns: minmax(0, 1fr); }
   .account-profile-editor .creator-social-row > button { justify-self: end; }
 }

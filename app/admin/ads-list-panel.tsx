@@ -42,7 +42,7 @@ const statusLabels: Record<CampaignStatus, string> = {
   paused: "Dijeda",
   completed: "Selesai",
 };
-const formatLabels = { banner: "Banner", native: "Native", sponsor: "Sponsor" } as const;
+const formatLabels = { banner: "Banner", native: "Terintegrasi", sponsor: "Sponsor" } as const;
 
 function databaseErrorMessage(error: { code?: string; message: string }) {
   if (error.code === "42P01" || error.code === "PGRST205") {
@@ -54,7 +54,7 @@ function databaseErrorMessage(error: { code?: string; message: string }) {
   if (error.code === "42501" || error.code === "PGRST301") {
     return "Akses ditolak. Pastikan akun memiliki peran admin dan kebijakan database sudah diterapkan.";
   }
-  return `Daftar iklan gagal dimuat: ${error.message}`;
+  return "Daftar iklan gagal dimuat. Periksa koneksi dan coba muat ulang halaman.";
 }
 
 function formatDate(value: string) {
