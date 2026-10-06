@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import type { ReactNode } from "react";
-import { ArrowRight, ArrowUpRight, BarChart3, BookOpen, Bookmark, CircleHelp, Home, LayoutDashboard, Library, LogOut, Plus, Search, Settings2, Sparkles, Trash2, UserRound } from "lucide-react";
+import { ArrowRight, ArrowUpRight, BarChart3, BookOpen, Bookmark, CircleHelp, Home, LayoutDashboard, Library, LogOut, Menu, Plus, Search, Settings2, Sparkles, Trash2, UserRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -61,6 +61,7 @@ export default function AccountContent({ section, children }: { section: Account
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [creatorMobileNavOpen, setCreatorMobileNavOpen] = useState(false);
   const [creatorRequest, setCreatorRequest] = useState<CreatorRequest | null>(null);
   const [requestingCreator, setRequestingCreator] = useState(false);
   const [requestMessage, setRequestMessage] = useState("");
@@ -789,7 +790,7 @@ export default function AccountContent({ section, children }: { section: Account
       )}
       </>}
       </div>
-      <nav className={`account-mobile-nav${profile?.role === "creator" ? " account-mobile-nav-floating" : ""}`} aria-label="Navigasi akun">
+      <nav id="account-mobile-navigation" className={`account-mobile-nav${profile?.role === "creator" ? ` account-mobile-nav-floating${creatorMobileNavOpen ? "" : " account-mobile-nav-hidden"}` : ""}`} aria-label="Navigasi akun" aria-hidden={profile?.role === "creator" && !creatorMobileNavOpen} inert={profile?.role === "creator" && !creatorMobileNavOpen}>
         <Link href="/account" className={section === "overview" ? "active" : ""} aria-current={section === "overview" ? "page" : undefined}><LayoutDashboard size={19} /><span>Ringkasan</span></Link>
         <Link href="/"><Home size={19} /><span>Beranda</span></Link>
         <Link href="/account/reading" className={section === "reading" ? "active" : ""}><BookOpen size={19} /><span>Baca</span></Link>
@@ -808,6 +809,18 @@ export default function AccountContent({ section, children }: { section: Account
         </>}
         {profile?.role === "admin" && <Link href="/admin"><Settings2 size={19} /><span>Admin</span></Link>}
       </nav>
+      {profile?.role === "creator" && (
+        <button
+          type="button"
+          className="account-mobile-nav-toggle"
+          aria-label={creatorMobileNavOpen ? "Sembunyikan menu navigasi" : "Tampilkan menu navigasi"}
+          aria-controls="account-mobile-navigation"
+          aria-expanded={creatorMobileNavOpen}
+          onClick={() => setCreatorMobileNavOpen((isOpen) => !isOpen)}
+        >
+          {creatorMobileNavOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      )}
     </main>
   );
 }
