@@ -95,7 +95,7 @@ function HomepagePromoCarousel({ promos }: { promos: HomepagePromo[] }) {
   );
 }
 
-function ComicCard({ comic, compact = false, overlayDetails = false }: { comic: HomepageComic; compact?: boolean; overlayDetails?: boolean }) {
+function ComicCard({ comic, compact = false, overlayDetails = false, landscapeCard = false }: { comic: HomepageComic; compact?: boolean; overlayDetails?: boolean; landscapeCard?: boolean }) {
   const chapter = comic.latestChapter;
   const creatorProfile = comic.creatorHandle && comic.creatorProfilePublic
     ? `/kreator/${encodeURIComponent(comic.creatorHandle)}`
@@ -118,7 +118,7 @@ function ComicCard({ comic, compact = false, overlayDetails = false }: { comic: 
     </div>
   );
   return (
-    <article className={`reader-comic-card${compact ? " reader-comic-card-compact" : ""}`}>
+    <article className={`reader-comic-card${compact ? " reader-comic-card-compact" : ""}${landscapeCard ? " reader-comic-card-landscape" : ""}`}>
       <Link href={`/comic/${comic.slug}`} className="reader-card-link" aria-label={`Buka ${comic.title}`}>
         <div className="reader-comic-cover">
           {comic.coverUrl
@@ -395,7 +395,7 @@ export default function HomePageClient({
         {ongoingComics.length > 0 && (
           <section className="reader-home-section">
             <div className="reader-section-heading"><div><p className="reader-section-kicker">SERIAL YANG TERUS BERLANJUT</p><h2>Ikuti ceritanya</h2></div><a href="#jelajah">Semua komik <ArrowUpRight size={16} /></a></div>
-            <div className="reader-comic-rail">{ongoingComics.slice(0, 6).map((comic) => <ComicCard key={comic.id} comic={comic} />)}</div>
+            <div className={`reader-comic-rail${ongoingComics.length === 1 ? " reader-ongoing-single" : ""}`}>{ongoingComics.slice(0, 6).map((comic) => <ComicCard key={comic.id} comic={comic} landscapeCard={ongoingComics.length === 1} />)}</div>
           </section>
         )}
 
