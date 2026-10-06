@@ -461,10 +461,14 @@ export default function HomePageClient({
         <Link className="reader-primary-button" href={signedIn ? "/account" : "/login"}>Jadi kreator <ArrowRight size={17} /></Link>
       </section>}
       <footer className="reader-footer">
-        <BrandLogo className="wordmark reader-wordmark" />
+        <div className="reader-footer-main-row">
+          <BrandLogo className="wordmark reader-wordmark" />
+          <PlatformLinks />
+          <div className="reader-footer-utility-links">
+            <nav className="reader-footer-links" aria-label="Tautan footer"><a href="#jelajah">Jelajah</a><a href="#genre">Genre</a><a href="#creator">Kreator</a><Link href="/push-ads">Pasang iklan</Link><Link href="/manifesto">Manifesto AI</Link></nav>
+          </div>
+        </div>
         <p>Tempat cerita Indonesia menemukan pembacanya.</p>
-        <PlatformLinks />
-        <nav className="reader-footer-links" aria-label="Tautan footer"><a href="#jelajah">Jelajah</a><a href="#genre">Genre</a><a href="#creator">Kreator</a><Link href="/push-ads">Pasang iklan</Link><Link href="/manifesto">Manifesto AI</Link></nav>
         <span>© 2026 mu-komik</span>
       </footer>
     </main>
