@@ -41,7 +41,7 @@ async function authorize(request: NextRequest, comicId: string) {
 
   const { data: comic, error: comicError } = await supabase
     .from("comics")
-    .select("id, creator_id, cover_key")
+    .select("id, creator_id")
     .eq("id", comicId)
     .maybeSingle();
   if (comicError) {
@@ -102,9 +102,6 @@ export async function POST(request: NextRequest) {
 
     const auth = await authorize(request, comicId);
     if ("response" in auth) return auth.response;
-    if (auth.comic.cover_key !== coverKey) {
-      return NextResponse.json({ error: "Cover does not match the comic's current cover." }, { status: 409 });
-    }
 
     const objectKey = getComicSharePreviewKey(comicId, coverKey);
     const storage = new S3Client({
