@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import AccountMobileNavigation from "./mobile-navigation";
 
 export const metadata: Metadata = {
   title: "Akun",
@@ -6,5 +7,10 @@ export const metadata: Metadata = {
 };
 
 export default function AccountLayout({ children }: LayoutProps<"/account">) {
-  return children;
+  return (
+    <>
+      {children}
+      <AccountMobileNavigation />
+    </>
+  );
 }
