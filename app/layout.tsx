@@ -4,6 +4,7 @@ import { getPlatformSettings } from "@/lib/platform-settings";
 import PlatformRuntime from "./platform-runtime";
 import ReaderMembershipRuntime from "./membership-runtime";
 import PwaSupport from "./pwa-support";
+import AppSplash from "@/components/app-splash";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -116,6 +117,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <ReaderMembershipRuntime>
           <PlatformRuntime initialSettings={settings}>{children}</PlatformRuntime>
         </ReaderMembershipRuntime>
+        <AppSplash />
         <PwaSupport />
       </body>
     </html>
