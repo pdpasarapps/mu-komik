@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { ExternalLink, LoaderCircle, Save } from "lucide-react";
+import { ArrowLeft, ChevronRight, ExternalLink, Image as ImageIcon, LoaderCircle, Monitor, Save, Smartphone, Tablet } from "lucide-react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
 type AdStatus = "pending" | "contacted" | "approved" | "rejected";
+type CreativeDevice = "desktop" | "tablet" | "mobile";
 type AdRequest = {
   id: string;
   advertiser_name: string;
@@ -39,9 +41,63 @@ const placementLabels: Record<string, string> = {
   reader_mid_chapter: "Di sela halaman baca",
   reader_episode_transition: "Antar episode",
 };
+const creativeDevices: { value: CreativeDevice; label: string; icon: typeof Monitor }[] = [
+  { value: "desktop", label: "Desktop", icon: Monitor },
+  { value: "tablet", label: "Tablet", icon: Tablet },
+  { value: "mobile", label: "Mobile", icon: Smartphone },
+];
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function AdCreativePreview({ request }: { request: AdRequest }) {
+  const [device, setDevice] = useState<CreativeDevice>("desktop");
+  const images: Record<CreativeDevice, string | null> = {
+    desktop: request.image_url,
+    tablet: request.image_url_tablet,
+    mobile: request.image_url_mobile,
+  };
+  const imageUrl = images[device];
+
+  return (
+    <section className="admin-ad-preview" aria-label="Pratinjau materi iklan">
+      <div className="admin-ad-preview-heading">
+        <div><p className="eyebrow">PRATINJAU MATERI</p><h4>Tampilan iklan</h4></div>
+        <div className="admin-ad-preview-devices" aria-label="Pilih pratinjau perangkat">
+          {creativeDevices.map(({ value, label, icon: DeviceIcon }) => (
+            <button key={value} type="button" aria-pressed={device === value} onClick={() => setDevice(value)}>
+              <DeviceIcon size={14} /><span>{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className={`admin-ad-preview-frame admin-ad-preview-frame-${device}`}>
+        {imageUrl ? (
+          <a className="admin-ad-preview-image-link" href={imageUrl} target="_blank" rel="noreferrer" aria-label={`Buka materi iklan ${device} di tab baru`}>
+            <Image src={imageUrl} alt={`Materi iklan ${device} untuk ${request.campaign_title}`} fill sizes="(max-width: 760px) 90vw, 720px" unoptimized />
+            <span className="admin-ad-preview-open"><ExternalLink size={14} /> Buka gambar</span>
+          </a>
+        ) : (
+          <div className="admin-ad-preview-missing" role="status">
+            <ImageIcon size={22} />
+            <strong>Materi {device} belum diunggah</strong>
+            <span>Pengiklan dapat mengirim gambar terpisah untuk tiap perangkat.</span>
+          </div>
+        )}
+      </div>
+      <div className="admin-ad-preview-copy">
+        <span>{request.advertiser_name}</span>
+        <strong>{request.campaign_title}</strong>
+        <p>{request.description}</p>
+        <a href={request.destination_url} target="_blank" rel="noreferrer">Lihat tautan tujuan <ExternalLink size={13} /></a>
+      </div>
+      <div className="admin-ad-preview-placements">
+        <span>Lokasi diminati</span>
+        {request.placements.map((placement) => <b key={placement}>{placementLabels[placement] ?? placement}</b>)}
+      </div>
+    </section>
+  );
 }
 
 function ReviewCard({ request, onUpdated }: { request: AdRequest; onUpdated: (request: AdRequest) => void }) {
@@ -81,18 +137,15 @@ function ReviewCard({ request, onUpdated }: { request: AdRequest; onUpdated: (re
         <div><dt>Kontak</dt><dd><a href={`mailto:${request.contact_email}`}>{request.contact_email}</a>{request.contact_whatsapp && <a href={`https://wa.me/${request.contact_whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">WhatsApp · {request.contact_whatsapp}</a>}</dd></div>
         <div><dt>Lokasi diminati</dt><dd>{request.placements.map((placement) => placementLabels[placement] ?? placement).join(", ")}</dd></div>
         <div><dt>Tautan tujuan</dt><dd><a href={request.destination_url} target="_blank" rel="noreferrer">{request.destination_url} <ExternalLink size={13} /></a></dd></div>
-        {(request.image_url || request.image_url_tablet || request.image_url_mobile) && <div><dt>Materi iklan</dt><dd className="admin-ad-request-creatives">
-          {([
-            ["Desktop", request.image_url],
-            ["Tablet", request.image_url_tablet],
-            ["Mobile", request.image_url_mobile],
-          ] as const).map(([device, imageUrl]) => imageUrl && (
-            <a key={device} href={imageUrl} target="_blank" rel="noreferrer">{device} <ExternalLink size={13} /></a>
-          ))}
-        </dd></div>}
+        {(request.image_url || request.image_url_tablet || request.image_url_mobile) && <div><dt>Materi tersedia</dt><dd>{[
+          ["Desktop", request.image_url],
+          ["Tablet", request.image_url_tablet],
+          ["Mobile", request.image_url_mobile],
+        ].filter(([, imageUrl]) => imageUrl).map(([device]) => device).join(", ")}</dd></div>}
         <div><dt>Perkiraan jadwal</dt><dd>{request.requested_start ? `${formatDate(request.requested_start)}${request.requested_end ? ` – ${formatDate(request.requested_end)}` : ""}` : "Belum ditentukan"}</dd></div>
         <div><dt>Dikirim</dt><dd>{formatDate(request.created_at)}</dd></div>
       </dl>
+      <AdCreativePreview request={request} />
       <form className="admin-ad-request-review" onSubmit={(event) => void saveReview(event)}>
         <label>Status pengajuan
           <select value={status} onChange={(event) => setStatus(event.target.value as AdStatus)}>
@@ -115,8 +168,10 @@ function ReviewCard({ request, onUpdated }: { request: AdRequest; onUpdated: (re
 
 export default function AdRequestsPanel() {
   const [requests, setRequests] = useState<AdRequest[]>([]);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const selectedRequest = requests.find((request) => request.id === selectedRequestId) ?? null;
 
   useEffect(() => {
     let active = true;
@@ -150,14 +205,41 @@ export default function AdRequestsPanel() {
 
   return (
     <div className="admin-ad-requests-list">
-      <p className="admin-ad-requests-count">{requests.filter((request) => request.status === "pending").length} pengajuan menunggu tinjauan · {requests.length} total</p>
-      {requests.map((request) => (
+      <div className="admin-ad-requests-toolbar">
+        <p className="admin-ad-requests-count">{requests.filter((request) => request.status === "pending").length} pengajuan menunggu tinjauan · {requests.length} total</p>
+        {selectedRequest && <button className="admin-ad-requests-back" type="button" onClick={() => setSelectedRequestId(null)}><ArrowLeft size={15} /> Kembali ke daftar</button>}
+      </div>
+      {selectedRequest ? (
         <ReviewCard
-          key={request.id}
-          request={request}
+          key={selectedRequest.id}
+          request={selectedRequest}
           onUpdated={(updated) => setRequests((current) => current.map((item) => item.id === updated.id ? updated : item))}
         />
-      ))}
+      ) : (
+        <div className="admin-ad-request-list-cards" aria-label="Daftar pengajuan iklan">
+          {requests.map((request) => (
+            <button
+              className="admin-ad-request-list-card"
+              key={request.id}
+              type="button"
+              onClick={() => setSelectedRequestId(request.id)}
+              aria-label={`Buka detail pengajuan ${request.campaign_title} dari ${request.advertiser_name}`}
+            >
+              <span className="admin-ad-request-list-card-main">
+                <span className="admin-ad-request-list-card-copy">
+                  <strong>{request.campaign_title}</strong>
+                  <span>{request.advertiser_name} · {formatDate(request.created_at)}</span>
+                </span>
+                <span className={`request-status request-${request.status === "approved" ? "approved" : request.status === "rejected" ? "rejected" : "pending"}`}>{statusLabels[request.status]}</span>
+              </span>
+              <span className="admin-ad-request-list-card-bottom">
+                <span>{request.placements.map((placement) => placementLabels[placement] ?? placement).join(" · ")}</span>
+                <span className="admin-ad-request-list-card-action">Lihat detail <ChevronRight size={15} /></span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
