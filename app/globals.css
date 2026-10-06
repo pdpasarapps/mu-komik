@@ -1615,8 +1615,8 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
   .account-comic-editor-area .chapter-manager-intro { align-items: flex-start; }
   .creator-overview-cards { grid-template-columns: minmax(0, 1fr); }
   .creator-analytics-heading { align-items: flex-start; flex-direction: column; }
-  .account-mobile-nav { position: fixed; z-index: 40; inset: auto 0 0; min-height: 66px; display: flex; align-items: stretch; justify-content: space-between; overflow: hidden; padding: 7px max(8px, env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); border-top: 1px solid var(--line); background: rgba(248,246,240,.96); backdrop-filter: blur(14px); }
-  .account-mobile-nav a, .account-mobile-nav button { min-width: 0; display: flex; flex: 1 1 0; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 0; background: transparent; color: #768078; font-size: .61rem; font-weight: 750; cursor: pointer; }
+  .account-mobile-nav { position: fixed; z-index: 40; inset: auto 0 0; min-height: 66px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: stretch; overflow: hidden; padding: 7px max(8px, env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); border-top: 1px solid var(--line); background: rgba(248,246,240,.96); backdrop-filter: blur(14px); }
+  .account-mobile-nav a, .account-mobile-nav button { width: 100%; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 0; background: transparent; color: #768078; font-size: .61rem; font-weight: 750; cursor: pointer; }
   .account-mobile-nav a span, .account-mobile-nav button span { max-width: 100%; overflow-wrap: anywhere; text-align: center; line-height: 1.05; }
   .account-mobile-nav .active { color: #a8492f; }
   .account-mobile-nav .active svg { color: var(--orange); }
@@ -1624,7 +1624,8 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 @media (max-width: 390px) {
   .account-main { padding-right: 14px; padding-left: 14px; }
   .account-mobile-nav { padding-right: 6px; padding-left: 6px; }
-  .account-mobile-nav a, .account-mobile-nav button { min-width: 0; flex-basis: 0; font-size: .57rem; }
+  .account-mobile-nav a, .account-mobile-nav button { min-width: 0; font-size: .57rem; }
+  .account-empty.compact .text-link { width: 100%; min-height: 40px; align-items: center; justify-content: center; }
   .account-profile-editor .creator-social-row { grid-template-columns: minmax(0, 1fr); }
   .account-profile-editor .creator-social-row > button { justify-self: end; }
 }
