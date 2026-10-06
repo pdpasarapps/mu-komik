@@ -9,6 +9,7 @@ import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import AdminAnalyticsPanel from "./analytics-panel";
 import AdsManagementPanel from "./ads-management-panel";
+import HomepagePromosPanel from "./homepage-promos-panel";
 import AdRequestsPanel from "./ad-requests-panel";
 import { createComicSharePreview } from "@/lib/comic-share-preview";
 import { defaultPlatformSettings, type PlatformSettings } from "@/lib/platform-settings";
@@ -21,7 +22,7 @@ type ComicReview = { id: string; title: string; slug: string; synopsis: string; 
 type AdminUser = { id: string; display_name: string; role: "reader" | "creator" | "admin"; membershipTier: ReaderMembershipTier; created_at: string };
 type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string };
 type SettingsAuditEntry = { id: number; changed_by: string | null; changed_at: string; previous_values: Record<string, unknown>; new_values: Record<string, unknown> };
-type AdminSection = "overview" | "analytics" | "comic-review" | "creator-requests" | "users" | "comics" | "share-previews" | "ad-requests" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "platform-settings";
+type AdminSection = "overview" | "analytics" | "comic-review" | "creator-requests" | "users" | "comics" | "share-previews" | "ad-requests" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "homepage-promos" | "platform-settings";
 
 const supabase = createClient();
 const adminSections: Record<AdminSection, { label: string; description: string }> = {
@@ -37,6 +38,7 @@ const adminSections: Record<AdminSection, { label: string; description: string }
   "ads-list": { label: "Slot iklan", description: "Kelola inventaris penempatan iklan di MU-Komik." },
   "sponsor-campaigns": { label: "Kampanye sponsor", description: "Kelola kampanye, materi, target, dan periode tayang sponsor." },
   "ad-slots": { label: "Slot iklan", description: "Kelola inventaris penempatan iklan di MU-Komik." },
+  "homepage-promos": { label: "Hero & promo beranda", description: "Kelola slide hero, gambar responsif, tautan, urutan, dan jadwal promo beranda." },
   "platform-settings": { label: "Pengaturan platform", description: "Atur status operasional dan fitur yang tersedia di MU-Komik." },
 };
 const roleLabels = { reader: "Pembaca", creator: "Kreator", admin: "Admin" };
@@ -450,6 +452,7 @@ export default function AdminPage() {
               <Link href="/admin/users" aria-current={section === "users" ? "page" : undefined}><Users size={18} /><span>Pengguna</span></Link>
               <Link href="/admin/comics" aria-current={section === "comics" ? "page" : undefined}><BookOpen size={18} /><span>Katalog komik</span></Link>
               <Link href="/admin/share-previews" aria-current={section === "share-previews" ? "page" : undefined}><ImageIcon size={18} /><span>Pratinjau berbagi</span></Link>
+              <Link href="/admin/homepage-promos" aria-current={section === "homepage-promos" ? "page" : undefined}><ImageIcon size={18} /><span>Hero & promo beranda</span></Link>
             </div>
             <div className="admin-sidebar-group" aria-label="Manajemen iklan">
               <p className="admin-sidebar-group-label">Manajemen iklan</p>
@@ -495,6 +498,12 @@ export default function AdminPage() {
             <div><p className="eyebrow">Monetisasi platform</p><h2>Slot iklan</h2><p>Kelola lokasi penayangan, format, kode, serta status aktif setiap slot.</p></div>
           </div>
           <AdsManagementPanel key="slots" mode="slots" />
+        </section>}
+        {section === "homepage-promos" && <section className="admin-management-section">
+          <div className="admin-section-heading">
+            <div><p className="eyebrow">Konten beranda</p><h2>Hero & promo beranda</h2><p>Buat carousel promo dengan gambar dan konten bebas, tanpa mengambil data dari katalog komik.</p></div>
+          </div>
+          <HomepagePromosPanel />
         </section>}
         {section === "ad-requests" && <section className="admin-management-section">
           <div className="admin-section-heading">

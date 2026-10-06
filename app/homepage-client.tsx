@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, ArrowUpRight, BookOpen, Eye, Heart, Menu, Search, Share2, Sparkles, UserRound, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Bookmark, Compass, Eye, Heart, Palette, Pause, Play, Search, Share2, UserRound, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,20 +17,106 @@ import type { ContinueReading, HomepageCatalog, HomepageComic } from "@/lib/home
 
 const supabase = createClient();
 
+type HomepagePromo = {
+  id: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  image_url: string;
+  image_url_tablet: string | null;
+  image_url_mobile: string | null;
+  cta_label: string;
+  destination_url: string;
+};
+
 function comicGenre(genre: string) {
   return getComicGenreLabel(genre);
-}
-
-function cleanSynopsis(synopsis: string) {
-  return synopsis.replace(/\*\*/g, "").replace(/👉/g, "").replace(/\n+/g, " ").trim();
 }
 
 function formatEngagementCount(count: number) {
   return new Intl.NumberFormat("id-ID", { notation: "compact", maximumFractionDigits: 1 }).format(count);
 }
 
-function ComicCard({ comic, compact = false }: { comic: HomepageComic; compact?: boolean }) {
+function HomepagePromoCarousel({ promos }: { promos: HomepagePromo[] }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const currentIndex = promos.length ? activeIndex % promos.length : 0;
+  const promo = promos[currentIndex];
+
+  useEffect(() => {
+    if (promos.length < 2 || paused) return;
+    const timer = window.setInterval(() => {
+      setActiveIndex((current) => (current + 1) % promos.length);
+    }, 6500);
+    return () => window.clearInterval(timer);
+  }, [paused, promos.length]);
+
+  if (!promo) {
+    return (
+      <section className="reader-welcome">
+        <p className="reader-kicker">CERITA INDONESIA, DI SINI</p>
+        <h2>Temukan kisah yang membuatmu betah membaca.</h2>
+        <p>Jelajahi komik independen dan temukan cerita favorit berikutnya.</p>
+        <Link className="reader-primary-button" href="#jelajah">Jelajahi komik <ArrowRight size={17} /></Link>
+      </section>
+    );
+  }
+
+  const promoLink = promo.destination_url.startsWith("/") && !promo.destination_url.startsWith("//")
+    ? <Link className="reader-primary-button" href={promo.destination_url}>{promo.cta_label || "Selengkapnya"} <ArrowRight size={17} /></Link>
+    : <a className="reader-primary-button" href={promo.destination_url} target="_blank" rel="noreferrer noopener">{promo.cta_label || "Selengkapnya"} <ArrowRight size={17} /></a>;
+
+  return (
+    <section className="reader-featured reader-promo-hero" aria-roledescription="carousel" aria-label="Promo pilihan">
+      <picture className="reader-promo-background">
+        {promo.image_url_mobile && <source media="(max-width: 640px)" srcSet={promo.image_url_mobile} />}
+        {promo.image_url_tablet && <source media="(min-width: 641px) and (max-width: 1023px)" srcSet={promo.image_url_tablet} />}
+        <Image src={promo.image_url} alt="" width={1920} height={720} unoptimized loading="eager" fetchPriority="high" />
+      </picture>
+      <div className="reader-promo-scrim" />
+      <div className="reader-featured-copy reader-promo-copy" key={promo.id}>
+        {promo.eyebrow && <span className="reader-kicker">{promo.eyebrow}</span>}
+        <h2>{promo.title}</h2>
+        {promo.description && <p className="reader-featured-synopsis">{promo.description}</p>}
+        {promoLink}
+      </div>
+      {promos.length > 1 && <>
+        <div className="reader-promo-controls" aria-label="Navigasi promo">
+          <button type="button" aria-label={paused ? "Putar otomatis promo" : "Jeda otomatis promo"} aria-pressed={paused} onClick={() => setPaused((current) => !current)}>{paused ? <Play size={16} /> : <Pause size={16} />}</button>
+          <button type="button" aria-label="Promo sebelumnya" onClick={() => setActiveIndex((currentIndex - 1 + promos.length) % promos.length)}><ArrowLeft size={18} /></button>
+          <div className="reader-promo-dots">
+            {promos.map((item, index) => <button key={item.id} type="button" aria-label={`Tampilkan promo ${index + 1}: ${item.title}`} aria-current={index === currentIndex} onClick={() => setActiveIndex(index)} />)}
+          </div>
+          <button type="button" aria-label="Promo berikutnya" onClick={() => setActiveIndex((currentIndex + 1) % promos.length)}><ArrowRight size={18} /></button>
+        </div>
+        <span className="reader-promo-count" aria-live="polite">{currentIndex + 1} / {promos.length}</span>
+      </>}
+    </section>
+  );
+}
+
+function ComicCard({ comic, compact = false, overlayDetails = false }: { comic: HomepageComic; compact?: boolean; overlayDetails?: boolean }) {
   const chapter = comic.latestChapter;
+  const creatorProfile = comic.creatorHandle && comic.creatorProfilePublic
+    ? `/kreator/${encodeURIComponent(comic.creatorHandle)}`
+    : null;
+  const comicInfo = (
+    <div className="reader-comic-info">
+      {!overlayDetails && <><span className="reader-card-genre">{comicGenre(comic.genre)}</span><h3>{comic.title}</h3></>}
+      <div className={overlayDetails ? "reader-card-author" : undefined}>
+        <p>{comic.contributor || comic.creator}</p>
+        {overlayDetails && creatorProfile && <Link className="reader-card-creator-shortcut" href={creatorProfile} aria-label={`Lihat profil kreator ${comic.contributor || comic.creator}`} title="Profil kreator"><ArrowUpRight size={13} /></Link>}
+      </div>
+      {comic.engagement && (
+        <div className="reader-card-engagement" aria-label={`Statistik ${comic.title}`}>
+          <span aria-label={`${comic.engagement.views.toLocaleString("id-ID")} dilihat`} title="Dilihat"><Eye size={13} /><b>{formatEngagementCount(comic.engagement.views)}</b></span>
+          <span aria-label={`${comic.engagement.likes.toLocaleString("id-ID")} favorit`} title="Favorit"><Heart size={13} /><b>{formatEngagementCount(comic.engagement.likes)}</b></span>
+          <span aria-label={`${comic.engagement.shares.toLocaleString("id-ID")} dibagikan`} title="Dibagikan"><Share2 size={13} /><b>{formatEngagementCount(comic.engagement.shares)}</b></span>
+        </div>
+      )}
+      {chapter && <span className="reader-card-latest">Terbaru · Episode {chapter.chapter_number}</span>}
+    </div>
+  );
   return (
     <article className={`reader-comic-card${compact ? " reader-comic-card-compact" : ""}`}>
       <Link href={`/comic/${comic.slug}`} className="reader-card-link" aria-label={`Buka ${comic.title}`}>
@@ -38,24 +124,14 @@ function ComicCard({ comic, compact = false }: { comic: HomepageComic; compact?:
           {comic.coverUrl
             ? <img src={comic.coverUrl} alt={`Sampul ${comic.title}`} loading="lazy" />
             : <span aria-hidden="true">{comic.title.slice(0, 2).toUpperCase()}</span>}
+          {overlayDetails && <div className="reader-latest-cover-copy"><span>{comicGenre(comic.genre)}</span><h3>{comic.title}</h3></div>}
           {chapter && <span className="reader-cover-episode">Ep. {chapter.chapter_number}</span>}
         </div>
-        <div className="reader-comic-info">
-          <span className="reader-card-genre">{comicGenre(comic.genre)}</span>
-          <h3>{comic.title}</h3>
-          <p>{comic.contributor || comic.creator}</p>
-          {comic.engagement && (
-            <div className="reader-card-engagement" aria-label={`Statistik ${comic.title}`}>
-              <span aria-label={`${comic.engagement.views.toLocaleString("id-ID")} dilihat`} title="Dilihat"><Eye size={13} /><b>{formatEngagementCount(comic.engagement.views)}</b></span>
-              <span aria-label={`${comic.engagement.likes.toLocaleString("id-ID")} favorit`} title="Favorit"><Heart size={13} /><b>{formatEngagementCount(comic.engagement.likes)}</b></span>
-              <span aria-label={`${comic.engagement.shares.toLocaleString("id-ID")} dibagikan`} title="Dibagikan"><Share2 size={13} /><b>{formatEngagementCount(comic.engagement.shares)}</b></span>
-            </div>
-          )}
-          {chapter && <span className="reader-card-latest">Terbaru · Episode {chapter.chapter_number}</span>}
-        </div>
+        {!overlayDetails && comicInfo}
       </Link>
-      {comic.creatorHandle && comic.creatorProfilePublic && (
-        <Link className="reader-creator-profile-link" href={`/kreator/${encodeURIComponent(comic.creatorHandle)}`}>Profil kreator <ArrowUpRight size={13} /></Link>
+      {overlayDetails && comicInfo}
+      {!overlayDetails && creatorProfile && (
+        <Link className="reader-creator-profile-link" href={creatorProfile}>Profil kreator <ArrowUpRight size={13} /></Link>
       )}
       {chapter && <Link className="reader-card-read" href={`/comic/${comic.slug}/chapter/${chapter.id}`}><BookOpen size={14} /> Baca <ArrowRight size={14} /></Link>}
     </article>
@@ -75,14 +151,37 @@ export default function HomePageClient({
   const episodeLoadError = initialEpisodeLoadError;
   const [query, setQuery] = useState("");
   const [genre, setGenre] = useState("all");
-  const [menuOpen, setMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [continueReading, setContinueReading] = useState<ContinueReading | null>(null);
   const [authMessage, setAuthMessage] = useState("");
   const [authRetry, setAuthRetry] = useState(0);
+  const [homepagePromos, setHomepagePromos] = useState<HomepagePromo[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadPromos = async () => {
+      const { data, error } = await supabase
+        .from("homepage_promos")
+        .select("id, eyebrow, title, description, image_url, image_url_tablet, image_url_mobile, cta_label, destination_url")
+        .order("sort_order")
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.error("Unable to load homepage promos. Run supabase/homepage-promos.sql if the table is missing:", {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        });
+        return;
+      }
+      if (!cancelled) setHomepagePromos((data ?? []) as HomepagePromo[]);
+    };
+    void loadPromos();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -224,7 +323,6 @@ export default function HomePageClient({
   const latestComics = [...visibleComics].filter((comic) => comic.latestChapter).sort((a, b) =>
     new Date(b.latestChapter?.published_at || 0).getTime() - new Date(a.latestChapter?.published_at || 0).getTime(),
   );
-  const featuredComic = latestComics[0] || visibleComics[0];
   const ongoingComics = [...visibleComics].sort((a, b) => b.chapterCount - a.chapterCount).filter((comic) => comic.chapterCount > 1);
 
   const focusSearch = () => {
@@ -234,18 +332,15 @@ export default function HomePageClient({
 
   return (
     <main className="reader-home">
-      <h1 className="reader-sr-only">Baca komik Indonesia dari kreator lokal</h1>
-      <header className="reader-header">
-        <button className="reader-menu-toggle" aria-label={menuOpen ? "Tutup navigasi" : "Buka navigasi"} onClick={() => setMenuOpen((open) => !open)}>
-          {menuOpen ? <X size={21} /> : <Menu size={21} />}
-        </button>
-        <BrandLogo className="wordmark reader-wordmark" />
-        <nav className={`reader-nav-links${menuOpen ? " reader-nav-links-open" : ""}`} aria-label="Navigasi utama">
-          <a href="#jelajah" onClick={() => setMenuOpen(false)}>Jelajah</a>
-          <a href="#genre" onClick={() => setMenuOpen(false)}>Genre</a>
-          {signedIn && settings.feature_flags.creators && <a href="#creator" onClick={() => setMenuOpen(false)}>Kreator</a>}
-          {signedIn && <Link href="/account" onClick={() => setMenuOpen(false)}>Koleksi saya</Link>}
-          {!signedIn && <Link href="/login" onClick={() => setMenuOpen(false)}>Masuk</Link>}
+    <h1 className="reader-sr-only">Baca komik Indonesia dari kreator lokal</h1>
+    <header className="reader-header">
+      <BrandLogo className="wordmark reader-wordmark" />
+      <nav className="reader-nav-links" aria-label="Navigasi utama">
+        <a className="reader-primary-nav-link" href="#jelajah">Jelajah</a>
+        <a className="reader-primary-nav-link" href="#genre">Genre</a>
+        {signedIn && settings.feature_flags.creators && <a href="#creator">Kreator</a>}
+        {signedIn && <Link href="/account">Koleksi saya</Link>}
+        {!signedIn && <Link href="/login">Masuk</Link>}
         </nav>
         {settings.feature_flags.search && <form className={`reader-header-search${mobileSearchOpen ? " reader-header-search-open" : ""}`} onSubmit={(event) => { event.preventDefault(); document.querySelector("#jelajah")?.scrollIntoView({ behavior: "smooth" }); }}>
           <Search size={17} aria-hidden="true" />
@@ -259,40 +354,29 @@ export default function HomePageClient({
             : <Link className="reader-login-button" href="/login"><UserRound size={17} /><span>Masuk</span></Link>}
         </div>
       </header>
+      <nav className="reader-bottom-nav" aria-label="Navigasi bawah">
+        <a href="#jelajah"><Compass size={19} /><span>Jelajah</span></a>
+        <Link href="/account" aria-label="Koleksi saya"><Bookmark size={19} /><span>Koleksi saya</span></Link>
+        {settings.feature_flags.creators && <a href="#creator"><Palette size={19} /><span>Kreator</span></a>}
+        {signedIn
+          ? <Link href="/account" aria-label="Profil"><UserRound size={19} /><span>Profil</span></Link>
+          : <Link href="/login" aria-label="Masuk"><UserRound size={19} /><span>Masuk</span></Link>}
+      </nav>
 
       {authMessage && <div className="reader-inline-message" role="alert">{authMessage}<button onClick={() => setAuthRetry((attempt) => attempt + 1)}>Coba lagi</button></div>}
 
-      {featuredComic ? (
-        <section className="reader-featured">
-          <div className="reader-featured-copy">
-            <span className="reader-kicker"><Sparkles size={15} /> UPDATE TERBARU</span>
-            <p className="reader-featured-genre">{comicGenre(featuredComic.genre)} <span>·</span> {featuredComic.contributor || featuredComic.creator}</p>
-            {featuredComic.creatorHandle && featuredComic.creatorProfilePublic && (
-              <Link className="reader-creator-profile-link" href={`/kreator/${encodeURIComponent(featuredComic.creatorHandle)}`}>Profil kreator {featuredComic.creator} <ArrowUpRight size={13} /></Link>
-            )}
-            <h2>{featuredComic.title}</h2>
-            <p className="reader-featured-synopsis">{cleanSynopsis(featuredComic.synopsis) || "Temukan cerita baru dan mulai membaca hari ini."}</p>
-            {featuredComic.latestChapter && <span className="reader-featured-episode">Episode {featuredComic.latestChapter.chapter_number} · {featuredComic.latestChapter.title}</span>}
-            <Link className="reader-primary-button" href={featuredComic.latestChapter ? `/comic/${featuredComic.slug}/chapter/${featuredComic.latestChapter.id}` : `/comic/${featuredComic.slug}`}>
-              <BookOpen size={18} /> Baca sekarang <ArrowRight size={17} />
-            </Link>
-          </div>
-          <Link href={`/comic/${featuredComic.slug}`} className="reader-featured-cover" aria-label={`Lihat ${featuredComic.title}`}>
-            {featuredComic.coverUrl
-              ? <img src={featuredComic.coverUrl} alt={`Sampul ${featuredComic.title}`} fetchPriority="high" />
-              : <span>{featuredComic.title.slice(0, 2).toUpperCase()}</span>}
-          </Link>
-        </section>
-      ) : (
-        <section className="reader-welcome">
-          <p className="reader-kicker"><Sparkles size={15} /> CERITA INDONESIA, DI SINI</p>
-          <h2>Temukan kisah yang membuatmu betah membaca.</h2>
-          <p>Jelajahi komik independen dan temukan cerita favorit berikutnya.</p>
-          <Link className="reader-primary-button" href="#jelajah">Jelajahi komik <ArrowRight size={17} /></Link>
-        </section>
-      )}
+      <HomepagePromoCarousel promos={homepagePromos} />
 
-      <SponsoredAd slotKey="home_banner" placement="home" />
+      <section className="reader-home-section" id="terbaru">
+        <div className="reader-home-content">
+          <div className="reader-section-heading"><div><p className="reader-section-kicker">UPDATE TERKINI</p><h2>Episode terbaru</h2></div><a href="#jelajah">Jelajahi semua <ArrowUpRight size={16} /></a></div>
+          {catalogState === "error" && <div className="reader-empty-state"><p>Komik belum dapat dimuat. Periksa koneksi lalu coba lagi.</p><button onClick={() => router.refresh()}>Coba lagi</button></div>}
+          {catalogState === "empty" && <div className="reader-empty-state"><p>Belum ada cerita terbit. Kunjungi lagi nanti untuk menemukan komik baru.</p></div>}
+          {catalogState === "ready" && episodeLoadError && <div className="reader-empty-state"><p>Episode terbaru belum dapat dimuat. Komik tetap bisa dijelajahi di bawah.</p><button onClick={() => router.refresh()}>Coba lagi</button></div>}
+          {catalogState === "ready" && !episodeLoadError && latestComics.length > 0 && <div className="reader-comic-grid reader-latest-comic-grid">{latestComics.slice(0, 8).map((comic) => <ComicCard key={comic.id} comic={comic} compact overlayDetails />)}</div>}
+          {catalogState === "ready" && !episodeLoadError && latestComics.length === 0 && <div className="reader-empty-state"><p>Belum ada episode terbit. Jelajahi komik dan nantikan update berikutnya.</p><a href="#jelajah">Lihat semua komik <ArrowRight size={16} /></a></div>}
+        </div>
+      </section>
 
       <div className="reader-home-content">
         {signedIn && continueReading && isComicAvailableOnDevice(continueReading.comic.target_device, currentDevice) && (
@@ -306,21 +390,14 @@ export default function HomePageClient({
           </section>
         )}
 
+        <SponsoredAd slotKey="home_banner" placement="home" />
+
         {ongoingComics.length > 0 && (
           <section className="reader-home-section">
             <div className="reader-section-heading"><div><p className="reader-section-kicker">SERIAL YANG TERUS BERLANJUT</p><h2>Ikuti ceritanya</h2></div><a href="#jelajah">Semua komik <ArrowUpRight size={16} /></a></div>
             <div className="reader-comic-rail">{ongoingComics.slice(0, 6).map((comic) => <ComicCard key={comic.id} comic={comic} />)}</div>
           </section>
         )}
-
-        <section className="reader-home-section" id="terbaru">
-          <div className="reader-section-heading"><div><p className="reader-section-kicker">UPDATE TERKINI</p><h2>Episode terbaru</h2></div><a href="#jelajah">Jelajahi semua <ArrowUpRight size={16} /></a></div>
-          {catalogState === "error" && <div className="reader-empty-state"><p>Komik belum dapat dimuat. Periksa koneksi lalu coba lagi.</p><button onClick={() => router.refresh()}>Coba lagi</button></div>}
-          {catalogState === "empty" && <div className="reader-empty-state"><p>Belum ada cerita terbit. Kunjungi lagi nanti untuk menemukan komik baru.</p></div>}
-          {catalogState === "ready" && episodeLoadError && <div className="reader-empty-state"><p>Episode terbaru belum dapat dimuat. Komik tetap bisa dijelajahi di bawah.</p><button onClick={() => router.refresh()}>Coba lagi</button></div>}
-          {catalogState === "ready" && !episodeLoadError && latestComics.length > 0 && <div className="reader-comic-grid">{latestComics.slice(0, 8).map((comic) => <ComicCard key={comic.id} comic={comic} compact />)}</div>}
-          {catalogState === "ready" && !episodeLoadError && latestComics.length === 0 && <div className="reader-empty-state"><p>Belum ada episode terbit. Jelajahi komik dan nantikan update berikutnya.</p><a href="#jelajah">Lihat semua komik <ArrowRight size={16} /></a></div>}
-        </section>
 
         {latestComics.length > 1 && (
           <section className="reader-editorial-callout">

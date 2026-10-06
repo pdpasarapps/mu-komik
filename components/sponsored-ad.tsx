@@ -110,7 +110,7 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
     : undefined;
 
   return (
-    <aside className={`reader-sponsored-ad reader-sponsored-ad-${placement}${nativeReaderAd ? " reader-sponsored-ad-native" : ""}`} data-reader-stop={readerStopId} aria-label={`${sponsorLabel}: ${campaign.sponsor_name}`} style={adStyle}>
+    <aside className={`reader-sponsored-ad reader-sponsored-ad-${placement}${campaign.format === "banner" ? " reader-sponsored-ad-banner" : ""}${nativeReaderAd ? " reader-sponsored-ad-native" : ""}`} data-reader-stop={readerStopId} aria-label={`${sponsorLabel}: ${campaign.sponsor_name}`} style={adStyle}>
       <div className="reader-sponsored-ad-label"><Megaphone size={13} /> {sponsorLabel}</div>
       <a className="reader-sponsored-ad-link" href={campaign.destination_url} target="_blank" rel="noreferrer noopener sponsored">
         {fallbackImage && <picture className="reader-sponsored-ad-picture">

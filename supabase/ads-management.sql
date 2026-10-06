@@ -89,6 +89,15 @@ create policy "Admins manage sponsor campaigns"
 grant select, insert, update, delete on public.ad_slots to authenticated;
 grant select, insert, update, delete on public.sponsor_campaigns to authenticated;
 
+create table if not exists public.sponsor_campaign_rotation (
+  rotation_scope text primary key,
+  next_position bigint not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.sponsor_campaign_rotation enable row level security;
+revoke all on public.sponsor_campaign_rotation from public, anon, authenticated;
+
 drop function if exists public.get_active_sponsor_campaign(text);
 drop function if exists public.get_active_sponsor_campaign(text, uuid);
 create or replace function public.get_active_sponsor_campaign(p_slot_key text, p_comic_id uuid default null)
@@ -103,50 +112,125 @@ returns table (
   image_url_mobile text,
   format text
 )
-language sql
-stable
+language plpgsql
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
-  select
-    campaign.id,
-    campaign.sponsor_name,
-    campaign.title,
-    campaign.description,
-    campaign.destination_url,
-    campaign.image_url,
-    campaign.image_url_tablet,
-    campaign.image_url_mobile,
-    slot.format
-  from public.sponsor_campaigns as campaign
-  join public.ad_slots as slot on slot.slot_key = p_slot_key
-  where slot.slot_key = p_slot_key
-    and slot.is_active
-    and campaign.status = 'active'
-    and (now() at time zone 'Asia/Jakarta')::date between campaign.starts_on and campaign.ends_on
-    and (
-      (campaign.target_comic_id is null and campaign.slot_id = slot.id)
-      or (
-        campaign.target_comic_id = p_comic_id
-        and exists (
-          select 1
-          from public.comics as target_comic
-          where target_comic.id = campaign.target_comic_id
-            and target_comic.status = 'published'
-        )
-        and (
-          (campaign.target_placement = 'comic_detail' and p_slot_key = 'comic_detail_sponsor')
-          or (campaign.target_placement = 'reader' and p_slot_key = 'reader_mid_chapter')
-          or (campaign.target_placement = 'episode_transition' and p_slot_key = 'reader_episode_transition')
-          or (
-            campaign.target_placement = 'both'
-            and p_slot_key in ('comic_detail_sponsor', 'reader_mid_chapter')
+declare
+  candidate_count bigint;
+  selected_position bigint;
+  v_rotation_scope text;
+begin
+  v_rotation_scope := concat_ws(
+    ':',
+    p_slot_key,
+    coalesce(p_comic_id::text, 'all')
+  );
+
+  with eligible as (
+    select
+      campaign.created_at,
+      campaign.id,
+      case
+        when campaign.target_comic_id = p_comic_id then 0
+        else 1
+      end as priority
+    from public.sponsor_campaigns as campaign
+    join public.ad_slots as slot on slot.id = campaign.slot_id
+    where slot.slot_key = p_slot_key
+      and slot.is_active
+      and campaign.status = 'active'
+      and (statement_timestamp() at time zone 'Asia/Jakarta')::date between campaign.starts_on and campaign.ends_on
+      and (
+        campaign.target_comic_id is null
+        or (
+          campaign.target_comic_id = p_comic_id
+          and exists (
+            select 1 from public.comics as target_comic
+            where target_comic.id = campaign.target_comic_id
+              and target_comic.status = 'published'
+          )
+          and (
+            (campaign.target_placement = 'comic_detail' and p_slot_key = 'comic_detail_sponsor')
+            or (campaign.target_placement = 'reader' and p_slot_key = 'reader_mid_chapter')
+            or (campaign.target_placement = 'episode_transition' and p_slot_key = 'reader_episode_transition')
+            or (campaign.target_placement = 'both' and p_slot_key in ('comic_detail_sponsor', 'reader_mid_chapter'))
           )
         )
       )
-    )
-  order by (campaign.target_comic_id = p_comic_id) desc, campaign.created_at desc
+  )
+  select count(*) into candidate_count
+  from eligible
+  where priority = (select min(priority) from eligible);
+
+  if candidate_count = 0 then
+    return;
+  end if;
+
+  insert into public.sponsor_campaign_rotation (rotation_scope, next_position)
+  values (v_rotation_scope, 0)
+  on conflict (rotation_scope) do update
+    set next_position = (public.sponsor_campaign_rotation.next_position + 1) % candidate_count,
+        updated_at = now()
+  returning next_position into selected_position;
+
+  return query
+  with eligible as (
+    select
+      campaign.id,
+      campaign.sponsor_name,
+      campaign.title,
+      campaign.description,
+      campaign.destination_url,
+      campaign.image_url,
+      campaign.image_url_tablet,
+      campaign.image_url_mobile,
+      slot.format,
+      campaign.created_at,
+      case
+        when campaign.target_comic_id = p_comic_id then 0
+        else 1
+      end as priority
+    from public.sponsor_campaigns as campaign
+    join public.ad_slots as slot on slot.id = campaign.slot_id
+    where slot.slot_key = p_slot_key
+      and slot.is_active
+      and campaign.status = 'active'
+      and (statement_timestamp() at time zone 'Asia/Jakarta')::date between campaign.starts_on and campaign.ends_on
+      and (
+        campaign.target_comic_id is null
+        or (
+          campaign.target_comic_id = p_comic_id
+          and exists (
+            select 1 from public.comics as target_comic
+            where target_comic.id = campaign.target_comic_id
+              and target_comic.status = 'published'
+          )
+          and (
+            (campaign.target_placement = 'comic_detail' and p_slot_key = 'comic_detail_sponsor')
+            or (campaign.target_placement = 'reader' and p_slot_key = 'reader_mid_chapter')
+            or (campaign.target_placement = 'episode_transition' and p_slot_key = 'reader_episode_transition')
+            or (campaign.target_placement = 'both' and p_slot_key in ('comic_detail_sponsor', 'reader_mid_chapter'))
+          )
+        )
+      )
+  )
+  select
+    eligible.id,
+    eligible.sponsor_name,
+    eligible.title,
+    eligible.description,
+    eligible.destination_url,
+    eligible.image_url,
+    eligible.image_url_tablet,
+    eligible.image_url_mobile,
+    eligible.format
+  from eligible
+  where eligible.priority = (select min(priority) from eligible)
+  order by eligible.created_at desc, eligible.id
+  offset selected_position
   limit 1;
+end;
 $$;
 
 revoke all on function public.get_active_sponsor_campaign(text, uuid) from public;
