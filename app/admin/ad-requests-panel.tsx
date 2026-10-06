@@ -14,6 +14,8 @@ type AdRequest = {
   description: string;
   destination_url: string;
   image_url: string | null;
+  image_url_tablet: string | null;
+  image_url_mobile: string | null;
   placements: string[];
   requested_start: string | null;
   requested_end: string | null;
@@ -23,6 +25,7 @@ type AdRequest = {
 };
 
 const supabase = createClient();
+const isAdRequestSchemaError = (code: string) => ["42P01", "42703", "PGRST204", "PGRST205"].includes(code);
 const statusLabels: Record<AdStatus, string> = {
   pending: "Menunggu tinjauan",
   contacted: "Sudah dihubungi",
@@ -55,7 +58,7 @@ function ReviewCard({ request, onUpdated }: { request: AdRequest; onUpdated: (re
       .from("ad_requests")
       .update({ status, admin_note: adminNote.trim(), updated_at: new Date().toISOString() })
       .eq("id", request.id)
-      .select("id, advertiser_name, contact_email, contact_whatsapp, campaign_title, description, destination_url, image_url, placements, requested_start, requested_end, status, admin_note, created_at")
+      .select("id, advertiser_name, contact_email, contact_whatsapp, campaign_title, description, destination_url, image_url, image_url_tablet, image_url_mobile, placements, requested_start, requested_end, status, admin_note, created_at")
       .single();
     setSaving(false);
     if (error) {
@@ -78,7 +81,15 @@ function ReviewCard({ request, onUpdated }: { request: AdRequest; onUpdated: (re
         <div><dt>Kontak</dt><dd><a href={`mailto:${request.contact_email}`}>{request.contact_email}</a>{request.contact_whatsapp && <a href={`https://wa.me/${request.contact_whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">WhatsApp · {request.contact_whatsapp}</a>}</dd></div>
         <div><dt>Lokasi diminati</dt><dd>{request.placements.map((placement) => placementLabels[placement] ?? placement).join(", ")}</dd></div>
         <div><dt>Tautan tujuan</dt><dd><a href={request.destination_url} target="_blank" rel="noreferrer">{request.destination_url} <ExternalLink size={13} /></a></dd></div>
-        {request.image_url && <div><dt>Materi iklan</dt><dd><a href={request.image_url} target="_blank" rel="noreferrer">{request.image_url} <ExternalLink size={13} /></a></dd></div>}
+        {(request.image_url || request.image_url_tablet || request.image_url_mobile) && <div><dt>Materi iklan</dt><dd className="admin-ad-request-creatives">
+          {([
+            ["Desktop", request.image_url],
+            ["Tablet", request.image_url_tablet],
+            ["Mobile", request.image_url_mobile],
+          ] as const).map(([device, imageUrl]) => imageUrl && (
+            <a key={device} href={imageUrl} target="_blank" rel="noreferrer">{device} <ExternalLink size={13} /></a>
+          ))}
+        </dd></div>}
         <div><dt>Perkiraan jadwal</dt><dd>{request.requested_start ? `${formatDate(request.requested_start)}${request.requested_end ? ` – ${formatDate(request.requested_end)}` : ""}` : "Belum ditentukan"}</dd></div>
         <div><dt>Dikirim</dt><dd>{formatDate(request.created_at)}</dd></div>
       </dl>
@@ -112,13 +123,17 @@ export default function AdRequestsPanel() {
     const load = async () => {
       const { data, error } = await supabase
         .from("ad_requests")
-        .select("id, advertiser_name, contact_email, contact_whatsapp, campaign_title, description, destination_url, image_url, placements, requested_start, requested_end, status, admin_note, created_at")
+        .select("id, advertiser_name, contact_email, contact_whatsapp, campaign_title, description, destination_url, image_url, image_url_tablet, image_url_mobile, placements, requested_start, requested_end, status, admin_note, created_at")
         .order("created_at", { ascending: false });
       if (!active) return;
       if (error) {
-        console.error("Unable to load advertiser requests for review:", error);
-        setErrorMessage(error.code === "42P01" || error.code === "PGRST205"
-          ? "Jalankan supabase/ad-requests.sql di Supabase SQL Editor untuk mengaktifkan pengajuan iklan."
+        if (isAdRequestSchemaError(error.code)) {
+          console.warn("Advertiser request schema is outdated:", { code: error.code, message: error.message });
+        } else {
+          console.error("Unable to load advertiser requests for review:", error);
+        }
+        setErrorMessage(isAdRequestSchemaError(error.code)
+          ? "Skema pengajuan iklan belum lengkap. Jalankan ulang supabase/ad-requests.sql di Supabase SQL Editor."
           : "Pengajuan iklan gagal dimuat. Periksa koneksi dan izin database.");
       } else {
         setRequests((data ?? []) as AdRequest[]);

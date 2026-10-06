@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRight, ExternalLink, Image as ImageIcon, Megaphone, Monitor, Plus, Send, Smartphone, Tablet } from "lucide-react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { ArrowLeft, ArrowRight, ExternalLink, Image as ImageIcon, Megaphone, Monitor, Plus, Send, Smartphone, Tablet, Trash2, Upload } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import { createClient } from "@/lib/supabase/client";
 
 type AdStatus = "pending" | "contacted" | "approved" | "rejected";
+type CreativeDevice = "desktop" | "tablet" | "mobile";
+type CreativeAsset = { file: File; previewUrl: string };
+type CreativeFiles = Record<CreativeDevice, CreativeAsset | null>;
 type AdRequest = {
   id: string;
   advertiser_name: string;
@@ -15,6 +18,8 @@ type AdRequest = {
   description: string;
   destination_url: string;
   image_url: string | null;
+  image_url_tablet: string | null;
+  image_url_mobile: string | null;
   placements: string[];
   requested_start: string | null;
   requested_end: string | null;
@@ -24,6 +29,14 @@ type AdRequest = {
 };
 
 const supabase = createClient();
+const creativeDevices: { value: CreativeDevice; label: string; icon: typeof Monitor }[] = [
+  { value: "desktop", label: "Desktop", icon: Monitor },
+  { value: "tablet", label: "Tablet", icon: Tablet },
+  { value: "mobile", label: "Mobile", icon: Smartphone },
+];
+const maxCreativeSize = 5 * 1024 * 1024;
+const creativeMimeTypes = ["image/jpeg", "image/png", "image/webp"];
+const isAdRequestSchemaError = (code: string) => ["42P01", "42703", "PGRST204", "PGRST205"].includes(code);
 const placementOptions = [
   { value: "home_banner", label: "Banner beranda" },
   { value: "catalog_grid_native", label: "Di antara katalog komik" },
@@ -55,18 +68,18 @@ function PushAdsPreview({
   advertiserName,
   campaignTitle,
   description,
-  imageUrl,
+  creativeFiles,
   placements,
 }: {
   advertiserName: string;
   campaignTitle: string;
   description: string;
-  imageUrl: string;
+  creativeFiles: CreativeFiles;
   placements: string[];
 }) {
   const [placement, setPlacement] = useState("");
-  const [failedImageUrl, setFailedImageUrl] = useState("");
-  const previewHasImage = Boolean(imageUrl.trim() && isHttpUrl(imageUrl.trim()) && imageUrl.trim() !== failedImageUrl);
+  const [previewDevice, setPreviewDevice] = useState<CreativeDevice>("desktop");
+  const previewUrl = creativeFiles[previewDevice]?.previewUrl ?? "";
   const activePlacement = placements.includes(placement) ? placement : placements[0] ?? "";
   const displayPlacement = activePlacement || "home_banner";
   const readerPlacement = displayPlacement === "reader_mid_chapter" || displayPlacement === "reader_episode_transition";
@@ -87,15 +100,22 @@ function PushAdsPreview({
           </select>
         </label>
       </div>
+      <div className="push-ads-preview-devices" aria-label="Pilih pratinjau perangkat">
+        {creativeDevices.map(({ value, label, icon: DeviceIcon }) => (
+          <button key={value} type="button" aria-pressed={previewDevice === value} onClick={() => setPreviewDevice(value)}>
+            <DeviceIcon size={14} /> {label}
+          </button>
+        ))}
+      </div>
       <div className={`push-ads-preview-stage${readerPlacement ? " push-ads-preview-stage-reader" : ""}${!activePlacement ? " is-unselected" : ""}`}>
         <p className="push-ads-preview-context">Contoh penempatan · {placementLabel}</p>
         <article className={`push-ads-preview-ad${readerPlacement ? " push-ads-preview-ad-reader" : ""}`} aria-label={`Pratinjau iklan ${campaignTitle || "baru"}`}>
           <span className="push-ads-preview-label"><Megaphone size={12} /> Pratinjau iklan</span>
           <div className="push-ads-preview-content">
-            <div className={`push-ads-preview-media${previewHasImage ? " has-image" : ""}`}>
-              {previewHasImage
-                ? <Image src={imageUrl.trim()} alt="" fill sizes="(max-width: 850px) 90vw, 350px" unoptimized onError={() => setFailedImageUrl(imageUrl.trim())} />
-                : <span><ImageIcon size={22} /> Gambar iklan</span>}
+            <div className={`push-ads-preview-media${previewUrl ? " has-image" : ""}`}>
+              {previewUrl
+                ? <Image src={previewUrl} alt="" fill sizes="(max-width: 850px) 90vw, 350px" unoptimized />
+                : <span><ImageIcon size={22} /> Gambar {creativeDevices.find((item) => item.value === previewDevice)?.label} belum diunggah</span>}
             </div>
             <div className="push-ads-preview-copy">
               <small>{advertiserName.trim() || "Nama pengiklan"}</small>
@@ -109,6 +129,47 @@ function PushAdsPreview({
       </div>
       <p className="push-ads-preview-note">Pratinjau ini hanya simulasi. Tampilan akhir dapat menyesuaikan format dan perangkat.</p>
     </section>
+  );
+}
+
+function CreativeUploadField({
+  device,
+  asset,
+  size,
+  onChange,
+}: {
+  device: CreativeDevice;
+  asset: CreativeAsset | null;
+  size: string;
+  onChange: (device: CreativeDevice, file: File | null) => void;
+}) {
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    onChange(device, event.target.files?.[0] ?? null);
+    event.currentTarget.value = "";
+  };
+  const deviceLabel = creativeDevices.find((item) => item.value === device)?.label ?? device;
+
+  const file = asset?.file ?? null;
+  const previewUrl = asset?.previewUrl ?? "";
+  return (
+    <div className="push-ads-upload-card">
+      <div className="push-ads-upload-card-heading">
+        <strong>{deviceLabel}</strong>
+        <span>{size}</span>
+      </div>
+      <label className="push-ads-upload-input">
+        <Upload size={16} />
+        <span>{file ? "Ganti gambar" : "Pilih gambar"}</span>
+        <input type="file" accept={creativeMimeTypes.join(",")} onChange={handleChange} aria-label={`Unggah gambar iklan untuk ${deviceLabel}`} />
+      </label>
+      {file ? (
+        <div className="push-ads-upload-file">
+          {previewUrl && <div className="push-ads-upload-thumbnail"><Image src={previewUrl} alt="" fill sizes="64px" unoptimized /></div>}
+          <span title={file.name}>{file.name}<small>{(file.size / (1024 * 1024)).toFixed(2)} MB</small></span>
+          <button type="button" aria-label={`Hapus gambar ${deviceLabel}`} onClick={() => onChange(device, null)}><Trash2 size={15} /></button>
+        </div>
+      ) : <p className="push-ads-upload-empty">Belum ada gambar · opsional</p>}
+    </div>
   );
 }
 
@@ -152,10 +213,17 @@ export default function PushAdsPage() {
   const [campaignTitle, setCampaignTitle] = useState("");
   const [description, setDescription] = useState("");
   const [destinationUrl, setDestinationUrl] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [creativeFiles, setCreativeFiles] = useState<CreativeFiles>({ desktop: null, tablet: null, mobile: null });
+  const creativeObjectUrls = useRef<Partial<Record<CreativeDevice, string>>>({});
   const [placements, setPlacements] = useState<string[]>([]);
   const [requestedStart, setRequestedStart] = useState("");
   const [requestedEnd, setRequestedEnd] = useState("");
+
+  useEffect(() => () => {
+    Object.values(creativeObjectUrls.current).forEach((url) => {
+      if (url) URL.revokeObjectURL(url);
+    });
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -197,17 +265,17 @@ export default function PushAdsPage() {
 
       const { data: rows, error: requestError } = await supabase
         .from("ad_requests")
-        .select("id, advertiser_name, campaign_title, description, destination_url, image_url, placements, requested_start, requested_end, status, admin_note, created_at")
+        .select("id, advertiser_name, campaign_title, description, destination_url, image_url, image_url_tablet, image_url_mobile, placements, requested_start, requested_end, status, admin_note, created_at")
         .eq("user_id", data.user.id)
         .order("created_at", { ascending: false });
       if (!active) return;
       if (requestError) {
-        if (requestError.code === "42P01" || requestError.code === "PGRST205") {
+        if (isAdRequestSchemaError(requestError.code)) {
           console.warn("Advertiser submissions are unavailable because public.ad_requests is not installed:", {
             code: requestError.code,
             message: requestError.message,
           });
-          setErrorMessage("Pengajuan iklan belum aktif. Admin perlu menjalankan supabase/ad-requests.sql di Supabase SQL Editor, lalu muat ulang halaman.");
+          setErrorMessage("Skema pengajuan iklan belum lengkap. Admin perlu menjalankan ulang supabase/ad-requests.sql di Supabase SQL Editor, lalu muat ulang halaman.");
         } else {
           console.error("Unable to load advertiser submissions:", {
             code: requestError.code,
@@ -233,6 +301,24 @@ export default function PushAdsPage() {
       : [...current, value]);
   };
 
+  const updateCreativeFile = (device: CreativeDevice, file: File | null) => {
+    if (file && !creativeMimeTypes.includes(file.type)) {
+      setErrorMessage("Format gambar harus JPG, PNG, atau WebP.");
+      return;
+    }
+    if (file && file.size > maxCreativeSize) {
+      setErrorMessage("Ukuran setiap gambar maksimal 5 MB.");
+      return;
+    }
+    setErrorMessage("");
+    const previousUrl = creativeObjectUrls.current[device];
+    if (previousUrl) URL.revokeObjectURL(previousUrl);
+    const asset = file ? { file, previewUrl: URL.createObjectURL(file) } : null;
+    if (asset) creativeObjectUrls.current[device] = asset.previewUrl;
+    else delete creativeObjectUrls.current[device];
+    setCreativeFiles((current) => ({ ...current, [device]: asset }));
+  };
+
   const submitRequest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage("");
@@ -246,16 +332,36 @@ export default function PushAdsPage() {
       setErrorMessage("Masukkan URL tujuan yang valid dan diawali http:// atau https://.");
       return;
     }
-    if (imageUrl.trim() && !isHttpUrl(imageUrl.trim())) {
-      setErrorMessage("URL materi iklan harus diawali http:// atau https://.");
-      return;
-    }
     if (requestedStart && requestedEnd && requestedEnd < requestedStart) {
       setErrorMessage("Tanggal akhir tidak boleh lebih awal dari tanggal mulai.");
       return;
     }
 
     setSaving(true);
+    const imageUrls: Record<CreativeDevice, string | null> = { desktop: null, tablet: null, mobile: null };
+    const uploadedPaths: string[] = [];
+    const extensions: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+    for (const { value: device } of creativeDevices) {
+      const asset = creativeFiles[device];
+      if (!asset) continue;
+      const { file } = asset;
+      const path = `${userId}/${crypto.randomUUID()}-${device}.${extensions[file.type]}`;
+      const { error: uploadError } = await supabase.storage
+        .from("ad-creatives")
+        .upload(path, file, { cacheControl: "3600", contentType: file.type, upsert: false });
+      if (uploadError) {
+        console.error(`Unable to upload ${device} advertiser creative:`, uploadError);
+        if (uploadedPaths.length) {
+          const { error: cleanupError } = await supabase.storage.from("ad-creatives").remove(uploadedPaths);
+          if (cleanupError) console.error("Unable to clean up advertiser creatives after upload failure:", cleanupError);
+        }
+        setSaving(false);
+        setErrorMessage("Gambar gagal diunggah. Pastikan admin sudah menyiapkan penyimpanan iklan, lalu coba lagi.");
+        return;
+      }
+      uploadedPaths.push(path);
+      imageUrls[device] = supabase.storage.from("ad-creatives").getPublicUrl(path).data.publicUrl;
+    }
     const { data, error } = await supabase
       .from("ad_requests")
       .insert({
@@ -266,19 +372,29 @@ export default function PushAdsPage() {
         campaign_title: campaignTitle.trim(),
         description: description.trim(),
         destination_url: destinationUrl.trim(),
-        image_url: imageUrl.trim() || null,
+        image_url: imageUrls.desktop,
+        image_url_tablet: imageUrls.tablet,
+        image_url_mobile: imageUrls.mobile,
         placements,
         requested_start: requestedStart || null,
         requested_end: requestedEnd || null,
         status: "pending",
       })
-      .select("id, advertiser_name, campaign_title, description, destination_url, image_url, placements, requested_start, requested_end, status, admin_note, created_at")
+      .select("id, advertiser_name, campaign_title, description, destination_url, image_url, image_url_tablet, image_url_mobile, placements, requested_start, requested_end, status, admin_note, created_at")
       .single();
     setSaving(false);
     if (error) {
-      console.error("Unable to submit advertiser request:", error);
-      setErrorMessage(error.code === "42P01" || error.code === "PGRST205"
-        ? "Form pengajuan belum aktif. Admin MU Komik perlu menyiapkan database pengajuan iklan."
+      if (isAdRequestSchemaError(error.code)) {
+        console.warn("Advertiser request schema is outdated:", { code: error.code, message: error.message });
+      } else {
+        console.error("Unable to submit advertiser request:", error);
+      }
+      if (uploadedPaths.length) {
+        const { error: cleanupError } = await supabase.storage.from("ad-creatives").remove(uploadedPaths);
+        if (cleanupError) console.error("Unable to clean up advertiser creatives after request failure:", cleanupError);
+      }
+      setErrorMessage(isAdRequestSchemaError(error.code)
+        ? "Skema pengajuan iklan belum lengkap. Admin MU Komik perlu menjalankan ulang supabase/ad-requests.sql di Supabase SQL Editor."
         : "Pengajuan belum berhasil dikirim. Periksa data dan coba lagi.");
       return;
     }
@@ -287,7 +403,11 @@ export default function PushAdsPage() {
     setCampaignTitle("");
     setDescription("");
     setDestinationUrl("");
-    setImageUrl("");
+    Object.values(creativeObjectUrls.current).forEach((url) => {
+      if (url) URL.revokeObjectURL(url);
+    });
+    creativeObjectUrls.current = {};
+    setCreativeFiles({ desktop: null, tablet: null, mobile: null });
     setPlacements([]);
     setRequestedStart("");
     setRequestedEnd("");
@@ -377,16 +497,23 @@ export default function PushAdsPage() {
                 </section>
 
                 <section className="push-ads-form-section" aria-labelledby="push-ads-creative-heading">
-                  <div className="push-ads-form-section-heading"><span>03</span><div><h3 id="push-ads-creative-heading">Materi iklan</h3><p>Tambahkan gambar agar tim dapat meninjau konsep visualnya.</p></div></div>
-                  <label className="push-ads-field">
-                    <span>URL gambar iklan <small>Opsional</small></span>
-                    <input type="url" value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} maxLength={2000} placeholder="https://contoh.id/banner.jpg" />
-                    <small>Gunakan URL gambar yang dapat diakses publik. JPG, PNG, atau WebP.</small>
-                  </label>
+                  <div className="push-ads-form-section-heading"><span>03</span><div><h3 id="push-ads-creative-heading">Materi iklan</h3><p>Unggah gambar terpisah agar materi tampil pas di desktop, tablet, dan mobile.</p></div></div>
                   <ImageSizeGuide
                     includesHomeBanner={placements.includes("home_banner")}
                     includesOtherPlacements={placements.some((placement) => placement !== "home_banner")}
                   />
+                  <div className="push-ads-upload-grid">
+                    {creativeDevices.map(({ value }) => {
+                      const includesHomeBanner = placements.includes("home_banner");
+                      const size = value === "desktop"
+                        ? includesHomeBanner ? "1200 × 400 px" : "1200 × 600 px"
+                        : value === "tablet"
+                          ? includesHomeBanner ? "768 × 360 px" : "900 × 600 px"
+                          : includesHomeBanner ? "720 × 480 px" : "720 × 900 px";
+                      return <CreativeUploadField key={value} device={value} asset={creativeFiles[value]} size={size} onChange={updateCreativeFile} />;
+                    })}
+                  </div>
+                  <small className="push-ads-upload-help">JPG, PNG, atau WebP · maksimal 5 MB per gambar · setiap ukuran dapat diunggah terpisah.</small>
                 </section>
 
                 <section className="push-ads-form-section" aria-labelledby="push-ads-contact-heading">
@@ -421,7 +548,7 @@ export default function PushAdsPage() {
             advertiserName={advertiserName}
             campaignTitle={campaignTitle}
             description={description}
-            imageUrl={imageUrl}
+            creativeFiles={creativeFiles}
             placements={placements}
           />
           <article className="push-ads-guidance">

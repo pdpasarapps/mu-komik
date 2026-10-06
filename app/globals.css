@@ -44,6 +44,23 @@
 .push-ads-image-guide-item > span { display: inline-flex; align-items: center; gap: 5px; color: #69766e; font-size: .63rem; }
 .push-ads-image-guide-item > b { font-size: .67rem; white-space: nowrap; }
 .push-ads-image-guide > small { color: #77827b; font-size: .65rem; font-weight: 500; line-height: 1.5; }
+.push-ads-upload-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.push-ads-upload-card { min-width: 0; display: grid; align-content: start; gap: 10px; padding: 11px; border: 1px solid var(--line); border-radius: 7px; background: #fffdf8; }
+.push-ads-upload-card-heading { display: grid; gap: 3px; }
+.push-ads-upload-card-heading > strong { font-size: .72rem; }
+.push-ads-upload-card-heading > span, .push-ads-upload-empty, .push-ads-upload-help { color: #77827b; font-size: .63rem; line-height: 1.45; }
+.push-ads-upload-input { position: relative; min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 7px; overflow: hidden; padding: 7px; border: 1px dashed rgba(30,37,36,.28); border-radius: 5px; color: #3b7965; font-size: .67rem; font-weight: 800; cursor: pointer; }
+.push-ads-upload-input:focus-within { outline: 2px solid var(--orange); outline-offset: 2px; }
+.push-ads-upload-input input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.push-ads-upload-file { min-width: 0; display: flex; align-items: center; gap: 7px; }
+.push-ads-upload-thumbnail { position: relative; width: 38px; height: 38px; flex: 0 0 auto; overflow: hidden; border-radius: 4px; background: #dedfd8; }
+.push-ads-upload-thumbnail > img { object-fit: cover; }
+.push-ads-upload-file > span { min-width: 0; display: grid; flex: 1; gap: 2px; overflow: hidden; font-size: .6rem; text-overflow: ellipsis; white-space: nowrap; }
+.push-ads-upload-file > span small { color: #77827b; font-size: .57rem; }
+.push-ads-upload-file > button { width: 27px; height: 27px; display: grid; flex: 0 0 auto; place-items: center; border: 0; border-radius: 5px; background: #fff0e9; color: #a8492f; cursor: pointer; }
+.push-ads-upload-file > button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.push-ads-upload-empty { margin: 0; }
+.push-ads-upload-help { margin: -7px 0 0; }
 .push-ads-character-count { justify-self: end; }
 .push-ads-form-footer { display: grid; gap: 14px; }
 .push-ads-placement-fieldset { display: grid; gap: 11px; margin: 0; padding: 0; border: 0; }
@@ -71,6 +88,10 @@
 .push-ads-preview-heading select { max-width: 175px; min-height: 38px; padding: 0 9px; border: 1px solid var(--line); border-radius: 6px; background: #fffdf8; color: var(--ink); font: inherit; font-size: .66rem; }
 .push-ads-preview-heading select:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .push-ads-preview-heading select:disabled { color: #858c86; cursor: not-allowed; }
+.push-ads-preview-devices { display: flex; gap: 5px; }
+.push-ads-preview-devices button { min-height: 32px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid var(--line); border-radius: 5px; background: #fffdf8; color: #69766e; font: inherit; font-size: .62rem; font-weight: 750; cursor: pointer; }
+.push-ads-preview-devices button[aria-pressed="true"] { border-color: #3b7965; background: #eaf5ee; color: #28644e; }
+.push-ads-preview-devices button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .push-ads-preview-stage { overflow: hidden; padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: #e8e6de; }
 .push-ads-preview-context { margin: 0 0 9px; color: #69766e; font-size: .62rem; font-weight: 700; }
 .push-ads-preview-prompt { margin: 9px 0 0; color: #69766e; font-size: .68rem; line-height: 1.45; }
@@ -142,10 +163,16 @@ html[data-theme="dark"] .push-ads-field input, html[data-theme="dark"] .push-ads
 html[data-theme="dark"] .push-ads-image-guide { border-color: var(--line); background: #1a1f1c; }
 html[data-theme="dark"] .push-ads-image-guide-item { border-color: var(--line); background: #222825; }
 html[data-theme="dark"] .push-ads-image-guide-item > span, html[data-theme="dark"] .push-ads-image-guide > small { color: #a9b2ab; }
+html[data-theme="dark"] .push-ads-upload-card { border-color: var(--line); background: #1a1f1c; }
+html[data-theme="dark"] .push-ads-upload-card-heading > span, html[data-theme="dark"] .push-ads-upload-empty, html[data-theme="dark"] .push-ads-upload-help, html[data-theme="dark"] .push-ads-upload-file > span small { color: #a9b2ab; }
+html[data-theme="dark"] .push-ads-upload-input { border-color: rgba(255,255,255,.25); }
+html[data-theme="dark"] .push-ads-upload-file > button { background: #402b24; color: #ffb19a; }
 html[data-theme="dark"] .push-ads-placement-options label { border-color: var(--line); color: #c0c8c1; }
 html[data-theme="dark"] .push-ads-guidance { background: #293831; }
 html[data-theme="dark"] .push-ads-preview-heading label, html[data-theme="dark"] .push-ads-preview-note { color: #a9b2ab; }
 html[data-theme="dark"] .push-ads-preview-heading select { border-color: var(--line); background: #222825; color: var(--ink); }
+html[data-theme="dark"] .push-ads-preview-devices button { border-color: var(--line); background: #222825; color: #c0c8c1; }
+html[data-theme="dark"] .push-ads-preview-devices button[aria-pressed="true"] { border-color: #6eaa91; background: #24392d; color: #a8e0c1; }
 html[data-theme="dark"] .push-ads-preview-prompt { color: #a9b2ab; }
 html[data-theme="dark"] .push-ads-form-section-heading p { color: #a9b2ab; }
 html[data-theme="dark"] .push-ads-form-section-heading > span { background: #402b24; color: #ffb19a; }
@@ -189,6 +216,7 @@ html[data-theme="dark"] .push-ads-request-card > p { color: #c0c8c1; }
   .push-ads-image-guide-grid { gap: 6px; }
   .push-ads-image-guide-item { padding: 8px 6px; }
   .push-ads-image-guide-item > b { font-size: .61rem; }
+  .push-ads-upload-grid { grid-template-columns: minmax(0, 1fr); }
   .push-ads-submit { width: 100%; }
   .push-ads-footer { padding: 13px 17px; }
   .admin-ad-request-card { padding: 15px; }

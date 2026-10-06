@@ -32,6 +32,13 @@ create table if not exists public.ad_requests (
   )
 );
 
+alter table public.ad_requests
+  add column if not exists image_url_tablet text
+  check (image_url_tablet is null or image_url_tablet ~* '^https?://[^[:space:]]+$');
+alter table public.ad_requests
+  add column if not exists image_url_mobile text
+  check (image_url_mobile is null or image_url_mobile ~* '^https?://[^[:space:]]+$');
+
 create index if not exists ad_requests_user_created_idx
   on public.ad_requests(user_id, created_at desc);
 create index if not exists ad_requests_status_created_idx
@@ -59,5 +66,33 @@ create policy "Admins review ad requests"
   with check (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'admin'));
 
 grant select, insert, update on public.ad_requests to authenticated;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('ad-creatives', 'ad-creatives', true, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Public can view advertiser creatives" on storage.objects;
+create policy "Public can view advertiser creatives"
+  on storage.objects for select
+  using (bucket_id = 'ad-creatives');
+
+drop policy if exists "Users upload own advertiser creatives" on storage.objects;
+create policy "Users upload own advertiser creatives"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'ad-creatives'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "Users delete own advertiser creatives" on storage.objects;
+create policy "Users delete own advertiser creatives"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'ad-creatives'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 notify pgrst, 'reload schema';
