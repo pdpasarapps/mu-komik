@@ -20,8 +20,16 @@ export default function AccountMobileNavigation() {
   useEffect(() => {
     let active = true;
     const loadRole = async () => {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        console.error("Could not check session for account navigation:", sessionError);
+        return;
+      }
+      if (!sessionData.session) return;
+
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError) {
+        if (userError.name === "AuthSessionMissingError") return;
         console.error("Could not identify user for account navigation:", userError);
         return;
       }
