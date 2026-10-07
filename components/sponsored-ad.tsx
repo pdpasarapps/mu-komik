@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { ExternalLink, Megaphone } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -20,7 +20,7 @@ type SponsoredCampaign = {
 
 const supabase = createClient();
 
-export default function SponsoredAd({ slotKey, placement, comicId, matchPageIndex, readerStopId, onCampaignAvailability }: { slotKey: string; placement: "home" | "comic" | "reader" | "catalog" | "transition"; comicId?: string; matchPageIndex?: number; readerStopId?: string; onCampaignAvailability?: (available: boolean) => void }) {
+export default function SponsoredAd({ slotKey, placement, comicId, matchPageIndex, readerStopId, onCampaignAvailability, fallback }: { slotKey: string; placement: "home" | "comic" | "reader" | "catalog" | "transition"; comicId?: string; matchPageIndex?: number; readerStopId?: string; onCampaignAvailability?: (available: boolean) => void; fallback?: ReactNode }) {
   const membership = useReaderMembership();
   const [campaign, setCampaign] = useState<SponsoredCampaign | null>(null);
   const [matchedPageHeight, setMatchedPageHeight] = useState<number | null>(null);
@@ -101,7 +101,7 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
     return () => observer.disconnect();
   }, [matchPageIndex, membership.ready, membership.tier, placement]);
 
-  if (!membership.ready || membership.tier !== "free" || !campaign) return null;
+  if (!membership.ready || membership.tier !== "free" || !campaign) return fallback ?? null;
   const sponsorLabel = campaign.format === "sponsor" ? "Sponsor" : "Iklan";
   const nativeReaderAd = (placement === "reader" || placement === "transition") && campaign.format === "native";
   const fallbackImage = campaign.image_url || campaign.image_url_tablet || campaign.image_url_mobile;

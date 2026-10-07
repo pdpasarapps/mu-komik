@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Clock3, List, LoaderCircle, LockKeyhole, Maximize2, Minimize2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -17,8 +17,18 @@ const TRANSITION_AD_LOAD_TIMEOUT_MS = 2000;
 type Page = { id: string; page_number: number; object_key: string };
 type Chapter = { id: string; title: string; chapter_number: number; comic_id: string };
 type Comic = { id: string; title: string; slug: string; target_device: ComicTargetDevice };
+type BookLeaf = { kind: "page"; page: Page; pageIndex: number } | { kind: "ad"; afterPageIndex: number };
 type BookTurn = { from: number; to: number; direction: "next" | "previous" };
 export type ChapterReaderSeed = { chapter: Chapter; comic: Comic };
+
+function getDesktopBookLeaves(pages: Page[], includeAds: boolean): BookLeaf[] {
+  return pages.flatMap((page, pageIndex) => [
+    { kind: "page" as const, page, pageIndex },
+    ...(includeAds && (pageIndex + 1) % 5 === 0 && pageIndex < pages.length - 1
+      ? [{ kind: "ad" as const, afterPageIndex: pageIndex }]
+      : []),
+  ]);
+}
 
 export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed }) {
   const { slug, chapterId } = useParams<{ slug: string; chapterId: string }>();
@@ -33,6 +43,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const [pages, setPages] = useState<Page[]>([]);
   const [readPageIds, setReadPageIds] = useState<Set<string>>(() => new Set());
   const [currentPage, setCurrentPage] = useState(0);
+  const [bookSpreadIndex, setBookSpreadIndex] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
   const [historyReady, setHistoryReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -50,6 +61,10 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
   const desktopBookMode = currentDevice === "desktop"
     && (comic?.target_device ?? seed.comic.target_device) === "desktop";
+  const bookLeaves = useMemo(
+    () => getDesktopBookLeaves(pages, membership.ready && membership.tier === "free"),
+    [membership.ready, membership.tier, pages],
+  );
 
   useEffect(() => {
     let active = true;
@@ -208,13 +223,25 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       const resumePage = savedLastPage
         ? Math.max(0, Math.min(pageData.length - 1, savedLastPage - 1))
         : -1;
-      const readerResumePage = currentDevice === "desktop" && comicData.target_device === "desktop" && resumePage >= 0
-        ? Math.floor(resumePage / 2) * 2
-        : resumePage;
-      if (currentDevice === "desktop" && comicData.target_device === "desktop") {
-        pageData.slice(Math.max(0, readerResumePage), Math.max(0, readerResumePage) + 2)
-          .forEach((page) => savedReadPages.add(page.id));
+      const useDesktopBook = currentDevice === "desktop" && comicData.target_device === "desktop";
+      const readerResumePage = useDesktopBook ? Math.max(0, resumePage) : resumePage;
+      const initialBookLeaves = useDesktopBook
+        ? getDesktopBookLeaves(pageData, membership.tier === "free")
+        : [];
+      const resumeLeafIndex = useDesktopBook
+        ? Math.max(0, initialBookLeaves.findIndex((leaf) => leaf.kind === "page" && leaf.pageIndex === readerResumePage))
+        : 0;
+      const initialSpreadIndex = Math.floor(resumeLeafIndex / 2);
+      if (useDesktopBook) {
+        initialBookLeaves.slice(initialSpreadIndex * 2, initialSpreadIndex * 2 + 2)
+          .forEach((leaf) => {
+            if (leaf.kind === "page") savedReadPages.add(leaf.page.id);
+          });
       }
+      const initialCurrentPage = useDesktopBook
+        ? initialBookLeaves.slice(initialSpreadIndex * 2, initialSpreadIndex * 2 + 2)
+          .find((leaf): leaf is Extract<BookLeaf, { kind: "page" }> => leaf.kind === "page")?.pageIndex ?? readerResumePage
+        : readerResumePage;
 
       setChapter(chapterData);
       setComic(comicData);
@@ -224,11 +251,12 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       setFirstIncompleteChapterIndex(firstIncompleteIndex);
       setAllChaptersRead(completedEveryChapter);
       setUserId(currentUserId);
-      if (readerResumePage >= 0) {
-        setCurrentPage(readerResumePage);
+      setBookSpreadIndex(initialSpreadIndex);
+      if (initialCurrentPage >= 0) {
+        setCurrentPage(initialCurrentPage);
         if (!(currentDevice === "desktop" && comicData.target_device === "desktop")) {
           window.requestAnimationFrame(() => {
-            document.querySelector(`[data-reader-page="${readerResumePage}"]`)?.scrollIntoView({ block: "start" });
+            document.querySelector(`[data-reader-page="${initialCurrentPage}"]`)?.scrollIntoView({ block: "start" });
           });
         }
       } else {
@@ -309,36 +337,41 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const scrollToPage = useCallback((index: number) => {
     const requestedIndex = Math.max(0, Math.min(pages.length - 1, index));
     if (desktopBookMode) {
-      const targetIndex = requestedIndex > currentPage
-        ? Math.min(Math.floor((pages.length - 1) / 2) * 2, currentPage + 2)
-        : Math.max(0, currentPage - 2);
-      if (targetIndex === currentPage || bookTurnInProgressRef.current) return;
+      const spreadCount = Math.ceil(bookLeaves.length / 2);
+      const targetSpread = Math.max(0, Math.min(
+        spreadCount - 1,
+        bookSpreadIndex + (requestedIndex > currentPage ? 1 : -1),
+      ));
+      if (targetSpread === bookSpreadIndex || bookTurnInProgressRef.current) return;
       bookTurnInProgressRef.current = true;
       setControlsVisible(true);
       setBookTurn({
-        from: currentPage,
-        to: targetIndex,
-        direction: targetIndex > currentPage ? "next" : "previous",
+        from: bookSpreadIndex,
+        to: targetSpread,
+        direction: targetSpread > bookSpreadIndex ? "next" : "previous",
       });
       return;
     }
     const targetIndex = requestedIndex;
     setCurrentPage(targetIndex);
     document.querySelector(`[data-reader-page="${targetIndex}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [currentPage, desktopBookMode, pages.length]);
+  }, [bookLeaves.length, bookSpreadIndex, currentPage, desktopBookMode, pages.length]);
 
   const finishBookTurn = useCallback(() => {
     if (!bookTurn) return;
-    setCurrentPage(bookTurn.to);
-    const visiblePages = pages.slice(bookTurn.to, bookTurn.to + 2);
+    setBookSpreadIndex(bookTurn.to);
+    const visibleLeaves = bookLeaves.slice(bookTurn.to * 2, bookTurn.to * 2 + 2);
+    const visiblePages = visibleLeaves.flatMap((leaf) => leaf.kind === "page" ? [leaf] : []);
+    const firstVisiblePage = visiblePages[0]?.pageIndex;
+    if (firstVisiblePage !== undefined) setCurrentPage(firstVisiblePage);
     setReadPageIds((current) => {
       const next = new Set(current);
-      visiblePages.forEach((page) => next.add(page.id));
+      visiblePages.forEach((leaf) => next.add(leaf.page.id));
       return next.size === current.size ? current : next;
     });
     setBookTurn(null);
     bookTurnInProgressRef.current = false;
-  }, [bookTurn, pages]);
+  }, [bookLeaves, bookTurn]);
 
   useEffect(() => {
     if (loading || !pages.length) return;
@@ -387,16 +420,21 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   useEffect(() => {
     if (!userId || !historyReady || !chapter || !pages.length) return;
     const timer = window.setTimeout(async () => {
+      const spreadPages = desktopBookMode
+        ? bookLeaves.slice(bookSpreadIndex * 2, bookSpreadIndex * 2 + 2)
+          .flatMap((leaf) => leaf.kind === "page" ? [leaf.pageIndex] : [])
+        : [currentPage];
+      const lastReadPage = spreadPages.length ? Math.max(...spreadPages) + 1 : currentPage + 1;
       const { error } = await supabase.from("reading_history").upsert({
         user_id: userId,
         chapter_id: chapter.id,
-        last_page: Math.min(pages.length, currentPage + (desktopBookMode ? 2 : 1)),
+        last_page: Math.min(pages.length, lastReadPage),
         updated_at: new Date().toISOString(),
       });
       if (error) console.error("Unable to save reading progress:", error);
     }, 600);
     return () => window.clearTimeout(timer);
-  }, [chapter, currentPage, desktopBookMode, historyReady, pages.length, userId]);
+  }, [bookLeaves, bookSpreadIndex, chapter, currentPage, desktopBookMode, historyReady, pages.length, userId]);
 
   const reportTransitionAdAvailability = useCallback((available: boolean) => {
     setTransitionAdAvailable(available);
@@ -520,17 +558,26 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   );
   const nextChapter = nextChapterUnlocked ? nextChapterCandidate : null;
   const pageUrl = (page: Page) => publicUrl ? `${publicUrl.replace(/\/$/, "")}/${page.object_key}` : null;
-  const activeBookPages = pages.slice(currentPage, currentPage + 2);
-  const turningFromPage = bookTurn
-    ? pages[bookTurn.direction === "next" ? bookTurn.from + 1 : bookTurn.from]
+  const activeBookLeaves = bookLeaves.slice(bookSpreadIndex * 2, bookSpreadIndex * 2 + 2);
+  const turningFromLeaf = bookTurn
+    ? bookLeaves[bookTurn.direction === "next" ? bookTurn.from * 2 + 1 : bookTurn.from * 2]
     : null;
-  const turningFromPageUrl = turningFromPage ? pageUrl(turningFromPage) : null;
-  const turningToPage = bookTurn
-    ? pages[bookTurn.direction === "next" ? bookTurn.to : bookTurn.to + 1]
+  const turningToLeaf = bookTurn
+    ? bookLeaves[bookTurn.direction === "next" ? bookTurn.to * 2 : bookTurn.to * 2 + 1]
     : null;
-  const turningToPageUrl = turningToPage ? pageUrl(turningToPage) : null;
-  const displayedPageEnd = Math.min(pages.length, currentPage + (desktopBookMode ? 2 : 1));
-  const canAdvancePage = desktopBookMode ? currentPage + 2 < pages.length : currentPage < pages.length - 1;
+  const turningFromPageUrl = turningFromLeaf?.kind === "page" ? pageUrl(turningFromLeaf.page) : null;
+  const turningToPageUrl = turningToLeaf?.kind === "page" ? pageUrl(turningToLeaf.page) : null;
+  const displayedBookPageIndexes = activeBookLeaves.flatMap((leaf) => leaf.kind === "page" ? [leaf.pageIndex] : []);
+  const displayedPageStart = desktopBookMode && displayedBookPageIndexes.length
+    ? Math.min(...displayedBookPageIndexes) + 1
+    : currentPage + 1;
+  const displayedPageEnd = desktopBookMode && displayedBookPageIndexes.length
+    ? Math.max(...displayedBookPageIndexes) + 1
+    : currentPage + 1;
+  const progressPage = Math.min(pages.length, displayedPageEnd);
+  const canAdvancePage = desktopBookMode
+    ? bookSpreadIndex + 1 < Math.ceil(bookLeaves.length / 2)
+    : currentPage < pages.length - 1;
 
   return (
     <main
@@ -565,7 +612,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       <h1 className="reader-sr-only">{comic.title} Episode {chapter.chapter_number}: {chapter.title}</h1>
 
       <div className="reader-progress-track" role="progressbar" aria-label="Progres membaca" aria-valuemin={0} aria-valuemax={pages.length} aria-valuenow={pages.length ? displayedPageEnd : 0}>
-        <span style={{ width: pages.length ? `${(displayedPageEnd / pages.length) * 100}%` : "0%" }} />
+        <span style={{ width: pages.length ? `${(progressPage / pages.length) * 100}%` : "0%" }} />
       </div>
 
       {pages.length ? (
@@ -578,7 +625,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
             <>
               <div
                 className="reader-book-stage"
-                aria-label={`Buku komik, halaman ${currentPage + 1} sampai ${displayedPageEnd} dari ${pages.length}`}
+                aria-label={`Buku komik, halaman ${displayedPageStart} sampai ${displayedPageEnd} dari ${pages.length}`}
                 onClick={(event) => {
                   if (bookTurn) return;
                   const bounds = event.currentTarget.getBoundingClientRect();
@@ -586,19 +633,36 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                 }}
               >
                 <div className="reader-book-spread">
-                  {[0, 1].map((offset) => {
-                    const page = activeBookPages[offset];
+                  {activeBookLeaves.map((leaf, offset) => {
+                    const page = leaf.kind === "page" ? leaf.page : null;
                     const src = page ? pageUrl(page) : null;
                     return (
-                      <div className={`reader-book-paper${offset === 0 ? " reader-book-paper-left" : " reader-book-paper-right"}`} key={page?.id ?? `blank-${offset}`} data-reader-page={page ? currentPage + offset : undefined}>
-                        {page && src ? (
+                      <div className={`reader-book-paper${offset === 0 ? " reader-book-paper-left" : " reader-book-paper-right"}${leaf.kind === "ad" ? " reader-book-paper-ad" : ""}`} key={page?.id ?? `ad-after-${leaf.kind === "ad" ? leaf.afterPageIndex : "blank"}`} data-reader-page={leaf.kind === "page" ? leaf.pageIndex : undefined}>
+                        {leaf.kind === "ad" ? (
+                          <SponsoredAd
+                            slotKey="reader_mid_chapter"
+                            placement="reader"
+                            comicId={comic.id}
+                            matchPageIndex={leaf.afterPageIndex}
+                            readerStopId={`mid-chapter-ad-${pages[leaf.afterPageIndex]?.page_number ?? leaf.afterPageIndex + 1}`}
+                            fallback={
+                              <div className="reader-book-house-ad">
+                                <span className="reader-book-house-ad-icon"><BookOpen size={29} /></span>
+                                <span className="reader-book-house-ad-kicker">RUANG IKLAN MU-KOMIK</span>
+                                <strong>Bagikan ceritamu kepada pembaca.</strong>
+                                <span className="reader-book-house-ad-description">Punya komik untuk diterbitkan? Bergabunglah sebagai kreator di MU-Komik.</span>
+                                <Link className="reader-book-house-ad-link" href="/account/creator-application">Mulai berkarya <ArrowRight size={15} /></Link>
+                              </div>
+                            }
+                          />
+                        ) : page && src ? (
                           <img
                             src={src}
                             alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`}
                             draggable={false}
                           />
                         ) : page ? <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div> : null}
-                        {page && <span className="reader-book-page-number">{page.page_number}</span>}
+                        {leaf.kind === "page" && <span className="reader-book-page-number">{leaf.page.page_number}</span>}
                       </div>
                     );
                   })}
@@ -622,16 +686,6 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                 )}
                 <span className="reader-book-spine" aria-hidden="true" />
               </div>
-              {pages.map((page, index) => (index + 1) % 5 === 0 && index < pages.length - 1 ? (
-                <SponsoredAd
-                  key={`mid-chapter-ad-${page.page_number}`}
-                  slotKey="reader_mid_chapter"
-                  placement="reader"
-                  comicId={comic.id}
-                  matchPageIndex={index}
-                  readerStopId={`mid-chapter-ad-${page.page_number}`}
-                />
-              ) : null)}
             </>
           ) : pages.map((page, index) => {
             const src = pageUrl(page);
@@ -694,7 +748,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       {controlsVisible && pages.length > 0 && (
         <footer className="reader-experience-controls">
           <button onClick={() => scrollToPage(currentPage - 1)} disabled={currentPage <= 0} aria-label="Halaman sebelumnya"><ChevronLeft size={20} /><span>Sebelumnya</span></button>
-          <span className="reader-page-count">{desktopBookMode && displayedPageEnd > currentPage + 1 ? `${currentPage + 1}–${displayedPageEnd}` : currentPage + 1} <i>/</i> {pages.length}</span>
+          <span className="reader-page-count">{desktopBookMode && displayedPageEnd > displayedPageStart ? `${displayedPageStart}–${displayedPageEnd}` : displayedPageStart} <i>/</i> {pages.length}</span>
           {canAdvancePage
             ? <button onClick={() => scrollToPage(currentPage + 1)} aria-label="Halaman berikutnya"><span>Berikutnya</span><ChevronRight size={20} /></button>
             : nextChapter
