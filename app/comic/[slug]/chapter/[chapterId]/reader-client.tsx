@@ -575,52 +575,64 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
           aria-label={`${chapter.title}, ${pages.length} halaman`}
         >
           {desktopBookMode ? (
-            <div
-              className="reader-book-stage"
-              aria-label={`Buku komik, halaman ${currentPage + 1} sampai ${displayedPageEnd} dari ${pages.length}`}
-              onClick={(event) => {
-                if (bookTurn) return;
-                const bounds = event.currentTarget.getBoundingClientRect();
-                scrollToPage(currentPage + (event.clientX < bounds.left + bounds.width / 2 ? -1 : 1));
-              }}
-            >
-              <div className="reader-book-spread">
-                {[0, 1].map((offset) => {
-                  const page = activeBookPages[offset];
-                  const src = page ? pageUrl(page) : null;
-                  return (
-                    <div className={`reader-book-paper${offset === 0 ? " reader-book-paper-left" : " reader-book-paper-right"}`} key={page?.id ?? `blank-${offset}`} data-reader-page={page ? currentPage + offset : undefined}>
-                      {page && src ? (
-                        <img
-                          src={src}
-                          alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`}
-                          draggable={false}
-                        />
-                      ) : page ? <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div> : null}
-                      {page && <span className="reader-book-page-number">{page.page_number}</span>}
-                    </div>
-                  );
-                })}
-              </div>
-              {bookTurn && (
-                <div
-                  key={`${bookTurn.from}-${bookTurn.to}`}
-                  className={`reader-book-turn reader-book-turn-${bookTurn.direction}`}
-                  onAnimationEnd={(event) => {
-                    if (event.target === event.currentTarget) finishBookTurn();
-                  }}
-                  aria-hidden="true"
-                >
-                  <div className="reader-book-turn-face reader-book-turn-front">
-                    {turningFromPageUrl && <img src={turningFromPageUrl} alt="" draggable={false} />}
-                  </div>
-                  <div className="reader-book-turn-face reader-book-turn-back">
-                    {turningToPageUrl && <img src={turningToPageUrl} alt="" draggable={false} />}
-                  </div>
+            <>
+              <div
+                className="reader-book-stage"
+                aria-label={`Buku komik, halaman ${currentPage + 1} sampai ${displayedPageEnd} dari ${pages.length}`}
+                onClick={(event) => {
+                  if (bookTurn) return;
+                  const bounds = event.currentTarget.getBoundingClientRect();
+                  scrollToPage(currentPage + (event.clientX < bounds.left + bounds.width / 2 ? -1 : 1));
+                }}
+              >
+                <div className="reader-book-spread">
+                  {[0, 1].map((offset) => {
+                    const page = activeBookPages[offset];
+                    const src = page ? pageUrl(page) : null;
+                    return (
+                      <div className={`reader-book-paper${offset === 0 ? " reader-book-paper-left" : " reader-book-paper-right"}`} key={page?.id ?? `blank-${offset}`} data-reader-page={page ? currentPage + offset : undefined}>
+                        {page && src ? (
+                          <img
+                            src={src}
+                            alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`}
+                            draggable={false}
+                          />
+                        ) : page ? <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div> : null}
+                        {page && <span className="reader-book-page-number">{page.page_number}</span>}
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-              <span className="reader-book-spine" aria-hidden="true" />
-            </div>
+                {bookTurn && (
+                  <div
+                    key={`${bookTurn.from}-${bookTurn.to}`}
+                    className={`reader-book-turn reader-book-turn-${bookTurn.direction}`}
+                    onAnimationEnd={(event) => {
+                      if (event.target === event.currentTarget) finishBookTurn();
+                    }}
+                    aria-hidden="true"
+                  >
+                    <div className="reader-book-turn-face reader-book-turn-front">
+                      {turningFromPageUrl && <img src={turningFromPageUrl} alt="" draggable={false} />}
+                    </div>
+                    <div className="reader-book-turn-face reader-book-turn-back">
+                      {turningToPageUrl && <img src={turningToPageUrl} alt="" draggable={false} />}
+                    </div>
+                  </div>
+                )}
+                <span className="reader-book-spine" aria-hidden="true" />
+              </div>
+              {pages.map((page, index) => (index + 1) % 5 === 0 && index < pages.length - 1 ? (
+                <SponsoredAd
+                  key={`mid-chapter-ad-${page.page_number}`}
+                  slotKey="reader_mid_chapter"
+                  placement="reader"
+                  comicId={comic.id}
+                  matchPageIndex={index}
+                  readerStopId={`mid-chapter-ad-${page.page_number}`}
+                />
+              ) : null)}
+            </>
           ) : pages.map((page, index) => {
             const src = pageUrl(page);
             const pageIsRead = readPageIds.has(page.id);
