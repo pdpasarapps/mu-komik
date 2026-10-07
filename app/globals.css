@@ -388,6 +388,7 @@ html[data-theme="dark"] .reader-episode-latest-badge { background: #293831; colo
 html[data-theme="dark"] .reader-genre-chip { border-color: var(--reader-border); background: #222825; }
 html[data-theme="dark"] .reader-genre-chip-active { background: var(--reader-accent); color: #171b19; }
 .app-splash { position: fixed; z-index: 10000; inset: 0; display: grid; place-items: center; overflow: hidden; padding: 24px; background: #f1efe8; color: #1e2524; }
+html[data-splash-seen="true"] .app-splash { display: none; }
 .app-splash::before, .app-splash::after { position: absolute; width: min(70vw, 440px); aspect-ratio: 1; border: 1px solid rgba(30, 37, 36, .08); border-radius: 50%; content: ""; pointer-events: none; }
 .app-splash::before { transform: translate(-43%, -36%) scale(1.35); }
 .app-splash::after { transform: translate(49%, 46%) scale(1.05); }

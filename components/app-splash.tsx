@@ -10,6 +10,10 @@ export default function AppSplash() {
   const [stage, setStage] = useState<SplashStage>("brand");
 
   useEffect(() => {
+    if (!document.documentElement.hasAttribute("data-splash-first-visit")) {
+      setStage("hidden");
+      return;
+    }
     if (stage === "hidden") return;
     const timer = window.setTimeout(
       () => setStage(stage === "brand" ? "welcome" : "hidden"),
