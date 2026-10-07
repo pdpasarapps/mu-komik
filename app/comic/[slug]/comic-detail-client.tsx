@@ -488,7 +488,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
 
   if (loading) return (
     <main className="reader-detail-page" aria-busy="true">
-      <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" /><span className="reader-detail-skeleton reader-detail-skeleton-nav" /></nav>
+      <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" showName /><span className="reader-detail-skeleton reader-detail-skeleton-nav" /></nav>
       <div className="reader-comic-detail reader-detail-loading">
         <span className="reader-detail-skeleton reader-detail-cover-skeleton" />
         <div className="reader-detail-skeleton-copy">
@@ -509,7 +509,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   if (!comic) {
     return (
       <main className="reader-detail-page">
-        <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" /><Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi komik</Link></nav>
+        <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" showName /><Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi komik</Link></nav>
         <div className="reader-detail-not-found"><h1>{loadError ? "Komik belum bisa dibuka." : "Komik tidak ditemukan."}</h1><p>{loadError || "Cerita ini mungkin telah dipindahkan atau belum diterbitkan."}</p>{loadError && <button className="reader-primary-button" type="button" onClick={() => window.location.reload()}>Coba lagi <ArrowRight size={17} /></button>}<Link className="reader-detail-secondary-link" href="/">Jelajahi komik</Link></div>
       </main>
     );
@@ -547,7 +547,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   return (
     <main className="reader-detail-page">
       <nav className="reader-subnav">
-        <BrandLogo className="wordmark reader-wordmark" />
+        <BrandLogo className="wordmark reader-wordmark" showName />
         <Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi</Link>
       </nav>
       <section className="reader-comic-detail">

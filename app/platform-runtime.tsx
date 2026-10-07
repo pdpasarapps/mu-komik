@@ -47,7 +47,7 @@ export default function PlatformRuntime({
     content = (
       <main className="reader-detail-page reader-not-found-page platform-maintenance-page">
         <nav className="reader-subnav">
-          <BrandLogo className="wordmark reader-wordmark" />
+          <BrandLogo className="wordmark reader-wordmark" showName />
           <span className="platform-maintenance-status">Pemeliharaan</span>
         </nav>
         <section className="reader-detail-not-found">

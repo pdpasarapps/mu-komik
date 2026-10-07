@@ -143,7 +143,7 @@ export default function LoginPage() {
       <Link className="auth-back" href="/"><ArrowLeft size={16} /> Kembali ke beranda</Link>
       <section className="auth-layout">
         <div className="auth-intro">
-          <BrandLogo />
+          <BrandLogo showName />
           <p className="eyebrow"><span /> Cerita pilihanmu, kapan saja</p>
           <h1>Simpan cerita<br /><em>favoritmu.</em></h1>
           <p>Masuk untuk menyimpan riwayat baca, favorit, dan preferensimu di mana pun kamu membaca.</p>

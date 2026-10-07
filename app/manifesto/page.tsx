@@ -78,7 +78,7 @@ export default function ManifestoPage() {
   return (
     <main className="manifesto-page">
       <nav className="manifesto-nav" aria-label="Navigasi halaman">
-        <BrandLogo linked />
+        <BrandLogo linked showName />
         <Link href="/" className="manifesto-back"><ArrowLeft size={16} /> Beranda</Link>
       </nav>
 

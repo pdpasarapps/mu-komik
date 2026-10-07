@@ -417,7 +417,7 @@ export default function PushAdsPage() {
   return (
     <main className="push-ads-page">
       <header className="push-ads-header">
-        <Link href="/" aria-label="MU Komik beranda"><BrandLogo linked={false} /></Link>
+        <Link href="/" aria-label="MU Komik beranda"><BrandLogo linked={false} showName /></Link>
         <Link className="push-ads-back" href="/"><ArrowLeft size={16} /> Beranda</Link>
       </header>
 

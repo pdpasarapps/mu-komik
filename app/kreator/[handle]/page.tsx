@@ -175,7 +175,7 @@ export default async function CreatorProfilePage({
   return (
     <main className="creator-public-profile">
       <nav className="creator-public-nav" aria-label="Navigasi profil kreator">
-        <BrandLogo className="wordmark reader-wordmark" />
+        <BrandLogo className="wordmark reader-wordmark" showName />
         <Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi komik</Link>
       </nav>
       <header className="creator-public-header">

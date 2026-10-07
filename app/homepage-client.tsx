@@ -334,7 +334,7 @@ export default function HomePageClient({
     <main className="reader-home">
     <h1 className="reader-sr-only">Baca komik Indonesia dari kreator lokal</h1>
     <header className="reader-header">
-      <BrandLogo className="wordmark reader-wordmark" />
+      <BrandLogo className="wordmark reader-wordmark" showName />
       <nav className="reader-nav-links" aria-label="Navigasi utama">
         <a className="reader-primary-nav-link" href="#jelajah">Jelajah</a>
         <a className="reader-primary-nav-link" href="#genre">Genre</a>

@@ -6,7 +6,7 @@ export default function NotFound() {
   return (
     <main className="reader-detail-page reader-not-found-page">
       <nav className="reader-subnav">
-        <BrandLogo className="wordmark reader-wordmark" />
+        <BrandLogo className="wordmark reader-wordmark" showName />
         <Link className="reader-back-link" href="/">Jelajahi komik</Link>
       </nav>
       <section className="reader-detail-not-found">
