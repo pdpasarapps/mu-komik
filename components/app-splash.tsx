@@ -13,7 +13,7 @@ export default function AppSplash() {
     if (stage === "hidden") return;
     const timer = window.setTimeout(
       () => setStage(stage === "brand" ? "welcome" : "hidden"),
-      stage === "brand" ? 3000 : 2000,
+      stage === "brand" ? 3000 : 6000,
     );
     return () => window.clearTimeout(timer);
   }, [stage]);
