@@ -78,7 +78,7 @@ export default function ManifestoPage() {
   return (
     <main className="manifesto-page">
       <nav className="manifesto-nav" aria-label="Navigasi halaman">
-        <BrandLogo />
+        <BrandLogo linked />
         <Link href="/" className="manifesto-back"><ArrowLeft size={16} /> Beranda</Link>
       </nav>
 
@@ -132,7 +132,7 @@ export default function ManifestoPage() {
       </section>
 
       <footer className="manifesto-footer">
-        <BrandLogo />
+        <BrandLogo linked />
         <Link href="/" className="manifesto-back">Kembali ke MU-KOMIK <ArrowUpRight size={16} /></Link>
       </footer>
     </main>

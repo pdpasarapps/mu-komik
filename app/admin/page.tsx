@@ -434,7 +434,7 @@ export default function AdminPage() {
     <main className="admin-shell">
       <div className="admin-layout">
         <aside className="admin-sidebar">
-          <Link className="admin-brand" href="/account" aria-label="Kembali ke Akun"><BrandLogo linked={false} /></Link>
+          <BrandLogo className="admin-brand" />
           <nav className="admin-sidebar-links" aria-label="Navigasi dashboard admin">
             <p className="admin-sidebar-label">Administrasi</p>
             <div className="admin-sidebar-group" aria-label="Dasbor">
@@ -472,7 +472,7 @@ export default function AdminPage() {
           </div>
         </aside>
         <div className="admin-main">
-          <div className="admin-mobile-header"><BrandLogo linked={false} /><Link className="admin-account-link" href="/account"><ArrowLeft size={16} /> Akun</Link></div>
+          <div className="admin-mobile-header"><BrandLogo /><Link className="admin-account-link" href="/account"><ArrowLeft size={16} /> Akun</Link></div>
           <header className="admin-header">
             <p className="eyebrow">Panel administrasi</p>
             <div className="admin-title">

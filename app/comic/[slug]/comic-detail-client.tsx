@@ -488,7 +488,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
 
   if (loading) return (
     <main className="reader-detail-page" aria-busy="true">
-      <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" linked={false} /><span className="reader-detail-skeleton reader-detail-skeleton-nav" /></nav>
+      <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" /><span className="reader-detail-skeleton reader-detail-skeleton-nav" /></nav>
       <div className="reader-comic-detail reader-detail-loading">
         <span className="reader-detail-skeleton reader-detail-cover-skeleton" />
         <div className="reader-detail-skeleton-copy">
