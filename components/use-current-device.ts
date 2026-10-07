@@ -7,10 +7,15 @@ export function useCurrentDevice() {
   const [currentDevice, setCurrentDevice] = useState<CurrentDevice | null>(null);
 
   useEffect(() => {
-    const updateDevice = () => setCurrentDevice(getCurrentDevice(window.innerWidth));
+    const pointerQuery = window.matchMedia("(pointer: fine)");
+    const updateDevice = () => setCurrentDevice(getCurrentDevice(window.innerWidth, pointerQuery.matches));
     updateDevice();
     window.addEventListener("resize", updateDevice);
-    return () => window.removeEventListener("resize", updateDevice);
+    pointerQuery.addEventListener("change", updateDevice);
+    return () => {
+      window.removeEventListener("resize", updateDevice);
+      pointerQuery.removeEventListener("change", updateDevice);
+    };
   }, []);
 
   return currentDevice;

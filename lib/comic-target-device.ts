@@ -8,9 +8,9 @@ export const COMIC_TARGET_DEVICES = [
 export type ComicTargetDevice = (typeof COMIC_TARGET_DEVICES)[number]["value"];
 export type CurrentDevice = Exclude<ComicTargetDevice, "all">;
 
-export function getCurrentDevice(width: number): CurrentDevice {
+export function getCurrentDevice(width: number, hasFinePointer = false): CurrentDevice {
   if (width <= 760) return "mobile";
-  if (width <= 1050) return "tablet";
+  if (width <= 1050 && !hasFinePointer) return "tablet";
   return "desktop";
 }
 
