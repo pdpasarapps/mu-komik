@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const visitorCookieName = "mu_analytics_visitor";
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const analyticsRequestTimeoutMs = 8000;
 
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
@@ -70,10 +71,24 @@ export async function POST(request: NextRequest) {
     p_chapter_id: body.chapterId,
     p_visitor_id: visitorId,
     p_user_id: userId,
-  });
+  }).abortSignal(AbortSignal.timeout(analyticsRequestTimeoutMs));
   if (error) {
-    console.error("Unable to record a chapter view:", error);
-    return NextResponse.json({ error: "Chapter view could not be recorded" }, { status: 500 });
+    const errorMessage = error.message || "Supabase returned an empty analytics error";
+    console.error("Unable to record a chapter view:", {
+      code: error.code || "UNKNOWN",
+      message: errorMessage,
+      details: error.details || null,
+      hint: error.hint || null,
+    });
+    const normalizedErrorMessage = errorMessage.toLowerCase();
+    const isTimeout = error.code === "57014"
+      || normalizedErrorMessage.includes("timeout")
+      || normalizedErrorMessage.includes("timed out")
+      || normalizedErrorMessage.includes("abort");
+    return NextResponse.json(
+      { error: "Chapter view could not be recorded" },
+      { status: isTimeout ? 503 : 500 },
+    );
   }
 
   const response = NextResponse.json({ recorded: true }, { headers: { "Cache-Control": "no-store" } });

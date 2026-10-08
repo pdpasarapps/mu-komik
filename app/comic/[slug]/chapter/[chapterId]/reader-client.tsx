@@ -305,7 +305,11 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
           cache: "no-store",
         });
         if (!response.ok) {
-          console.error("Unable to record chapter view:", { status: response.status });
+          const responseBody = await response.json().catch(() => null) as { error?: unknown } | null;
+          console.warn("Unable to record chapter view:", {
+            status: response.status,
+            reason: typeof responseBody?.error === "string" ? responseBody.error : "Analytics endpoint returned an empty error",
+          });
         }
       } catch (error) {
         console.error("Unable to record chapter view:", error);
