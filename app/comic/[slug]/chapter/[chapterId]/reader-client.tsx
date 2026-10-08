@@ -627,7 +627,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                 className="reader-book-stage"
                 aria-label={`Buku komik, halaman ${displayedPageStart} sampai ${displayedPageEnd} dari ${pages.length}`}
                 onClick={(event) => {
-                  if (bookTurn) return;
+                  if (bookTurn || event.target instanceof Element && event.target.closest("a, button")) return;
                   const bounds = event.currentTarget.getBoundingClientRect();
                   scrollToPage(currentPage + (event.clientX < bounds.left + bounds.width / 2 ? -1 : 1));
                 }}
@@ -645,6 +645,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                             comicId={comic.id}
                             matchPageIndex={leaf.afterPageIndex}
                             readerStopId={`mid-chapter-ad-${pages[leaf.afterPageIndex]?.page_number ?? leaf.afterPageIndex + 1}`}
+                            ctaOnly
                             fallback={
                               <div className="reader-book-house-ad">
                                 <span className="reader-book-house-ad-icon"><BookOpen size={29} /></span>

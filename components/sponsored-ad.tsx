@@ -20,7 +20,7 @@ type SponsoredCampaign = {
 
 const supabase = createClient();
 
-export default function SponsoredAd({ slotKey, placement, comicId, matchPageIndex, readerStopId, onCampaignAvailability, fallback }: { slotKey: string; placement: "home" | "comic" | "reader" | "catalog" | "transition"; comicId?: string; matchPageIndex?: number; readerStopId?: string; onCampaignAvailability?: (available: boolean) => void; fallback?: ReactNode }) {
+export default function SponsoredAd({ slotKey, placement, comicId, matchPageIndex, readerStopId, onCampaignAvailability, fallback, ctaOnly = false }: { slotKey: string; placement: "home" | "comic" | "reader" | "catalog" | "transition"; comicId?: string; matchPageIndex?: number; readerStopId?: string; onCampaignAvailability?: (available: boolean) => void; fallback?: ReactNode; ctaOnly?: boolean }) {
   const membership = useReaderMembership();
   const [campaign, setCampaign] = useState<SponsoredCampaign | null>(null);
   const [matchedPageHeight, setMatchedPageHeight] = useState<number | null>(null);
@@ -108,23 +108,30 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
   const adStyle = nativeReaderAd && matchedPageHeight
     ? { "--reader-ad-height": `${matchedPageHeight}px` } as CSSProperties
     : undefined;
+  const adContent = (
+    <>
+      {fallbackImage && <picture className="reader-sponsored-ad-picture">
+        {campaign.image_url_mobile && <source media="(max-width: 767px)" srcSet={campaign.image_url_mobile} />}
+        {campaign.image_url_tablet && <source media="(min-width: 768px) and (max-width: 1023px)" srcSet={campaign.image_url_tablet} />}
+        <Image className="reader-sponsored-ad-image" src={fallbackImage} alt="" width={1200} height={600} unoptimized loading="lazy" />
+      </picture>}
+      <span className="reader-sponsored-ad-copy">
+        <span className="reader-sponsored-ad-sponsor">{campaign.sponsor_name}</span>
+        <strong>{campaign.title}</strong>
+        {campaign.description && <span className="reader-sponsored-ad-description">{campaign.description}</span>}
+        {ctaOnly
+          ? <a className="reader-sponsored-ad-cta" href={campaign.destination_url} target="_blank" rel="noreferrer noopener sponsored" onClick={(event) => event.stopPropagation()}>Kunjungi <ExternalLink size={14} /></a>
+          : <span className="reader-sponsored-ad-cta">Kunjungi <ExternalLink size={14} /></span>}
+      </span>
+    </>
+  );
 
   return (
     <aside className={`reader-sponsored-ad reader-sponsored-ad-${placement}${campaign.format === "banner" ? " reader-sponsored-ad-banner" : ""}${nativeReaderAd ? " reader-sponsored-ad-native" : ""}`} data-reader-stop={readerStopId} aria-label={`${sponsorLabel}: ${campaign.sponsor_name}`} style={adStyle}>
       <div className="reader-sponsored-ad-label"><Megaphone size={13} /> {sponsorLabel}</div>
-      <a className="reader-sponsored-ad-link" href={campaign.destination_url} target="_blank" rel="noreferrer noopener sponsored">
-        {fallbackImage && <picture className="reader-sponsored-ad-picture">
-          {campaign.image_url_mobile && <source media="(max-width: 767px)" srcSet={campaign.image_url_mobile} />}
-          {campaign.image_url_tablet && <source media="(min-width: 768px) and (max-width: 1023px)" srcSet={campaign.image_url_tablet} />}
-          <Image className="reader-sponsored-ad-image" src={fallbackImage} alt="" width={1200} height={600} unoptimized loading="lazy" />
-        </picture>}
-        <span className="reader-sponsored-ad-copy">
-          <span className="reader-sponsored-ad-sponsor">{campaign.sponsor_name}</span>
-          <strong>{campaign.title}</strong>
-          {campaign.description && <span className="reader-sponsored-ad-description">{campaign.description}</span>}
-          <span className="reader-sponsored-ad-cta">Kunjungi <ExternalLink size={14} /></span>
-        </span>
-      </a>
+      {ctaOnly
+        ? <div className="reader-sponsored-ad-link">{adContent}</div>
+        : <a className="reader-sponsored-ad-link" href={campaign.destination_url} target="_blank" rel="noreferrer noopener sponsored">{adContent}</a>}
     </aside>
   );
 }

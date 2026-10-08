@@ -1007,10 +1007,15 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 @keyframes reader-book-turn-previous { from { transform: translateX(-100%) rotateY(0); } to { transform: translateX(-100%) rotateY(180deg); } }
 .reader-book-paper-ad { padding: 0; background: #fff; }
 .reader-book-paper-ad .reader-sponsored-ad-reader { width: 100%; height: 100%; min-height: 0; display: flex; flex-direction: column; margin: 0; border: 0; border-radius: 0; background: #fff; }
-.reader-book-paper-ad .reader-sponsored-ad-reader .reader-sponsored-ad-link { position: relative; width: 100%; height: 100%; min-height: 0; display: flex; flex: 1 1 auto; flex-direction: column; justify-content: flex-end; overflow: hidden; border: 0; border-radius: 0; }
-.reader-book-paper-ad .reader-sponsored-ad-reader .reader-sponsored-ad-picture { min-height: 0; flex: 1 1 auto; display: grid; place-items: center; }
-.reader-book-paper-ad .reader-sponsored-ad-reader .reader-sponsored-ad-image { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
-.reader-book-paper-ad .reader-sponsored-ad-reader .reader-sponsored-ad-copy { position: absolute; z-index: 1; right: 0; bottom: 0; left: 0; gap: 5px; padding: 40px 16px 18px; background: linear-gradient(to top, rgba(12,16,15,.94), rgba(12,16,15,.68) 55%, transparent); color: #fff; }
+.reader-book-paper-ad .reader-sponsored-ad-reader.reader-sponsored-ad-native { width: 100%; height: 100%; max-width: none; align-self: stretch; }
+.reader-book-paper-ad .reader-sponsored-ad-reader .reader-sponsored-ad-link,
+.reader-book-paper-ad .reader-sponsored-ad-reader.reader-sponsored-ad-native .reader-sponsored-ad-link { position: relative; width: 100%; height: 100%; min-height: 0; display: flex; flex: 1 1 auto; flex-direction: column; justify-content: flex-start; overflow: hidden; border: 0; border-radius: 0; }
+.reader-book-paper-ad .reader-sponsored-ad-reader .reader-sponsored-ad-picture,
+.reader-book-paper-ad .reader-sponsored-ad-reader.reader-sponsored-ad-native .reader-sponsored-ad-picture { width: 100%; height: 60%; max-width: 100%; min-height: 0; flex: 0 0 60%; align-self: stretch; aspect-ratio: auto; display: block; overflow: hidden; }
+.reader-book-paper-ad .reader-sponsored-ad-reader .reader-sponsored-ad-image,
+.reader-book-paper-ad .reader-sponsored-ad-reader.reader-sponsored-ad-native .reader-sponsored-ad-image { width: 100%; height: 100%; min-height: 0; aspect-ratio: auto; object-fit: cover; object-position: top center; }
+.reader-book-paper-ad .reader-sponsored-ad-reader .reader-sponsored-ad-copy,
+.reader-book-paper-ad .reader-sponsored-ad-reader.reader-sponsored-ad-native .reader-sponsored-ad-copy { position: relative; z-index: 1; inset: auto; flex: 0 0 40%; min-height: 0; overflow-y: auto; gap: 5px; padding: 12px 16px; background: #101412; color: #fff; }
 .reader-book-paper-ad .reader-sponsored-ad-reader .reader-sponsored-ad-sponsor,
 .reader-book-paper-ad .reader-sponsored-ad-reader .reader-sponsored-ad-description,
 .reader-book-paper-ad .reader-sponsored-ad-reader .reader-sponsored-ad-cta { color: rgba(255,255,255,.9); }
