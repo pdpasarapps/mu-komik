@@ -987,25 +987,31 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .reader-episode-menu-popover p { margin: 7px 8px 10px; color: #b9c0bb; font-size: .7rem; font-weight: 800; }.reader-episode-menu-popover a, .reader-episode-menu-popover .reader-menu-locked { display: flex; align-items: center; gap: 7px; padding: 10px 8px; border-radius: 6px; color: #e5e7e3; font-size: .74rem; }.reader-episode-menu-popover a:hover, .reader-episode-menu-popover .reader-menu-current { background: #3a433e; color: #f6a78d; }.reader-episode-menu-popover .reader-menu-locked { color: #929b95; cursor: not-allowed; }
 .reader-progress-track { position: fixed; z-index: 21; top: var(--reader-header-height); left: 0; right: 0; height: 3px; background: #414844; transition: top .2s ease; }.reader-controls-hidden .reader-progress-track { top: 0; }.reader-progress-track span { display: block; height: 100%; background: var(--reader-accent); transition: width .15s ease; }
 .reader-vertical-pages { width: min(100%, 960px); display: grid; gap: 0; margin: 0 auto; touch-action: pan-x pinch-zoom; }
-.reader-book-mode { width: 100%; max-width: none; margin-top: -64px; }
-.reader-book-stage { position: relative; width: 100vw; height: 100vh; height: 100dvh; min-height: 100vh; min-height: 100dvh; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; overflow: hidden; margin: 0; padding: 0; perspective: 2200px; border: 0; border-radius: 0; background: radial-gradient(ellipse at center, #414944 0, #292f2c 68%, #222724 100%); box-shadow: none; cursor: pointer; }
+.reader-book-mode { width: 100%; max-width: none; }
+.reader-book-stage { position: relative; width: min(1180px, calc(100vw - 48px)); height: calc(100dvh - var(--reader-header-height) - 58px - 6px); min-height: 0; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; overflow: hidden; margin: 0 auto; padding: 0; perspective: 2200px; border: 0; border-radius: 0; background: radial-gradient(ellipse at center, #414944 0, #292f2c 68%, #222724 100%); box-shadow: none; cursor: pointer; }
+.reader-controls-hidden .reader-book-mode { margin-top: calc(-1 * var(--reader-header-height) - 6px); }
+.reader-controls-hidden .reader-book-stage { width: 100vw; height: 100vh; height: 100dvh; min-height: 100vh; min-height: 100dvh; margin: 0; }
 .reader-book-spread { width: 100%; height: 100%; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.reader-book-paper { position: relative; min-width: 0; min-height: 0; height: 100%; display: grid; place-items: center; overflow: hidden; padding: 12px 20px; border: 1px solid rgba(71,57,39,.2); background: #f4f0e6; }
-.reader-book-paper-left { border-radius: 3px 0 0 3px; box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 10px 0 18px rgba(79,61,38,.08), inset -10px 0 18px rgba(79,61,38,.1); }
-.reader-book-paper-right { border-radius: 0 3px 3px 0; box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 10px 0 18px rgba(79,61,38,.1), inset -2px 0 5px rgba(79,61,38,.08); }
+.reader-book-paper { position: relative; min-width: 0; min-height: 0; height: 100%; display: grid; place-items: center; overflow: hidden; padding: 12px 0; border: 1px solid rgba(71,57,39,.2); background: #f4f0e6; }
+.reader-book-paper-left { padding-left: 20px; border-radius: 3px 0 0 3px; box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 10px 0 18px rgba(79,61,38,.08), inset -10px 0 18px rgba(79,61,38,.1); }
+.reader-book-paper-right { padding-right: 20px; border-radius: 0 3px 3px 0; box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 10px 0 18px rgba(79,61,38,.1), inset -2px 0 5px rgba(79,61,38,.08); }
 .reader-book-paper > img, .reader-book-turn-face > img { width: 100%; height: 100%; min-height: 0; max-width: 100%; max-height: 100%; display: block; object-fit: contain; user-select: none; }
 .reader-book-page-number { position: absolute; bottom: 12px; color: #827b6e; font-size: .65rem; pointer-events: none; }
 .reader-book-paper-left .reader-book-page-number { left: 50%; transform: translateX(-50%); }
 .reader-book-paper-right .reader-book-page-number { right: 50%; transform: translateX(50%); }
 .reader-book-spine { position: absolute; top: 22px; bottom: 22px; left: 50%; width: 1px; background: rgba(255,255,255,.12); box-shadow: 0 0 12px 4px rgba(0,0,0,.11); pointer-events: none; }
-.reader-book-turn { position: absolute; top: 22px; bottom: 22px; left: 50%; width: min(calc((100% - 44px) / 2), 560px); transform-style: preserve-3d; pointer-events: none; }
+.reader-book-turn { position: absolute; inset: 0 0 0 50%; transform-style: preserve-3d; pointer-events: none; }
 .reader-book-turn-next { transform-origin: left center; animation: reader-book-turn-next .68s cubic-bezier(.35,.02,.2,1) forwards; }
 .reader-book-turn-previous { transform: translateX(-100%); transform-origin: right center; animation: reader-book-turn-previous .68s cubic-bezier(.35,.02,.2,1) forwards; }
-.reader-book-turn-face { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; padding: 12px 20px; border: 1px solid rgba(71,57,39,.2); background: #f4f0e6; backface-visibility: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.32), inset 10px 0 18px rgba(79,61,38,.08); }
+.reader-book-turn-face { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; padding: 12px 0; border: 1px solid rgba(71,57,39,.2); background: #f4f0e6; backface-visibility: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.32), inset 10px 0 18px rgba(79,61,38,.08); }
+.reader-book-turn-next .reader-book-turn-front,
+.reader-book-turn-previous .reader-book-turn-back { padding-right: 20px; }
+.reader-book-turn-next .reader-book-turn-back,
+.reader-book-turn-previous .reader-book-turn-front { padding-left: 20px; }
 .reader-book-turn-back { transform: rotateY(180deg); }
 @keyframes reader-book-turn-next { from { transform: rotateY(0); } to { transform: rotateY(-180deg); } }
 @keyframes reader-book-turn-previous { from { transform: translateX(-100%) rotateY(0); } to { transform: translateX(-100%) rotateY(180deg); } }
-.reader-book-paper-ad { padding: 0; background: #fff; }
+.reader-book-paper-ad { padding: 12px 20px 12px 0; background: #fff; }
 .reader-book-paper-end { padding: 0; background: #272d2a; }
 .reader-book-paper-end > div { width: 100%; height: 100%; min-height: 0; display: grid; place-items: center; }
 .reader-book-paper-end .reader-episode-end { width: 100%; height: 100%; min-height: 0; align-content: center; box-sizing: border-box; margin: 0; border: 0; border-radius: 0; }
