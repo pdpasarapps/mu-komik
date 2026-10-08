@@ -17,17 +17,20 @@ const TRANSITION_AD_LOAD_TIMEOUT_MS = 2000;
 type Page = { id: string; page_number: number; object_key: string };
 type Chapter = { id: string; title: string; chapter_number: number; comic_id: string };
 type Comic = { id: string; title: string; slug: string; target_device: ComicTargetDevice };
-type BookLeaf = { kind: "page"; page: Page; pageIndex: number } | { kind: "ad"; afterPageIndex: number };
+type BookLeaf = { kind: "page"; page: Page; pageIndex: number } | { kind: "ad"; afterPageIndex: number } | { kind: "blank" } | { kind: "end" };
 type BookTurn = { from: number; to: number; direction: "next" | "previous" };
 export type ChapterReaderSeed = { chapter: Chapter; comic: Comic };
 
 function getDesktopBookLeaves(pages: Page[], includeAds: boolean): BookLeaf[] {
-  return pages.flatMap((page, pageIndex) => [
+  const leaves: BookLeaf[] = pages.flatMap((page, pageIndex) => [
     { kind: "page" as const, page, pageIndex },
     ...(includeAds && (pageIndex + 1) % 5 === 0 && pageIndex < pages.length - 1
       ? [{ kind: "ad" as const, afterPageIndex: pageIndex }]
       : []),
   ]);
+  if (leaves.length % 2 !== 0) leaves.push({ kind: "blank" });
+  if (pages.length) leaves.push({ kind: "end" });
+  return leaves;
 }
 
 export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed }) {
@@ -338,9 +341,10 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     const requestedIndex = Math.max(0, Math.min(pages.length - 1, index));
     if (desktopBookMode) {
       const spreadCount = Math.ceil(bookLeaves.length / 2);
+      const direction = index >= pages.length ? 1 : index < currentPage ? -1 : 1;
       const targetSpread = Math.max(0, Math.min(
         spreadCount - 1,
-        bookSpreadIndex + (requestedIndex > currentPage ? 1 : -1),
+        bookSpreadIndex + direction,
       ));
       if (targetSpread === bookSpreadIndex || bookTurnInProgressRef.current) return;
       bookTurnInProgressRef.current = true;
@@ -574,10 +578,30 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const displayedPageEnd = desktopBookMode && displayedBookPageIndexes.length
     ? Math.max(...displayedBookPageIndexes) + 1
     : currentPage + 1;
+  const isEpisodeEndSpread = desktopBookMode && activeBookLeaves.some((leaf) => leaf.kind === "end");
+  const chapterEndReached = desktopBookMode
+    ? isEpisodeEndSpread
+    : currentPage === pages.length - 1;
   const progressPage = Math.min(pages.length, displayedPageEnd);
   const canAdvancePage = desktopBookMode
     ? bookSpreadIndex + 1 < Math.ceil(bookLeaves.length / 2)
     : currentPage < pages.length - 1;
+  const episodeEndContent = (
+    <section className="reader-episode-end" aria-labelledby="reader-episode-end-title">
+      <span className="reader-episode-end-kicker">EPISODE SELESAI</span>
+      <h2 id="reader-episode-end-title">Sampai di sini untuk episode ini.</h2>
+      <p>{nextChapter ? "Lanjutkan petualangannya di episode berikutnya." : nextChapterCandidate ? "Selesaikan semua halaman untuk membuka episode berikutnya." : "Kamu sudah membaca episode terbaru dari komik ini."}</p>
+      <div className="reader-episode-end-actions">
+        {previousChapter && <Link className="reader-episode-secondary-action" href={`/comic/${comic.slug}/chapter/${previousChapter.id}`} onClick={(event) => { event.preventDefault(); requestChapterTransition(`/comic/${comic.slug}/chapter/${previousChapter.id}`); }}><ChevronLeft size={17} /> Episode sebelumnya</Link>}
+        {nextChapter
+          ? <Link className="reader-episode-next-action" href={`/comic/${comic.slug}/chapter/${nextChapter.id}`} onClick={(event) => { event.preventDefault(); requestChapterTransition(`/comic/${comic.slug}/chapter/${nextChapter.id}`); }}>Baca episode berikutnya <ArrowRight size={18} /></Link>
+          : nextChapterCandidate
+            ? <span className="reader-episode-latest-label"><LockKeyhole size={15} /> Selesaikan episode ini untuk lanjut</span>
+            : <span className="reader-episode-latest-label">Ini adalah episode terbaru</span>}
+        <Link className="reader-episode-secondary-action" href={`/comic/${comic.slug}`}><BookOpen size={17} /> Kembali ke komik</Link>
+      </div>
+    </section>
+  );
 
   return (
     <main
@@ -625,7 +649,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
             <>
               <div
                 className="reader-book-stage"
-                aria-label={`Buku komik, halaman ${displayedPageStart} sampai ${displayedPageEnd} dari ${pages.length}`}
+                aria-label={isEpisodeEndSpread ? `Penutup episode ${chapter.chapter_number}` : `Buku komik, halaman ${displayedPageStart} sampai ${displayedPageEnd} dari ${pages.length}`}
                 onClick={(event) => {
                   if (bookTurn || event.target instanceof Element && event.target.closest("a, button")) return;
                   const bounds = event.currentTarget.getBoundingClientRect();
@@ -636,8 +660,9 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                   {activeBookLeaves.map((leaf, offset) => {
                     const page = leaf.kind === "page" ? leaf.page : null;
                     const src = page ? pageUrl(page) : null;
+                    const leafKey = leaf.kind === "page" ? leaf.page.id : leaf.kind === "ad" ? `ad-after-${leaf.afterPageIndex}` : leaf.kind;
                     return (
-                      <div className={`reader-book-paper${offset === 0 ? " reader-book-paper-left" : " reader-book-paper-right"}${leaf.kind === "ad" ? " reader-book-paper-ad" : ""}`} key={page?.id ?? `ad-after-${leaf.kind === "ad" ? leaf.afterPageIndex : "blank"}`} data-reader-page={leaf.kind === "page" ? leaf.pageIndex : undefined}>
+                      <div className={`reader-book-paper${offset === 0 ? " reader-book-paper-left" : " reader-book-paper-right"}${leaf.kind === "ad" ? " reader-book-paper-ad" : ""}${leaf.kind === "end" ? " reader-book-paper-end" : ""}`} key={leafKey} data-reader-page={leaf.kind === "page" ? leaf.pageIndex : undefined}>
                         {leaf.kind === "ad" ? (
                           <SponsoredAd
                             slotKey="reader_mid_chapter"
@@ -656,6 +681,8 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                               </div>
                             }
                           />
+                        ) : leaf.kind === "end" ? (
+                          currentChapterRead && <div data-reader-stop="episode-end">{episodeEndContent}</div>
                         ) : page && src ? (
                           <img
                             src={src}
@@ -688,58 +715,50 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                 <span className="reader-book-spine" aria-hidden="true" />
               </div>
             </>
-          ) : pages.map((page, index) => {
-            const src = pageUrl(page);
-            const pageIsRead = readPageIds.has(page.id);
-            return (
-              <Fragment key={page.id}>
-                <div
-                  className="reader-page-frame"
-                  data-reader-page={index}
-                  data-reader-stop={`page-${index}`}
-                  aria-label={`Halaman ${page.page_number}, ${pageIsRead ? "sudah dibaca" : "belum dibaca"}`}
-                >
-                  <span className={`reader-page-read-status${pageIsRead ? " reader-page-read-status-read" : ""}`} role="img" aria-label={pageIsRead ? "Sudah dibaca" : "Belum dibaca"}>
-                    {pageIsRead ? <Check size={14} strokeWidth={3} /> : <Circle size={12} />}
-                    <span>{pageIsRead ? "Dibaca" : "Belum dibaca"}</span>
-                  </span>
-                  {src
-                    ? <img src={src} alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`} loading={index < 2 ? "eager" : "lazy"} onClick={() => setControlsVisible(true)} />
-                    : <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div>}
+          ) : (
+            <>
+              {pages.map((page, index) => {
+                const src = pageUrl(page);
+                const pageIsRead = readPageIds.has(page.id);
+                return (
+                  <Fragment key={page.id}>
+                    <div
+                      className="reader-page-frame"
+                      data-reader-page={index}
+                      data-reader-stop={`page-${index}`}
+                      aria-label={`Halaman ${page.page_number}, ${pageIsRead ? "sudah dibaca" : "belum dibaca"}`}
+                    >
+                      <span className={`reader-page-read-status${pageIsRead ? " reader-page-read-status-read" : ""}`} role="img" aria-label={pageIsRead ? "Sudah dibaca" : "Belum dibaca"}>
+                        {pageIsRead ? <Check size={14} strokeWidth={3} /> : <Circle size={12} />}
+                        <span>{pageIsRead ? "Dibaca" : "Belum dibaca"}</span>
+                      </span>
+                      {src
+                        ? <img src={src} alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`} loading={index < 2 ? "eager" : "lazy"} onClick={() => setControlsVisible(true)} />
+                        : <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div>}
+                    </div>
+                    {(index + 1) % 5 === 0 && index < pages.length - 1 && (
+                      <SponsoredAd
+                        key={`mid-chapter-ad-${page.page_number}`}
+                        slotKey="reader_mid_chapter"
+                        placement="reader"
+                        comicId={comic.id}
+                        matchPageIndex={index}
+                        readerStopId={`mid-chapter-ad-${page.page_number}`}
+                      />
+                    )}
+                  </Fragment>
+                );
+              })}
+              {currentChapterRead && chapterEndReached && (
+                <div className="reader-episode-end-page" data-reader-stop="episode-end">
+                  {episodeEndContent}
                 </div>
-                {(index + 1) % 5 === 0 && index < pages.length - 1 && (
-                  <SponsoredAd
-                    key={`mid-chapter-ad-${page.page_number}`}
-                    slotKey="reader_mid_chapter"
-                    placement="reader"
-                    comicId={comic.id}
-                    matchPageIndex={index}
-                    readerStopId={`mid-chapter-ad-${page.page_number}`}
-                  />
-                )}
-              </Fragment>
-            );
-          })}
+              )}
+            </>
+          )}
         </section>
       ) : (
         <section className="reader-no-pages"><BookOpen size={28} /><h2>{pageLoadError ? "Halaman komik belum dapat dimuat." : "Episode ini belum memiliki halaman."}</h2><p>{pageLoadError ? "Periksa koneksi lalu muat ulang episode ini." : "Kembali lagi nanti untuk membaca cerita ini."}</p>{pageLoadError ? <button onClick={() => window.location.reload()}>Coba lagi</button> : <Link href={`/comic/${comic.slug}`}>Kembali ke komik</Link>}</section>
-      )}
-
-      {pages.length > 0 && (
-        <section className="reader-episode-end" aria-labelledby="reader-episode-end-title">
-          <span className="reader-episode-end-kicker">EPISODE SELESAI</span>
-          <h2 id="reader-episode-end-title">Sampai di sini untuk episode ini.</h2>
-          <p>{nextChapter ? "Lanjutkan petualangannya di episode berikutnya." : nextChapterCandidate ? "Selesaikan semua halaman untuk membuka episode berikutnya." : "Kamu sudah membaca episode terbaru dari komik ini."}</p>
-          <div className="reader-episode-end-actions">
-            {previousChapter && <Link className="reader-episode-secondary-action" href={`/comic/${comic.slug}/chapter/${previousChapter.id}`} onClick={(event) => { event.preventDefault(); requestChapterTransition(`/comic/${comic.slug}/chapter/${previousChapter.id}`); }}><ChevronLeft size={17} /> Episode sebelumnya</Link>}
-            {nextChapter
-              ? <Link className="reader-episode-next-action" href={`/comic/${comic.slug}/chapter/${nextChapter.id}`} onClick={(event) => { event.preventDefault(); requestChapterTransition(`/comic/${comic.slug}/chapter/${nextChapter.id}`); }}>Baca episode berikutnya <ArrowRight size={18} /></Link>
-              : nextChapterCandidate
-                ? <span className="reader-episode-latest-label"><LockKeyhole size={15} /> Selesaikan episode ini untuk lanjut</span>
-                : <span className="reader-episode-latest-label">Ini adalah episode terbaru</span>}
-            <Link className="reader-episode-secondary-action" href={`/comic/${comic.slug}`}><BookOpen size={17} /> Kembali ke komik</Link>
-          </div>
-        </section>
       )}
 
       <button className="reader-controls-toggle" onClick={() => setControlsVisible((visible) => !visible)} aria-label={controlsVisible ? "Sembunyikan kontrol" : "Tampilkan kontrol"}>
@@ -749,7 +768,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       {controlsVisible && pages.length > 0 && (
         <footer className="reader-experience-controls">
           <button onClick={() => scrollToPage(currentPage - 1)} disabled={currentPage <= 0} aria-label="Halaman sebelumnya"><ChevronLeft size={20} /><span>Sebelumnya</span></button>
-          <span className="reader-page-count">{desktopBookMode && displayedPageEnd > displayedPageStart ? `${displayedPageStart}–${displayedPageEnd}` : displayedPageStart} <i>/</i> {pages.length}</span>
+          <span className="reader-page-count">{isEpisodeEndSpread ? "Penutup episode" : desktopBookMode && displayedPageEnd > displayedPageStart ? `${displayedPageStart}–${displayedPageEnd}` : displayedPageStart} {!isEpisodeEndSpread && <><i>/</i> {pages.length}</>}</span>
           {canAdvancePage
             ? <button onClick={() => scrollToPage(currentPage + 1)} aria-label="Halaman berikutnya"><span>Berikutnya</span><ChevronRight size={20} /></button>
             : nextChapter
