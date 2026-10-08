@@ -13,6 +13,7 @@ import { useReaderMembership } from "@/app/membership-runtime";
 
 const supabase = createClient();
 const TRANSITION_AD_LOAD_TIMEOUT_MS = 2000;
+const BOOK_TURN_SPREAD_COMMIT_DELAY_MS = 340;
 
 type Page = { id: string; page_number: number; object_key: string };
 type Chapter = { id: string; title: string; chapter_number: number; comic_id: string };
@@ -54,12 +55,14 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const [pageLoadError, setPageLoadError] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [bookTurn, setBookTurn] = useState<BookTurn | null>(null);
+  const [bookTurnSpreadChanging, setBookTurnSpreadChanging] = useState(false);
   const [pendingChapterHref, setPendingChapterHref] = useState<string | null>(null);
   const [transitionAdAvailable, setTransitionAdAvailable] = useState<boolean | null>(null);
   const [transitionCountdown, setTransitionCountdown] = useState<number | null>(null);
   const [transitionDeadline, setTransitionDeadline] = useState<number | null>(null);
   const lastScrollY = useRef(0);
   const bookTurnInProgressRef = useRef(false);
+  const bookTurnSpreadCommitTimeoutRef = useRef<number | null>(null);
   const pagesContainerRef = useRef<HTMLElement>(null);
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
   const desktopBookMode = currentDevice === "desktop"
@@ -79,7 +82,12 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       }
       setLoading(true);
       setErrorMessage("");
+      if (bookTurnSpreadCommitTimeoutRef.current !== null) {
+        window.clearTimeout(bookTurnSpreadCommitTimeoutRef.current);
+        bookTurnSpreadCommitTimeoutRef.current = null;
+      }
       setBookTurn(null);
+      setBookTurnSpreadChanging(false);
       bookTurnInProgressRef.current = false;
       setHistoryReady(false);
       setReadPageIds(new Set());
@@ -270,7 +278,13 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       setLoading(false);
     };
     void loadChapter();
-    return () => { active = false; };
+    return () => {
+      active = false;
+      if (bookTurnSpreadCommitTimeoutRef.current !== null) {
+        window.clearTimeout(bookTurnSpreadCommitTimeoutRef.current);
+        bookTurnSpreadCommitTimeoutRef.current = null;
+      }
+    };
   }, [chapterId, currentDevice, membership.ready, membership.tier, router, seed.comic.target_device, slug]);
 
   useEffect(() => {
@@ -349,6 +363,17 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       if (targetSpread === bookSpreadIndex || bookTurnInProgressRef.current) return;
       bookTurnInProgressRef.current = true;
       setControlsVisible(true);
+      setBookTurnSpreadChanging(false);
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        setBookSpreadIndex(targetSpread);
+        setBookTurnSpreadChanging(true);
+      } else {
+        bookTurnSpreadCommitTimeoutRef.current = window.setTimeout(() => {
+          setBookSpreadIndex(targetSpread);
+          setBookTurnSpreadChanging(true);
+          bookTurnSpreadCommitTimeoutRef.current = null;
+        }, BOOK_TURN_SPREAD_COMMIT_DELAY_MS);
+      }
       setBookTurn({
         from: bookSpreadIndex,
         to: targetSpread,
@@ -363,7 +388,12 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
 
   const finishBookTurn = useCallback(() => {
     if (!bookTurn) return;
+    if (bookTurnSpreadCommitTimeoutRef.current !== null) {
+      window.clearTimeout(bookTurnSpreadCommitTimeoutRef.current);
+      bookTurnSpreadCommitTimeoutRef.current = null;
+    }
     setBookSpreadIndex(bookTurn.to);
+    setBookTurnSpreadChanging(false);
     const visibleLeaves = bookLeaves.slice(bookTurn.to * 2, bookTurn.to * 2 + 2);
     const visiblePages = visibleLeaves.flatMap((leaf) => leaf.kind === "page" ? [leaf] : []);
     const firstVisiblePage = visiblePages[0]?.pageIndex;
@@ -656,7 +686,23 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                   scrollToPage(currentPage + (event.clientX < bounds.left + bounds.width / 2 ? -1 : 1));
                 }}
               >
-                <div className="reader-book-spread">
+                {bookTurnSpreadChanging && bookTurn && (
+                  <div className="reader-book-spread reader-book-spread-fade-out" aria-hidden="true">
+                    {bookLeaves.slice(bookTurn.from * 2, bookTurn.from * 2 + 2).map((leaf, offset) => {
+                      const page = leaf.kind === "page" ? leaf.page : null;
+                      const src = page ? pageUrl(page) : null;
+                      const leafKey = leaf.kind === "page" ? leaf.page.id : leaf.kind === "ad" ? `ad-after-${leaf.afterPageIndex}` : leaf.kind;
+                      return (
+                        <div className={`reader-book-paper${offset === 0 ? " reader-book-paper-left" : " reader-book-paper-right"}${leaf.kind === "ad" ? " reader-book-paper-ad" : ""}${leaf.kind === "end" ? " reader-book-paper-end" : ""}`} key={leafKey}>
+                          {page && src && <img src={src} alt="" draggable={false} />}
+                          {leaf.kind === "page" && <span className="reader-book-page-number">{leaf.page.page_number}</span>}
+                          {leaf.kind === "end" && currentChapterRead && episodeEndContent}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className={`reader-book-spread${bookTurnSpreadChanging ? " reader-book-spread-fade-in" : ""}`}>
                   {activeBookLeaves.map((leaf, offset) => {
                     const page = leaf.kind === "page" ? leaf.page : null;
                     const src = page ? pageUrl(page) : null;

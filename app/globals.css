@@ -992,6 +992,11 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .reader-controls-hidden .reader-book-mode { margin-top: calc(-1 * var(--reader-header-height) - 6px); }
 .reader-controls-hidden .reader-book-stage { width: 100vw; height: 100vh; height: 100dvh; min-height: 100vh; min-height: 100dvh; margin: 0; }
 .reader-book-spread { width: min(100cqw, 133.333cqh); height: min(100cqh, 75cqw); min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); aspect-ratio: 4 / 3; }
+.reader-book-spread-fade-in { animation: reader-book-spread-crossfade-in .28s ease-out both; }
+.reader-book-spread-fade-out { z-index: 1; pointer-events: none; animation: reader-book-spread-crossfade-out .28s ease-in both; }
+.reader-book-turn { z-index: 2; }
+@keyframes reader-book-spread-crossfade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes reader-book-spread-crossfade-out { from { opacity: 1; } to { opacity: 0; } }
 .reader-book-paper { position: relative; box-sizing: border-box; min-width: 0; min-height: 0; height: 100%; display: grid; place-items: center; overflow: hidden; padding: 12px 0; border: 1px solid rgba(71,57,39,.2); background: #f4f0e6; }
 .reader-book-paper-left { padding-left: 20px; border-radius: 3px 0 0 3px; box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 10px 0 18px rgba(79,61,38,.08), inset -10px 0 18px rgba(79,61,38,.1); }
 .reader-book-paper-right { padding-right: 20px; border-radius: 0 3px 3px 0; box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 10px 0 18px rgba(79,61,38,.1), inset -2px 0 5px rgba(79,61,38,.08); }
