@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState, type DragEvent } from "react";
-import { ArrowLeft, ArrowUpRight, BookOpen, ChevronLeft, ChevronRight, GripVertical, Info, LoaderCircle, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, BookOpen, ChevronDown, ChevronLeft, ChevronRight, GripVertical, Info, LoaderCircle, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -111,6 +111,7 @@ export default function CreatorComicPage() {
   const router = useRouter();
   const [comic, setComic] = useState<Comic | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [expandedChapterIds, setExpandedChapterIds] = useState<string[] | null>(null);
   const [pagesByChapter, setPagesByChapter] = useState<Record<string, ChapterPage[]>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -183,6 +184,24 @@ export default function CreatorComicPage() {
       const { data: chapterData } = await supabase.from("chapters").select("id, title, chapter_number, published_at").eq("comic_id", comicId).order("chapter_number", { ascending: true });
       const loadedChapters = chapterData ?? [];
       setChapters(loadedChapters);
+      const storageKey = `mu-komik:expanded-chapters:${comicData.id}`;
+      let expandedIds = loadedChapters.slice(0, 1).map((chapter) => chapter.id);
+      try {
+        const stored = window.localStorage.getItem(storageKey);
+        if (stored !== null) {
+          const parsed: unknown = JSON.parse(stored);
+          if (!Array.isArray(parsed) || parsed.some((id) => typeof id !== "string")) {
+            throw new Error("Saved chapter visibility is invalid.");
+          }
+          const chapterIds = new Set(loadedChapters.map((chapter) => chapter.id));
+          expandedIds = parsed.filter((id: string) => chapterIds.has(id));
+        } else {
+          window.localStorage.setItem(storageKey, JSON.stringify(expandedIds));
+        }
+      } catch (error) {
+        console.error("Unable to load saved chapter visibility:", error);
+      }
+      setExpandedChapterIds(expandedIds);
       if (loadedChapters.length) {
         const { data: pageData } = await supabase.from("pages").select("id, chapter_id, page_number, object_key").in("chapter_id", loadedChapters.map((chapter) => chapter.id)).order("page_number", { ascending: true });
         setPagesByChapter((pageData ?? []).reduce<Record<string, ChapterPage[]>>((grouped, page) => {
@@ -194,6 +213,19 @@ export default function CreatorComicPage() {
     };
     loadComic();
   }, [comicId, router]);
+
+  const setChapterExpanded = (chapterId: string, expanded: boolean) => {
+    const current = expandedChapterIds ?? chapters.slice(0, 1).map((chapter) => chapter.id);
+    const next = expanded
+      ? Array.from(new Set([...current, chapterId]))
+      : current.filter((id) => id !== chapterId);
+    setExpandedChapterIds(next);
+    try {
+      window.localStorage.setItem(`mu-komik:expanded-chapters:${comic?.id ?? comicId}`, JSON.stringify(next));
+    } catch (error) {
+      console.error("Unable to save chapter visibility:", error);
+    }
+  };
 
   const createChapter = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -818,7 +850,7 @@ export default function CreatorComicPage() {
           <div className="creator-empty"><BookOpen size={26} /><h3>Belum ada bab.</h3><p>Buat bab pertama untuk cerita ini.</p></div>
         ) : (
           <div className="chapter-manager-rows">
-            {chapters.map((chapter) => (
+            {chapters.map((chapter, chapterIndex) => (
               <article className="chapter-manager-row" key={chapter.id}>
                 <div className="chapter-card-header">
                   <div className="chapter-card-heading">
@@ -838,12 +870,24 @@ export default function CreatorComicPage() {
                     </button>
                     <Link className="round-arrow" href={`/comic/${comic.slug}/chapter/${chapter.id}`} aria-label={`Pratinjau ${chapter.title}`}><ArrowUpRight size={17} /></Link>
                     <label className="page-upload-button">
-                      <input type="file" accept={settings.allowed_image_types.join(",")} multiple disabled={uploading || deletingChapterId !== null || (pagesByChapter[chapter.id]?.length ?? 0) >= settings.max_pages_per_chapter} onChange={(event) => { setUploadChapter(chapter); void uploadPages(event); }} />
+                      <input type="file" accept={settings.allowed_image_types.join(",")} multiple disabled={uploading || deletingChapterId !== null || (pagesByChapter[chapter.id]?.length ?? 0) >= settings.max_pages_per_chapter} onChange={(event) => { setChapterExpanded(chapter.id, true); setUploadChapter(chapter); void uploadPages(event); }} />
                       <Upload size={15} aria-hidden="true" />
                       Unggah halaman
                     </label>
                   </div>
+                  <button
+                    type="button"
+                    className="chapter-collapse-toggle"
+                    aria-label={`${expandedChapterIds?.includes(chapter.id) ?? chapterIndex === 0 ? "Tutup" : "Buka"} halaman ${chapter.title}`}
+                    aria-expanded={expandedChapterIds?.includes(chapter.id) ?? chapterIndex === 0}
+                    aria-controls={`chapter-content-${chapter.id}`}
+                    title={expandedChapterIds?.includes(chapter.id) ?? chapterIndex === 0 ? "Tutup bab" : "Buka bab"}
+                    onClick={() => setChapterExpanded(chapter.id, !(expandedChapterIds?.includes(chapter.id) ?? chapterIndex === 0))}
+                  >
+                    <ChevronDown className={expandedChapterIds?.includes(chapter.id) ?? chapterIndex === 0 ? "is-open" : ""} size={23} aria-hidden="true" />
+                  </button>
                 </div>
+                <div id={`chapter-content-${chapter.id}`} className="chapter-card-content" hidden={!(expandedChapterIds?.includes(chapter.id) ?? chapterIndex === 0)}>
                 {uploading && uploadProgress && uploadingChapter?.id === chapter.id && (
                   <div className="chapter-page-upload-progress">
                     <div className="chapter-page-upload-progress-copy">
@@ -962,7 +1006,7 @@ export default function CreatorComicPage() {
                     </div>
                   )}
                   <label className={`chapter-page-add${uploading || deletingChapterId !== null || (pagesByChapter[chapter.id]?.length ?? 0) >= settings.max_pages_per_chapter ? " is-disabled" : ""}`}>
-                    <input type="file" accept={settings.allowed_image_types.join(",")} multiple disabled={uploading || deletingChapterId !== null || (pagesByChapter[chapter.id]?.length ?? 0) >= settings.max_pages_per_chapter} onChange={(event) => { setUploadChapter(chapter); void uploadPages(event); }} />
+                    <input type="file" accept={settings.allowed_image_types.join(",")} multiple disabled={uploading || deletingChapterId !== null || (pagesByChapter[chapter.id]?.length ?? 0) >= settings.max_pages_per_chapter} onChange={(event) => { setChapterExpanded(chapter.id, true); setUploadChapter(chapter); void uploadPages(event); }} />
                     <span className="chapter-page-add-icon"><Plus size={25} /></span>
                     <strong>Tambah halaman</strong>
                     <span>Unggah gambar halaman cerita berikutnya.</span>
@@ -971,6 +1015,7 @@ export default function CreatorComicPage() {
                 <div className="page-upload-guide">
                   <Info size={17} aria-hidden="true" />
                   <p>Rekomendasi per halaman: ponsel 720 × 1280 px (9:16), tablet 900 × 1200 px (3:4), desktop 1200 × 1800 px (2:3). Uploader menyimpan satu gambar per halaman tanpa varian perangkat. Jika komik tersedia di semua perangkat, gunakan master 1200 × 1800 px; reader menampilkan gambar utuh tanpa crop. Maks. {settings.max_pages_per_chapter} halaman per bab, {settings.max_upload_size_mb} MB per gambar.</p>
+                </div>
                 </div>
               </article>
             ))}
