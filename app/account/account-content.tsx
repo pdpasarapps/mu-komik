@@ -72,7 +72,7 @@ export default function AccountContent({ section, children }: { section: Account
   const [bookmarkError, setBookmarkError] = useState("");
   const [continueReading, setContinueReading] = useState<ContinueReading | null>(null);
   const [readingProgressError, setReadingProgressError] = useState("");
-  const [activeCreatorGuideTab, setActiveCreatorGuideTab] = useState<"publishing" | "rules">("publishing");
+  const [activeCreatorGuideTab, setActiveCreatorGuideTab] = useState<"publishing" | "rules" | "images">("publishing");
   const [savingProfileVisibility, setSavingProfileVisibility] = useState(false);
   const [profileVisibilityMessage, setProfileVisibilityMessage] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -731,7 +731,10 @@ export default function AccountContent({ section, children }: { section: Account
               onKeyDown={(event) => {
                 if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
                 event.preventDefault();
-                const nextTab = activeCreatorGuideTab === "publishing" ? "rules" : "publishing";
+                const tabs = ["publishing", "rules", "images"] as const;
+                const currentIndex = tabs.indexOf(activeCreatorGuideTab);
+                const direction = event.key === "ArrowRight" ? 1 : -1;
+                const nextTab = tabs[(currentIndex + direction + tabs.length) % tabs.length];
                 setActiveCreatorGuideTab(nextTab);
                 document.getElementById(`creator-${nextTab}-tab`)?.focus();
               }}
@@ -749,12 +752,36 @@ export default function AccountContent({ section, children }: { section: Account
               onKeyDown={(event) => {
                 if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
                 event.preventDefault();
-                const nextTab = activeCreatorGuideTab === "publishing" ? "rules" : "publishing";
+                const tabs = ["publishing", "rules", "images"] as const;
+                const currentIndex = tabs.indexOf(activeCreatorGuideTab);
+                const direction = event.key === "ArrowRight" ? 1 : -1;
+                const nextTab = tabs[(currentIndex + direction + tabs.length) % tabs.length];
                 setActiveCreatorGuideTab(nextTab);
                 document.getElementById(`creator-${nextTab}-tab`)?.focus();
               }}
             >
               Pedoman
+            </button>
+            <button
+              id="creator-images-tab"
+              type="button"
+              role="tab"
+              aria-selected={activeCreatorGuideTab === "images"}
+              aria-controls="creator-images-panel"
+              tabIndex={activeCreatorGuideTab === "images" ? 0 : -1}
+              onClick={() => setActiveCreatorGuideTab("images")}
+              onKeyDown={(event) => {
+                if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                event.preventDefault();
+                const tabs = ["publishing", "rules", "images"] as const;
+                const currentIndex = tabs.indexOf(activeCreatorGuideTab);
+                const direction = event.key === "ArrowRight" ? 1 : -1;
+                const nextTab = tabs[(currentIndex + direction + tabs.length) % tabs.length];
+                setActiveCreatorGuideTab(nextTab);
+                document.getElementById(`creator-${nextTab}-tab`)?.focus();
+              }}
+            >
+              Ukuran gambar
             </button>
           </div>
           {activeCreatorGuideTab === "publishing" ? (
@@ -772,7 +799,7 @@ export default function AccountContent({ section, children }: { section: Account
                 <p>Dari daftar komik, pilih <strong>Ajukan kurasi</strong>. Komik akan berstatus menunggu kurasi sampai admin meninjaunya. Setelah disetujui dan berstatus terbit, komik dapat ditemukan pembaca.</p>
               </details>
             </div>
-          ) : (
+          ) : activeCreatorGuideTab === "rules" ? (
             <div id="creator-rules-panel" className="account-creator-tab-panel" role="tabpanel" aria-labelledby="creator-rules-tab" tabIndex={0}>
               <details>
                 <summary>Apa aturan publikasi komik di MU Komik?</summary>
@@ -783,6 +810,33 @@ export default function AccountContent({ section, children }: { section: Account
                 <p>Pilih target pembaca dan teknik produksi yang sesuai dengan karyamu, termasuk jika karya dibantu atau dibuat dengan AI.</p>
               </details>
               <Link className="account-manifesto-link" href="/manifesto">Baca Manifesto AI MU-KOMIK <ArrowUpRight size={15} /></Link>
+            </div>
+          ) : (
+            <div id="creator-images-panel" className="account-creator-tab-panel account-creator-image-guide" role="tabpanel" aria-labelledby="creator-images-tab" tabIndex={0}>
+              <p className="account-creator-image-intro">Gunakan ukuran berikut sebagai rekomendasi agar halaman dan sampul komik tetap tajam di berbagai perangkat. Ini bukan batas minimum atau rasio wajib.</p>
+              <div className="account-creator-image-table-wrap" role="region" aria-label="Rekomendasi ukuran gambar komik" tabIndex={0}>
+                <table className="account-creator-image-table">
+                  <thead>
+                    <tr><th scope="col">Gambar</th><th scope="col">Ukuran rekomendasi</th><th scope="col">Rasio</th><th scope="col">Panduan tampilan</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Halaman ponsel/tablet</th><td>900 × 1350 px</td><td>2:3 (potret)</td><td>Satu gambar untuk setiap halaman.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Halaman desktop</th><td>1200 × 1800 px per halaman</td><td>2:3 (potret)</td><td>Dua halaman terpisah membentuk spread 4:3; jangan gabungkan halaman kiri dan kanan.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Sampul komik</th><td>1200 × 1600 px</td><td>3:4 (potret)</td><td>Sampul ditampilkan utuh. Sisakan ruang tepi untuk teks dan elemen penting.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <ul>
+                <li>Reader menampilkan halaman dan sampul secara utuh tanpa memotong gambar. Rasio yang berbeda dapat menimbulkan ruang kosong.</li>
+                <li>Letakkan balon dialog, teks, wajah, dan detail penting setidaknya 3–5% dari tepi gambar.</li>
+                <li>Ukuran file, format yang diizinkan, dan jumlah halaman mengikuti batas yang tampil di uploader saat mengunggah.</li>
+              </ul>
             </div>
           )}
         </section>

@@ -16,6 +16,8 @@ For reader-interest quiz and genre-based sponsor targeting on an existing databa
 
 Copy `.env.example` to `.env.local` and fill in the values from Supabase and Cloudflare R2. Keep `.env.local` private and never commit it. Rotate any server credentials that have been shared outside your trusted environment.
 
+Untuk panduan menyiapkan gambar komik dan iklan, lihat [Panduan Ukuran Gambar](docs/panduan-ukuran-gambar.md).
+
 Then run:
 
 ```bash

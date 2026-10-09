@@ -173,11 +173,19 @@ function CreativeUploadField({
   );
 }
 
-function ImageSizeGuide({ includesHomeBanner, includesOtherPlacements }: { includesHomeBanner: boolean; includesOtherPlacements: boolean }) {
+function ImageSizeGuide({
+  includesHomeBanner,
+  includesOtherPlacements,
+  includesEpisodeTransition,
+}: {
+  includesHomeBanner: boolean;
+  includesOtherPlacements: boolean;
+  includesEpisodeTransition: boolean;
+}) {
   const recommendations = [
-    { device: "Desktop", size: includesHomeBanner ? "1200 × 400 px" : "1200 × 600 px", icon: Monitor },
-    { device: "Tablet", size: includesHomeBanner ? "768 × 360 px" : "900 × 600 px", icon: Tablet },
-    { device: "Mobile", size: includesHomeBanner ? "720 × 480 px" : "720 × 900 px", icon: Smartphone },
+    { device: "Desktop", size: includesHomeBanner ? "1200 × 400 px · 3:1" : "1200 × 600 px · 2:1", icon: Monitor },
+    { device: "Tablet", size: includesHomeBanner ? "768 × 360 px · 32:15" : "900 × 600 px · 3:2", icon: Tablet },
+    { device: "Mobile", size: includesHomeBanner ? "720 × 480 px · 3:2" : "720 × 900 px · 4:5", icon: Smartphone },
   ];
   return (
     <div className="push-ads-image-guide" aria-label="Rekomendasi ukuran gambar">
@@ -193,7 +201,8 @@ function ImageSizeGuide({ includesHomeBanner, includesOtherPlacements }: { inclu
       {includesHomeBanner && includesOtherPlacements
         ? <small>Untuk penempatan selain banner beranda, gunakan desktop 1200 × 600 px, tablet 900 × 600 px, dan mobile 720 × 900 px.</small>
         : !includesHomeBanner && <small>Jika memilih banner beranda, rekomendasinya desktop 1200 × 400 px, tablet 768 × 360 px, dan mobile 720 × 480 px.</small>}
-      <small>JPG, PNG, atau WebP. Rasio yang tepat membantu gambar tampil utuh di berbagai layar.</small>
+      {includesEpisodeTransition && <small>Untuk iklan antar episode desktop, gambar berada di kolom kiri (sekitar 56% lebar) dan ditampilkan dengan cover dari atas. Siapkan gambar sekitar 1200 × 1000 px (6:5) bila fokus pada penempatan ini; gambar potret dapat terpotong di bagian bawah. Jaga logo dan teks penting di area atas.</small>}
+      <small>JPG, PNG, atau WebP. Iklan di halaman baca biasa menampilkan gambar utuh; jika materi tablet atau mobile kosong, gambar desktop menjadi pengganti.</small>
     </div>
   );
 }
@@ -501,6 +510,7 @@ export default function PushAdsPage() {
                   <ImageSizeGuide
                     includesHomeBanner={placements.includes("home_banner")}
                     includesOtherPlacements={placements.some((placement) => placement !== "home_banner")}
+                    includesEpisodeTransition={placements.includes("reader_episode_transition")}
                   />
                   <div className="push-ads-upload-grid">
                     {creativeDevices.map(({ value }) => {
