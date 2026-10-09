@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowUpRight, BookOpen, ChevronLeft, ChevronRight, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
+import { FormEvent, useEffect, useRef, useState, type DragEvent } from "react";
+import { ArrowLeft, ArrowUpRight, BookOpen, ChevronLeft, ChevronRight, GripVertical, Info, LoaderCircle, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -121,6 +121,9 @@ export default function CreatorComicPage() {
   const [deletingChapterId, setDeletingChapterId] = useState<string | null>(null);
   const [deletingPageId, setDeletingPageId] = useState<string | null>(null);
   const [reorderingPageId, setReorderingPageId] = useState<string | null>(null);
+  const [draggedPageId, setDraggedPageId] = useState<string | null>(null);
+  const [draggedPageChapterId, setDraggedPageChapterId] = useState<string | null>(null);
+  const [pageDropSlot, setPageDropSlot] = useState<{ chapterId: string; index: number } | null>(null);
   const reorderInFlightRef = useRef(false);
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({ title: "", chapterNumber: "", published: false });
@@ -549,23 +552,29 @@ export default function CreatorComicPage() {
     setDeletingPageId(null);
   };
 
+  const swapPagesOnServer = async (chapterId: string, pageId: string, targetPageId: string) => {
+    if (!comic) throw new Error("Komik tidak ditemukan.");
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) throw new Error("Sesi kamu telah berakhir. Silakan masuk kembali.");
+    const response = await fetch("/api/r2/reorder-page", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ comicId: comic.id, chapterId, pageId, targetPageId }),
+    });
+    const result = await response.json() as { reordered?: boolean; pages?: Array<{ id: string; page_number: number }>; error?: string };
+    if (!response.ok || !result.reordered || !result.pages) throw new Error(result.error || "Urutan halaman tidak dapat diubah.");
+    return result.pages;
+  };
+
   const reorderPage = async (chapter: Chapter, page: ChapterPage, targetPage: ChapterPage) => {
-    if (!comic || reorderInFlightRef.current) return;
+    if (reorderInFlightRef.current) return;
     reorderInFlightRef.current = true;
     setReorderingPageId(page.id);
     setMessage("");
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) throw new Error("Sesi kamu telah berakhir. Silakan masuk kembali.");
-      const response = await fetch("/api/r2/reorder-page", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ comicId: comic.id, chapterId: chapter.id, pageId: page.id, targetPageId: targetPage.id }),
-      });
-      const result = await response.json() as { reordered?: boolean; pages?: Array<{ id: string; page_number: number }>; error?: string };
-      if (!response.ok || !result.reordered || !result.pages) throw new Error(result.error || "Urutan halaman tidak dapat diubah.");
-      const updatedNumbers = new Map(result.pages.map((item) => [item.id, item.page_number]));
+      const updatedPages = await swapPagesOnServer(chapter.id, page.id, targetPage.id);
+      const updatedNumbers = new Map(updatedPages.map((item) => [item.id, item.page_number]));
       setPagesByChapter((current) => ({
         ...current,
         [chapter.id]: (current[chapter.id] ?? [])
@@ -579,6 +588,79 @@ export default function CreatorComicPage() {
       reorderInFlightRef.current = false;
       setReorderingPageId(null);
     }
+  };
+
+  const movePageToIndex = async (chapter: Chapter, page: ChapterPage, targetIndex: number) => {
+    if (reorderInFlightRef.current) return;
+    const currentPages = pagesByChapter[chapter.id] ?? [];
+    const startIndex = currentPages.findIndex((item) => item.id === page.id);
+    if (startIndex < 0) return;
+    const finalIndex = Math.max(0, Math.min(targetIndex > startIndex ? targetIndex - 1 : targetIndex, currentPages.length - 1));
+    if (startIndex === finalIndex) return;
+
+    reorderInFlightRef.current = true;
+    setReorderingPageId(page.id);
+    setMessage("");
+    try {
+      const direction = finalIndex > startIndex ? 1 : -1;
+      const firstNeighborIndex = startIndex + direction;
+      const swapToFinalIndex = async (neighborIndex: number): Promise<void> => {
+        if (direction > 0 ? neighborIndex > finalIndex : neighborIndex < finalIndex) return;
+        const updatedPages = await swapPagesOnServer(chapter.id, page.id, currentPages[neighborIndex].id);
+        const updatedNumbers = new Map(updatedPages.map((item) => [item.id, item.page_number]));
+        setPagesByChapter((current) => ({
+          ...current,
+          [chapter.id]: (current[chapter.id] ?? [])
+            .map((item) => updatedNumbers.has(item.id) ? { ...item, page_number: updatedNumbers.get(item.id)! } : item)
+            .sort((first, second) => first.page_number - second.page_number),
+        }));
+        await swapToFinalIndex(neighborIndex + direction);
+      };
+      await swapToFinalIndex(firstNeighborIndex);
+      setMessage("Urutan halaman berhasil diperbarui.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Urutan halaman tidak dapat diubah.");
+    } finally {
+      reorderInFlightRef.current = false;
+      setReorderingPageId(null);
+      setDraggedPageId(null);
+      setDraggedPageChapterId(null);
+      setPageDropSlot(null);
+    }
+  };
+
+  const handlePageDragOver = (event: DragEvent<HTMLElement>, chapter: Chapter, index: number) => {
+    if (!draggedPageId || draggedPageChapterId !== chapter.id) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setPageDropSlot((current) => current?.chapterId === chapter.id && current.index === index ? current : { chapterId: chapter.id, index });
+  };
+
+  const handlePageDrop = (event: DragEvent<HTMLElement>, chapter: Chapter, index: number) => {
+    event.preventDefault();
+    if (draggedPageChapterId !== chapter.id) {
+      setDraggedPageId(null);
+      setDraggedPageChapterId(null);
+      setPageDropSlot(null);
+      return;
+    }
+    const pageId = event.dataTransfer.getData("text/plain") || draggedPageId;
+    const page = (pagesByChapter[chapter.id] ?? []).find((item) => item.id === pageId);
+    setPageDropSlot(null);
+    if (page) void movePageToIndex(chapter, page, index);
+    else {
+      setDraggedPageId(null);
+      setDraggedPageChapterId(null);
+    }
+  };
+
+  const handlePageCardDragOver = (event: DragEvent<HTMLDivElement>, chapter: Chapter, pageIndex: number) => {
+    if (!draggedPageId || draggedPageChapterId !== chapter.id) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const index = event.clientX < bounds.left + bounds.width / 2 ? pageIndex : pageIndex + 1;
+    setPageDropSlot((current) => current?.chapterId === chapter.id && current.index === index ? current : { chapterId: chapter.id, index });
   };
 
   if (loading) return <div className="creator-comic-editor-loading"><LoaderCircle className="spin" size={24} /></div>;
@@ -738,25 +820,29 @@ export default function CreatorComicPage() {
           <div className="chapter-manager-rows">
             {chapters.map((chapter) => (
               <article className="chapter-manager-row" key={chapter.id}>
-                <div className="chapter-number">{String(chapter.chapter_number).padStart(2, "0")}</div>
-                <div className="chapter-manager-copy">
-                  <h3>{chapter.title}</h3>
-                  <p>{chapter.published_at ? `Terbit ${new Date(chapter.published_at).toLocaleDateString("id-ID")}` : "Bab draf"}</p>
-                </div>
-                <div className="chapter-row-actions">
-                  <span className={`request-status request-${chapter.published_at ? "approved" : "pending"}`}>{chapter.published_at ? "Terbit" : "Draf"}</span>
-                  <button type="button" className="chapter-action" aria-label={`Ubah ${chapter.title}`} title="Ubah bab" onClick={() => startChapterForm(chapter)} disabled={deletingChapterId !== null}>
-                    <Pencil size={16} />
-                  </button>
-                  <button type="button" className="chapter-action chapter-action-danger" aria-label={`Hapus ${chapter.title}`} title="Hapus bab" onClick={() => void deleteChapter(chapter)} disabled={deletingChapterId !== null || uploading}>
-                    {deletingChapterId === chapter.id ? <LoaderCircle className="spin" size={16} /> : <Trash2 size={16} />}
-                  </button>
-                  <label className="page-upload-button">
-                    <input type="file" accept={settings.allowed_image_types.join(",")} multiple disabled={uploading || deletingChapterId !== null || (pagesByChapter[chapter.id]?.length ?? 0) >= settings.max_pages_per_chapter} onChange={(event) => { setUploadChapter(chapter); void uploadPages(event); }} />
-                    <small>Komposisi khusus perangkat: ponsel 720 × 1280 px (9:16), tablet 900 × 1200 px (3:4), desktop 1200 × 1800 px per halaman (2:3). Uploader menyimpan satu gambar per halaman tanpa varian perangkat. Jika komik tersedia di semua perangkat, gunakan satu master 1200 × 1800 px per halaman; reader menampilkan gambar utuh tanpa crop. Maks. {settings.max_pages_per_chapter} halaman per bab, {settings.max_upload_size_mb} MB per gambar.</small>
-                    Unggah halaman
-                  </label>
-                  <Link className="round-arrow" href={`/comic/${comic.slug}/chapter/${chapter.id}`} aria-label={`Pratinjau ${chapter.title}`}><ArrowUpRight size={17} /></Link>
+                <div className="chapter-card-header">
+                  <div className="chapter-card-heading">
+                    <div className="chapter-number">{String(chapter.chapter_number).padStart(2, "0")}</div>
+                    <div className="chapter-manager-copy">
+                      <h3>{chapter.title}</h3>
+                      <p>{chapter.published_at ? `Terbit ${new Date(chapter.published_at).toLocaleDateString("id-ID")}` : "Bab draf"}</p>
+                    </div>
+                  </div>
+                  <div className="chapter-row-actions">
+                    <span className={`request-status request-${chapter.published_at ? "approved" : "pending"}`}>{chapter.published_at ? "Terbit" : "Draf"}</span>
+                    <button type="button" className="chapter-action" aria-label={`Ubah ${chapter.title}`} title="Ubah bab" onClick={() => startChapterForm(chapter)} disabled={deletingChapterId !== null}>
+                      <Pencil size={16} />
+                    </button>
+                    <button type="button" className="chapter-action chapter-action-danger" aria-label={`Hapus ${chapter.title}`} title="Hapus bab" onClick={() => void deleteChapter(chapter)} disabled={deletingChapterId !== null || uploading}>
+                      {deletingChapterId === chapter.id ? <LoaderCircle className="spin" size={16} /> : <Trash2 size={16} />}
+                    </button>
+                    <Link className="round-arrow" href={`/comic/${comic.slug}/chapter/${chapter.id}`} aria-label={`Pratinjau ${chapter.title}`}><ArrowUpRight size={17} /></Link>
+                    <label className="page-upload-button">
+                      <input type="file" accept={settings.allowed_image_types.join(",")} multiple disabled={uploading || deletingChapterId !== null || (pagesByChapter[chapter.id]?.length ?? 0) >= settings.max_pages_per_chapter} onChange={(event) => { setUploadChapter(chapter); void uploadPages(event); }} />
+                      <Upload size={15} aria-hidden="true" />
+                      Unggah halaman
+                    </label>
+                  </div>
                 </div>
                 {uploading && uploadProgress && uploadingChapter?.id === chapter.id && (
                   <div className="chapter-page-upload-progress">
@@ -767,61 +853,125 @@ export default function CreatorComicPage() {
                     <progress value={uploadProgress.percent} max={100} aria-label={`Progres unggah halaman ke ${chapter.title}`} />
                   </div>
                 )}
-                {(pagesByChapter[chapter.id]?.length ?? 0) > 0 && (
-                  <div className="chapter-page-list" aria-label={`Halaman dalam ${chapter.title}`}>
-                    {pagesByChapter[chapter.id].map((page, pageIndex) => (
-                      <div className="chapter-page-item" key={page.id}>
-                        <div
-                          className="chapter-page-thumbnail"
-                          style={publicUrl ? { backgroundImage: `url(${publicUrl.replace(/\/$/, "")}/${page.object_key})` } : undefined}
-                          role="img"
-                          aria-label={`Gambar kecil halaman ${page.page_number}`}
-                        >
-                          {!publicUrl && <BookOpen size={16} />}
-                        </div>
-                        <div className="chapter-page-meta">
-                          <div className="chapter-page-meta-row">
+                <div className="chapter-page-list" aria-label={`Halaman dalam ${chapter.title}`}>
+                  {(pagesByChapter[chapter.id] ?? []).map((page, pageIndex) => (
+                    <div className="chapter-page-position" key={page.id}>
+                    {pageDropSlot?.chapterId === chapter.id && pageDropSlot.index === pageIndex && draggedPageId !== page.id && (
+                      <div
+                        className="chapter-page-drop-spacer"
+                        role="presentation"
+                        onDragOver={(event) => handlePageDragOver(event, chapter, pageIndex)}
+                        onDrop={(event) => handlePageDrop(event, chapter, pageIndex)}
+                      >
+                        <span>Lepaskan halaman di sini</span>
+                      </div>
+                    )}
+                    <div
+                      className={`chapter-page-item${draggedPageId === page.id ? " is-dragging" : ""}`}
+                      data-page-id={page.id}
+                      onDragOver={(event) => handlePageCardDragOver(event, chapter, pageIndex)}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const bounds = event.currentTarget.getBoundingClientRect();
+                        const index = event.clientX < bounds.left + bounds.width / 2 ? pageIndex : pageIndex + 1;
+                        handlePageDrop(event, chapter, index);
+                      }}
+                    >
+                      <div
+                        className="chapter-page-thumbnail"
+                        style={publicUrl ? { backgroundImage: `url(${publicUrl.replace(/\/$/, "")}/${page.object_key})` } : undefined}
+                        role="img"
+                        aria-label={`Gambar kecil halaman ${page.page_number}`}
+                      >
+                        {!publicUrl && <BookOpen size={16} />}
+                      </div>
+                      <div className="chapter-page-meta">
+                        <div className="chapter-page-meta-row">
+                          <span className="chapter-page-label-group">
+                            <button
+                              type="button"
+                              className="chapter-page-drag-handle"
+                              aria-label={`Seret untuk mengurutkan ulang halaman ${page.page_number}`}
+                              title="Seret untuk mengurutkan ulang"
+                              draggable={reorderingPageId === null && uploading === false && deletingChapterId === null}
+                              onDragStart={(event) => {
+                                event.dataTransfer.effectAllowed = "move";
+                                event.dataTransfer.setData("text/plain", page.id);
+                                setDraggedPageId(page.id);
+                                setDraggedPageChapterId(chapter.id);
+                                setPageDropSlot(null);
+                              }}
+                              onDragEnd={() => {
+                                setDraggedPageId(null);
+                                setDraggedPageChapterId(null);
+                                setPageDropSlot(null);
+                              }}
+                              disabled={reorderingPageId !== null || uploading || deletingChapterId !== null}
+                            >
+                              <GripVertical size={16} />
+                            </button>
                             <span className="chapter-page-label" title={`Halaman ${page.page_number}`}>
                               {getPageLabel(page.page_number)}
                             </span>
-                            <button
-                              type="button"
-                              className="chapter-action chapter-action-danger"
-                              aria-label={`Hapus halaman ${page.page_number} dari ${chapter.title}`}
-                              title="Hapus halaman"
-                              onClick={() => void deletePage(chapter, page)}
-                              disabled={deletingPageId !== null || uploading || deletingChapterId !== null || reorderingPageId !== null}
-                            >
-                              {deletingPageId === page.id ? <LoaderCircle className="spin" size={14} /> : <Trash2 size={14} />}
-                            </button>
-                          </div>
-                          <div className="chapter-page-order">
-                            <button
-                              type="button"
-                              className="chapter-action"
-                              aria-label={`Pindahkan halaman ${page.page_number} ke kiri`}
-                              title="Pindahkan halaman ke kiri"
-                              onClick={() => void reorderPage(chapter, page, pagesByChapter[chapter.id][pageIndex - 1])}
-                              disabled={pageIndex === 0 || reorderingPageId !== null || deletingPageId !== null || uploading || deletingChapterId !== null}
-                            >
-                              {reorderingPageId === page.id ? <LoaderCircle className="spin" size={14} /> : <ChevronLeft size={15} />}
-                            </button>
-                            <button
-                              type="button"
-                              className="chapter-action"
-                              aria-label={`Pindahkan halaman ${page.page_number} ke kanan`}
-                              title="Pindahkan halaman ke kanan"
-                              onClick={() => void reorderPage(chapter, page, pagesByChapter[chapter.id][pageIndex + 1])}
-                              disabled={pageIndex === pagesByChapter[chapter.id].length - 1 || reorderingPageId !== null || deletingPageId !== null || uploading || deletingChapterId !== null}
-                            >
-                              {reorderingPageId === page.id ? <LoaderCircle className="spin" size={14} /> : <ChevronRight size={15} />}
-                            </button>
-                          </div>
+                          </span>
+                          <button
+                            type="button"
+                            className="chapter-action chapter-action-danger"
+                            aria-label={`Hapus halaman ${page.page_number} dari ${chapter.title}`}
+                            title="Hapus halaman"
+                            onClick={() => void deletePage(chapter, page)}
+                            disabled={deletingPageId !== null || uploading || deletingChapterId !== null || reorderingPageId !== null}
+                          >
+                            {deletingPageId === page.id ? <LoaderCircle className="spin" size={14} /> : <Trash2 size={14} />}
+                          </button>
+                        </div>
+                        <div className="chapter-page-order">
+                          <button
+                            type="button"
+                            className="chapter-action"
+                            aria-label={`Pindahkan halaman ${page.page_number} ke kiri`}
+                            title="Pindahkan halaman ke kiri"
+                            onClick={() => void reorderPage(chapter, page, pagesByChapter[chapter.id][pageIndex - 1])}
+                            disabled={pageIndex === 0 || reorderingPageId !== null || deletingPageId !== null || uploading || deletingChapterId !== null}
+                          >
+                            {reorderingPageId === page.id ? <LoaderCircle className="spin" size={14} /> : <ChevronLeft size={15} />}
+                          </button>
+                          <button
+                            type="button"
+                            className="chapter-action"
+                            aria-label={`Pindahkan halaman ${page.page_number} ke kanan`}
+                            title="Pindahkan halaman ke kanan"
+                            onClick={() => void reorderPage(chapter, page, pagesByChapter[chapter.id][pageIndex + 1])}
+                            disabled={pageIndex === pagesByChapter[chapter.id].length - 1 || reorderingPageId !== null || deletingPageId !== null || uploading || deletingChapterId !== null}
+                          >
+                            {reorderingPageId === page.id ? <LoaderCircle className="spin" size={14} /> : <ChevronRight size={15} />}
+                          </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                    </div>
+                  ))}
+                  {pageDropSlot?.chapterId === chapter.id && pageDropSlot.index === (pagesByChapter[chapter.id] ?? []).length && draggedPageId && (
+                    <div
+                      className="chapter-page-drop-spacer"
+                      role="presentation"
+                      onDragOver={(event) => handlePageDragOver(event, chapter, pageDropSlot.index)}
+                      onDrop={(event) => handlePageDrop(event, chapter, pageDropSlot.index)}
+                    >
+                      <span>Lepaskan halaman di sini</span>
+                    </div>
+                  )}
+                  <label className={`chapter-page-add${uploading || deletingChapterId !== null || (pagesByChapter[chapter.id]?.length ?? 0) >= settings.max_pages_per_chapter ? " is-disabled" : ""}`}>
+                    <input type="file" accept={settings.allowed_image_types.join(",")} multiple disabled={uploading || deletingChapterId !== null || (pagesByChapter[chapter.id]?.length ?? 0) >= settings.max_pages_per_chapter} onChange={(event) => { setUploadChapter(chapter); void uploadPages(event); }} />
+                    <span className="chapter-page-add-icon"><Plus size={25} /></span>
+                    <strong>Tambah halaman</strong>
+                    <span>Unggah gambar halaman cerita berikutnya.</span>
+                  </label>
+                </div>
+                <div className="page-upload-guide">
+                  <Info size={17} aria-hidden="true" />
+                  <p>Rekomendasi per halaman: ponsel 720 × 1280 px (9:16), tablet 900 × 1200 px (3:4), desktop 1200 × 1800 px (2:3). Uploader menyimpan satu gambar per halaman tanpa varian perangkat. Jika komik tersedia di semua perangkat, gunakan master 1200 × 1800 px; reader menampilkan gambar utuh tanpa crop. Maks. {settings.max_pages_per_chapter} halaman per bab, {settings.max_upload_size_mb} MB per gambar.</p>
+                </div>
               </article>
             ))}
           </div>
