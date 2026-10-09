@@ -51,6 +51,7 @@ export default function ImageCropDialog({
   const cropFrameRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef(onCancel);
   const dragStartRef = useRef<{ pointerId: number; x: number; y: number; position: CropPosition } | null>(null);
+  const [cropFrameSize, setCropFrameSize] = useState({ width: 0, height: 0 });
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
   const [zoom, setZoom] = useState(1);
   const [position, setPosition] = useState<CropPosition>({ x: 0.5, y: 0.5 });
@@ -88,6 +89,33 @@ export default function ImageCropDialog({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [processing]);
+
+  useEffect(() => {
+    const dialog = cropFrameRef.current?.parentElement;
+    if (!dialog) return;
+    const updateSize = () => {
+      const dialogStyle = window.getComputedStyle(dialog);
+      const availableWidth = dialog.clientWidth
+        - Number.parseFloat(dialogStyle.paddingLeft)
+        - Number.parseFloat(dialogStyle.paddingRight);
+      if (availableWidth <= 0) return;
+      const availableHeight = Math.min(window.innerHeight * 0.52, 440);
+      const width = Math.min(availableWidth, availableHeight * aspectRatio);
+      const height = width / aspectRatio;
+      setCropFrameSize((current) => current.width === width && current.height === height ? current : { width, height });
+    };
+    const frame = window.requestAnimationFrame(updateSize);
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(dialog);
+    window.addEventListener("resize", updateSize);
+    window.visualViewport?.addEventListener("resize", updateSize);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", updateSize);
+      window.visualViewport?.removeEventListener("resize", updateSize);
+    };
+  }, [aspectRatio]);
 
   useEffect(() => {
     if (!previewUrl) return;
@@ -198,7 +226,11 @@ export default function ImageCropDialog({
         <div
           ref={cropFrameRef}
           className="image-crop-frame"
-          style={{ aspectRatio: `${aspectRatio}` }}
+          style={{
+            aspectRatio: `${aspectRatio}`,
+            width: cropFrameSize.width > 0 ? `${cropFrameSize.width}px` : "100%",
+            height: cropFrameSize.height ? `${cropFrameSize.height}px` : undefined,
+          }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={(event) => {
