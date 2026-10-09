@@ -16,9 +16,11 @@ Unggah **satu gambar untuk setiap halaman**, bukan satu gambar gabungan untuk sa
 
 - Buat halaman dalam orientasi potret. Rasio 2:3 adalah patokan agar dua halaman desktop membentuk spread 4:3.
 - Reader menggunakan `contain` untuk halaman komik: gambar utuh terlihat dan tidak dipotong. Jika rasio gambar berbeda, ruang kosong dapat muncul di sisi tertentu.
+- Halaman komik tidak melalui crop otomatis. Pertahankan seluruh panel dan teks; uploader bab tetap menerima halaman asli.
 - Target perangkat komik menentukan perangkat yang boleh membuka komik, bukan varian berkas gambar. Halaman yang diunggah dipakai bersama pada perangkat yang diizinkan.
 - Jaga balon dialog, teks, wajah, dan detail penting tetap masuk ke area aman; sisakan margin sekitar 3–5% dari tiap tepi.
 - Hindari menggabungkan halaman kiri dan kanan menjadi satu berkas.
+- Di editor komik, memilih sampul membuka alat crop rasio 3:4. Geser atau zoom gambar, lalu gunakan hasilnya; pemrosesan dilakukan di browser dan hasil diunggah saat perubahan komik disimpan. Gambar sumber maksimal 25 MB, sedangkan hasil mengikuti batas unggah platform.
 
 ## Iklan Kampanye
 
@@ -45,6 +47,8 @@ Promo utama beranda dikelola terpisah dari kampanye sponsor.
 - Iklan native pada halaman reader biasa menggunakan gambar utuh (`contain`) dan copy berada di bagian bawah.
 - Jika materi tablet atau ponsel tidak diunggah, aplikasi menggunakan gambar komputer sebagai pengganti.
 - Karena rasio dan cara tampil berbeda antarpenempatan, unggah varian perangkat jika tersedia. Periksa pratinjau khususnya untuk teks/logo dekat tepi; materi yang memakai `cover` bisa terpotong.
+- Memilih materi di formulir `/push-ads` membuka crop untuk perangkat tersebut. Atur posisi dan zoom, lalu gunakan hasil crop; pemrosesan berlangsung di browser. Berkas sumber maksimal 25 MB dan hasil maksimal 5 MB per perangkat. Materi baru diunggah ke penyimpanan dan pengajuan disimpan setelah formulir dikirim.
+- Bila satu kampanye memilih banner beranda dan antar-episode sekaligus, crop mengikuti rasio banner beranda. Ajukan kampanye terpisah jika membutuhkan komposisi gambar khusus antar-episode.
 
 ## Format dan kualitas berkas
 

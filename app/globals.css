@@ -2,6 +2,34 @@
 
 :root { --ink: #1e2524; --paper: #f1efe8; --mint: #b9ded0; --orange: #f26b43; --line: rgba(30, 37, 36, .17); }
 
+.image-crop-backdrop { position: fixed; z-index: 1200; inset: 0; display: grid; place-items: center; overflow-y: auto; padding: 18px; background: rgba(14,19,16,.72); }
+.image-crop-dialog { width: min(100%, 620px); max-height: calc(100vh - 36px); max-height: calc(100dvh - 36px); display: grid; gap: 14px; overflow-y: auto; padding: clamp(17px, 4vw, 26px); border: 1px solid var(--line); border-radius: 11px; background: #fffdf8; color: var(--ink); box-shadow: 0 24px 80px rgba(0,0,0,.28); }
+.image-crop-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.image-crop-heading .eyebrow { margin: 0 0 6px; color: #a8492f; font-size: .62rem; font-weight: 850; letter-spacing: .12em; }
+.image-crop-heading h2 { margin: 0; font-size: clamp(1.35rem, 4vw, 1.8rem); line-height: 1.05; letter-spacing: -.055em; }
+.image-crop-close { width: 36px; height: 36px; display: grid; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); border-radius: 7px; background: transparent; color: #68756e; cursor: pointer; }
+.image-crop-close:focus-visible, .image-crop-actions button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.image-crop-close:disabled { opacity: .55; cursor: wait; }
+.image-crop-instructions { margin: 0; color: #69766e; font-size: .76rem; line-height: 1.5; }
+.image-crop-frame { position: relative; width: 100%; max-height: min(52vh, 440px); overflow: hidden; background: repeating-conic-gradient(#e5e3dc 0% 25%, #f4f2ec 0% 50%) 50% / 18px 18px; cursor: grab; touch-action: none; user-select: none; }
+.image-crop-frame:active { cursor: grabbing; }
+.image-crop-frame > img { position: absolute; max-width: none; pointer-events: none; user-select: none; }
+.image-crop-move-hint { position: absolute; right: 9px; bottom: 9px; display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px; border-radius: 5px; background: rgba(20,25,22,.78); color: #fff; font-size: .62rem; font-weight: 750; pointer-events: none; }
+.image-crop-zoom { display: grid; gap: 8px; color: var(--ink); font-size: .75rem; font-weight: 750; }
+.image-crop-zoom > span { display: flex; align-items: center; gap: 6px; }
+.image-crop-zoom b { margin-left: auto; color: #69766e; font-variant-numeric: tabular-nums; }
+.image-crop-zoom input { width: 100%; accent-color: var(--orange); }
+.image-crop-output-size { margin: -6px 0 0; color: #77827b; font-size: .67rem; }
+.image-crop-error { margin: 0; padding: 10px 12px; border-radius: 6px; background: #fff0e9; color: #a13d2a; font-size: .73rem; line-height: 1.5; }
+.image-crop-actions { display: flex; justify-content: end; gap: 9px; padding-top: 4px; }
+.image-crop-actions button { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; cursor: pointer; }
+.image-crop-actions button:disabled { opacity: .6; cursor: wait; }
+.cover-crop-change { min-height: 36px; justify-self: start; margin-top: -8px; padding: 0 12px; font-size: .68rem; }
+html[data-theme="dark"] .image-crop-dialog { border-color: #424a45; background: #202623; color: #f1efe8; }
+html[data-theme="dark"] .image-crop-instructions, html[data-theme="dark"] .image-crop-output-size, html[data-theme="dark"] .image-crop-zoom b { color: #c0c8c1; }
+html[data-theme="dark"] .image-crop-close { border-color: #424a45; color: #d2d8d3; }
+html[data-theme="dark"] .image-crop-error { background: #402b24; color: #ffb19a; }
+
 .push-ads-page { min-height: 100vh; background: var(--paper); color: var(--ink); }
 .push-ads-header { max-width: 1240px; height: 76px; display: flex; align-items: center; justify-content: space-between; margin: auto; padding: 0 28px; border-bottom: 1px solid var(--line); }
 .push-ads-header .wordmark-image { width: 42px; height: 42px; }

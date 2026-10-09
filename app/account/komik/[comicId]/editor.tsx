@@ -10,6 +10,7 @@ import { COMIC_LANGUAGES, ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, T
 import { COMIC_TARGET_DEVICES, type ComicTargetDevice } from "@/lib/comic-target-device";
 import { createComicSharePreview } from "@/lib/comic-share-preview";
 import { usePlatformSettings } from "../../../platform-runtime";
+import ImageCropDialog from "@/components/image-crop-dialog";
 
 type ComicContributor = { role: string; name: string };
 type Comic = {
@@ -125,6 +126,7 @@ export default function CreatorComicPage() {
   const [form, setForm] = useState({ title: "", chapterNumber: "", published: false });
   const [comicForm, setComicForm] = useState<ComicForm>(initialComicForm);
   const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverCropFile, setCoverCropFile] = useState<File | null>(null);
   const [uploadingChapter, setUploadChapterState] = useState<Chapter | null>(null);
   const uploadChapterRef = useRef<Chapter | null>(null);
   const setUploadChapter = (chapter: Chapter | null) => {
@@ -138,6 +140,19 @@ export default function CreatorComicPage() {
     fileIndex: number;
     totalFiles: number;
   } | null>(null);
+  const startCoverCrop = (file: File | null) => {
+    if (!file) return;
+    if (!settings.allowed_image_types.includes(file.type)) {
+      setMessage(`Format sampul harus ${settings.allowed_image_types.map((type) => type.replace("image/", "").toUpperCase()).join(", ")}.`);
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      setMessage("Gambar sumber maksimal 25 MB agar dapat diproses dengan lancar di perangkat.");
+      return;
+    }
+    setMessage("");
+    setCoverCropFile(file);
+  };
 
   useEffect(() => {
     const loadComic = async () => {
@@ -576,6 +591,7 @@ export default function CreatorComicPage() {
     : comic.contributor;
 
   return (
+    <>
     <div className="creator-comic-editor">
       <header className="chapter-manager-header">
         <Link className="auth-back creator-comic-back" href="/account/komiku"><ArrowLeft size={16} /> Komikku</Link>
@@ -678,9 +694,10 @@ export default function CreatorComicPage() {
           {comicForm.originType === "adaptation" && <label>Sumber adaptasi<input required maxLength={500} value={comicForm.sourceInfo} onChange={(event) => setComicForm({ ...comicForm, sourceInfo: event.target.value })} placeholder="Judul dan pencipta karya sumber" /></label>}
           <p className="comic-form-note">Semua komik di mu-komik gratis untuk dibaca.</p>
           <label className="cover-upload-field">Sampul komik
-            <input type="file" accept={settings.allowed_image_types.join(",")} onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)} />
-            <span>{coverFile ? `Dipilih: ${coverFile.name}` : comic.cover_key ? "Sampul saat ini tetap digunakan jika kamu tidak memilih berkas baru." : "Belum ada sampul."} Maks. {settings.max_upload_size_mb} MB.</span>
+            <input type="file" accept={settings.allowed_image_types.join(",")} onChange={(event) => { startCoverCrop(event.target.files?.[0] ?? null); event.currentTarget.value = ""; }} />
+            <span>{coverFile ? `Sampul siap: ${coverFile.name}` : comic.cover_key ? "Sampul saat ini tetap digunakan jika kamu tidak memilih berkas baru." : "Belum ada sampul."} Rasio crop 3:4 · hasil maksimal 1200 × 1600 px dan {settings.max_upload_size_mb} MB.</span>
           </label>
+          {coverFile && <button className="button button-light cover-crop-change" type="button" onClick={() => setCoverFile(null)} disabled={savingComic}>Hapus pilihan sampul</button>}
           <div className="comic-form-actions">
             <button className="button button-dark" type="submit" disabled={savingComic}>
               {savingComic ? <><LoaderCircle className="spin" size={16} /> Menyimpan...</> : <>Simpan perubahan <ArrowUpRight size={16} /></>}
@@ -812,5 +829,20 @@ export default function CreatorComicPage() {
       </section>
       </div>}
     </div>
+      {coverCropFile && <ImageCropDialog
+        file={coverCropFile}
+        title="Crop sampul komik"
+        aspectRatio={3 / 4}
+        outputWidth={1200}
+        outputHeight={1600}
+        maxSourceBytes={25 * 1024 * 1024}
+        maxOutputBytes={settings.max_upload_size_mb * 1024 * 1024}
+        onCancel={() => setCoverCropFile(null)}
+        onComplete={(file) => {
+          setCoverFile(file);
+          setCoverCropFile(null);
+        }}
+      />}
+    </>
   );
 }

@@ -6,11 +6,13 @@ import Image from "next/image";
 import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import { createClient } from "@/lib/supabase/client";
+import ImageCropDialog from "@/components/image-crop-dialog";
 
 type AdStatus = "pending" | "contacted" | "approved" | "rejected";
 type CreativeDevice = "desktop" | "tablet" | "mobile";
 type CreativeAsset = { file: File; previewUrl: string };
 type CreativeFiles = Record<CreativeDevice, CreativeAsset | null>;
+type CreativeCrop = { device: CreativeDevice; file: File; width: number; height: number };
 type AdRequest = {
   id: string;
   advertiser_name: string;
@@ -35,6 +37,7 @@ const creativeDevices: { value: CreativeDevice; label: string; icon: typeof Moni
   { value: "mobile", label: "Mobile", icon: Smartphone },
 ];
 const maxCreativeSize = 5 * 1024 * 1024;
+const maxCreativeSourceSize = 25 * 1024 * 1024;
 const creativeMimeTypes = ["image/jpeg", "image/png", "image/webp"];
 const isAdRequestSchemaError = (code: string) => ["42P01", "42703", "PGRST204", "PGRST205"].includes(code);
 const placementOptions = [
@@ -136,15 +139,17 @@ function CreativeUploadField({
   device,
   asset,
   size,
-  onChange,
+  onSelect,
+  onRemove,
 }: {
   device: CreativeDevice;
   asset: CreativeAsset | null;
   size: string;
-  onChange: (device: CreativeDevice, file: File | null) => void;
+  onSelect: (device: CreativeDevice, file: File | null) => void;
+  onRemove: (device: CreativeDevice) => void;
 }) {
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onChange(device, event.target.files?.[0] ?? null);
+    onSelect(device, event.target.files?.[0] ?? null);
     event.currentTarget.value = "";
   };
   const deviceLabel = creativeDevices.find((item) => item.value === device)?.label ?? device;
@@ -166,7 +171,7 @@ function CreativeUploadField({
         <div className="push-ads-upload-file">
           {previewUrl && <div className="push-ads-upload-thumbnail"><Image src={previewUrl} alt="" fill sizes="64px" unoptimized /></div>}
           <span title={file.name}>{file.name}<small>{(file.size / (1024 * 1024)).toFixed(2)} MB</small></span>
-          <button type="button" aria-label={`Hapus gambar ${deviceLabel}`} onClick={() => onChange(device, null)}><Trash2 size={15} /></button>
+          <button type="button" aria-label={`Hapus gambar ${deviceLabel}`} onClick={() => onRemove(device)}><Trash2 size={15} /></button>
         </div>
       ) : <p className="push-ads-upload-empty">Belum ada gambar · opsional</p>}
     </div>
@@ -202,6 +207,7 @@ function ImageSizeGuide({
         ? <small>Untuk penempatan selain banner beranda, gunakan desktop 1200 × 600 px, tablet 900 × 600 px, dan mobile 720 × 900 px.</small>
         : !includesHomeBanner && <small>Jika memilih banner beranda, rekomendasinya desktop 1200 × 400 px, tablet 768 × 360 px, dan mobile 720 × 480 px.</small>}
       {includesEpisodeTransition && <small>Untuk iklan antar episode desktop, gambar berada di kolom kiri (sekitar 56% lebar) dan ditampilkan dengan cover dari atas. Siapkan gambar sekitar 1200 × 1000 px (6:5) bila fokus pada penempatan ini; gambar potret dapat terpotong di bagian bawah. Jaga logo dan teks penting di area atas.</small>}
+      {includesEpisodeTransition && includesHomeBanner && <small>Banner beranda dan antar episode memiliki rasio berbeda. Karena satu berkas dipakai untuk penempatan yang dipilih, crop mengikuti rasio banner beranda; ajukan kampanye terpisah jika membutuhkan materi antar episode yang disusun khusus.</small>}
       <small>JPG, PNG, atau WebP. Iklan di halaman baca biasa menampilkan gambar utuh; jika materi tablet atau mobile kosong, gambar desktop menjadi pengganti.</small>
     </div>
   );
@@ -223,6 +229,7 @@ export default function PushAdsPage() {
   const [description, setDescription] = useState("");
   const [destinationUrl, setDestinationUrl] = useState("");
   const [creativeFiles, setCreativeFiles] = useState<CreativeFiles>({ desktop: null, tablet: null, mobile: null });
+  const [creativeCrop, setCreativeCrop] = useState<CreativeCrop | null>(null);
   const creativeObjectUrls = useRef<Partial<Record<CreativeDevice, string>>>({});
   const [placements, setPlacements] = useState<string[]>([]);
   const [requestedStart, setRequestedStart] = useState("");
@@ -328,6 +335,28 @@ export default function PushAdsPage() {
     setCreativeFiles((current) => ({ ...current, [device]: asset }));
   };
 
+  const startCreativeCrop = (device: CreativeDevice, file: File | null) => {
+    if (!file) return;
+    if (!creativeMimeTypes.includes(file.type)) {
+      setErrorMessage("Format gambar harus JPG, PNG, atau WebP.");
+      return;
+    }
+    if (file.size > maxCreativeSourceSize) {
+      setErrorMessage("Gambar sumber maksimal 25 MB agar dapat diproses dengan lancar di perangkat.");
+      return;
+    }
+    const hasHomeBanner = placements.includes("home_banner");
+    const isEpisodeTransition = placements.includes("reader_episode_transition");
+    const width = device === "desktop" ? 1200 : device === "tablet" ? hasHomeBanner ? 768 : 900 : 720;
+    const height = device === "desktop"
+      ? isEpisodeTransition && !hasHomeBanner ? 1000 : hasHomeBanner ? 400 : 600
+      : device === "tablet"
+        ? hasHomeBanner ? 360 : 600
+        : hasHomeBanner ? 480 : 900;
+    setErrorMessage("");
+    setCreativeCrop({ device, file, width, height });
+  };
+
   const submitRequest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage("");
@@ -417,6 +446,7 @@ export default function PushAdsPage() {
     });
     creativeObjectUrls.current = {};
     setCreativeFiles({ desktop: null, tablet: null, mobile: null });
+    setCreativeCrop(null);
     setPlacements([]);
     setRequestedStart("");
     setRequestedEnd("");
@@ -516,14 +546,14 @@ export default function PushAdsPage() {
                     {creativeDevices.map(({ value }) => {
                       const includesHomeBanner = placements.includes("home_banner");
                       const size = value === "desktop"
-                        ? includesHomeBanner ? "1200 × 400 px" : "1200 × 600 px"
+                        ? placements.includes("reader_episode_transition") && !includesHomeBanner ? "1200 × 1000 px" : includesHomeBanner ? "1200 × 400 px" : "1200 × 600 px"
                         : value === "tablet"
                           ? includesHomeBanner ? "768 × 360 px" : "900 × 600 px"
                           : includesHomeBanner ? "720 × 480 px" : "720 × 900 px";
-                      return <CreativeUploadField key={value} device={value} asset={creativeFiles[value]} size={size} onChange={updateCreativeFile} />;
+                      return <CreativeUploadField key={value} device={value} asset={creativeFiles[value]} size={`${size} · crop sebelum unggah`} onSelect={startCreativeCrop} onRemove={(device) => updateCreativeFile(device, null)} />;
                     })}
                   </div>
-                  <small className="push-ads-upload-help">JPG, PNG, atau WebP · maksimal 5 MB per gambar · setiap ukuran dapat diunggah terpisah.</small>
+                  <small className="push-ads-upload-help">Pilih gambar untuk mengatur crop dan pratinjau. Hasil diproses di perangkat, maksimal 5 MB per gambar. Gambar sumber maksimal 25 MB.</small>
                 </section>
 
                 <section className="push-ads-form-section" aria-labelledby="push-ads-contact-heading">
@@ -588,6 +618,20 @@ export default function PushAdsPage() {
       </section>
 
       <footer className="push-ads-footer"><BrandLogo linked={false} /><span>© 2026 MU Komik</span></footer>
+      {creativeCrop && <ImageCropDialog
+        file={creativeCrop.file}
+        title={`Crop materi iklan · ${creativeDevices.find((item) => item.value === creativeCrop.device)?.label ?? creativeCrop.device}`}
+        aspectRatio={creativeCrop.width / creativeCrop.height}
+        outputWidth={creativeCrop.width}
+        outputHeight={creativeCrop.height}
+        maxSourceBytes={maxCreativeSourceSize}
+        maxOutputBytes={maxCreativeSize}
+        onCancel={() => setCreativeCrop(null)}
+        onComplete={(file) => {
+          updateCreativeFile(creativeCrop.device, file);
+          setCreativeCrop(null);
+        }}
+      />}
     </main>
   );
 }
