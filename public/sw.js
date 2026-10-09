@@ -1,6 +1,7 @@
 const CACHE_PREFIX = "mu-komik-pwa-";
-const CACHE_NAME = `${CACHE_PREFIX}v3`;
+const CACHE_NAME = `${CACHE_PREFIX}v5`;
 const OFFLINE_URL = "/offline.html";
+const OFFLINE_SCRIPT_URL = "/offline-episodes.js";
 const PRECACHE_URLS = [
   "/pwa/icon.svg",
   "/pwa/icon-192.png",
@@ -15,7 +16,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(async (cache) => {
-        await cache.add(OFFLINE_URL);
+        await cache.addAll([OFFLINE_URL, OFFLINE_SCRIPT_URL]);
         const results = await Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url)));
         results.forEach((result, index) => {
           if (result.status === "rejected") {
@@ -49,6 +50,8 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request).catch(async () => {
+        const cachedNavigation = await caches.match(request);
+        if (cachedNavigation) return cachedNavigation;
         const offline = await caches.match(OFFLINE_URL);
         return offline || Response.error();
       }),
@@ -58,7 +61,8 @@ self.addEventListener("fetch", (event) => {
 
   const isImmutableNextAsset = url.pathname.startsWith("/_next/static/");
   const isPwaAsset = url.pathname.startsWith("/pwa/");
-  if (!isImmutableNextAsset && !isPwaAsset) return;
+  const isOfflineScript = url.pathname === OFFLINE_SCRIPT_URL;
+  if (!isImmutableNextAsset && !isPwaAsset && !isOfflineScript) return;
 
   event.respondWith(
     caches.match(request).then((cached) => {

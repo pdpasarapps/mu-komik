@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, CheckCircle2, ChevronUp, CircleDot, Copy, ExternalLink, Eye, Heart, LoaderCircle, Share2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, CheckCircle2, ChevronUp, CircleDot, Copy, Download, ExternalLink, Eye, Heart, LoaderCircle, Share2, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { usePlatformSettings } from "../../platform-runtime";
@@ -15,6 +15,16 @@ import DeviceUnavailableNotice from "@/components/device-unavailable-notice";
 import { useCurrentDevice } from "@/components/use-current-device";
 import { COMIC_TARGET_DEVICES, isComicAvailableOnDevice, type ComicTargetDevice } from "@/lib/comic-target-device";
 import { useReaderMembership } from "@/app/membership-runtime";
+import {
+  formatOfflineSize,
+  getOfflineTimestamp,
+  getOfflineEpisodes,
+  isOfflineLicenseValid,
+  OFFLINE_EPISODE_LIMIT,
+  removeOfflineEpisode,
+  saveOfflineEpisode,
+  type OfflineEpisode,
+} from "@/lib/offline-episodes";
 
 const supabase = createClient();
 
@@ -121,6 +131,13 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const [chapterLoadError, setChapterLoadError] = useState(false);
   const [chapterListLoading, setChapterListLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [offlineEpisodes, setOfflineEpisodes] = useState<OfflineEpisode[]>([]);
+  const [offlineDownloadId, setOfflineDownloadId] = useState<string | null>(null);
+  const [offlineDownloadProgress, setOfflineDownloadProgress] = useState("");
+  const [offlineDownloadError, setOfflineDownloadError] = useState("");
+  const [offlineReplacementChapter, setOfflineReplacementChapter] = useState<Chapter | null>(null);
+  const [offlineStorageMessage, setOfflineStorageMessage] = useState("");
+  const [allowMobileData, setAllowMobileData] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [engagement, setEngagement] = useState<ComicEngagement | null>(null);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
@@ -134,6 +151,41 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const shareUrlRef = useRef<HTMLTextAreaElement>(null);
   const primaryReadRef = useRef<HTMLAnchorElement>(null);
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setAllowMobileData(localStorage.getItem("mu-komik:offline-allow-mobile-data") === "true");
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const syncOfflineData = async () => {
+      try {
+        const savedEpisodes = await getOfflineEpisodes();
+        if (active) setOfflineEpisodes(savedEpisodes);
+        if ("storage" in navigator && navigator.storage.estimate) {
+          const estimate = await navigator.storage.estimate();
+          if (active) {
+            const used = estimate.usage ?? savedEpisodes.reduce((total, episode) => total + episode.sizeBytes, 0);
+            const quota = estimate.quota;
+            setOfflineStorageMessage(quota
+              ? `Penyimpanan browser: ${formatOfflineSize(used)} dari ${formatOfflineSize(quota)}`
+              : `Unduhan di perangkat ini: ${savedEpisodes.length}/${OFFLINE_EPISODE_LIMIT} episode · ${formatOfflineSize(used)}`);
+          }
+        } else if (active) {
+          const used = savedEpisodes.reduce((total, episode) => total + episode.sizeBytes, 0);
+          setOfflineStorageMessage(`Unduhan di perangkat ini: ${savedEpisodes.length}/${OFFLINE_EPISODE_LIMIT} episode · ${formatOfflineSize(used)}`);
+        }
+      } catch (error) {
+        console.error("Unable to synchronize offline episode storage:", error);
+        if (active) setOfflineDownloadError(error instanceof Error ? error.message : "Unduhan offline belum dapat diperiksa.");
+      }
+    };
+    void syncOfflineData();
+    return () => { active = false; };
+  }, [membership.ready, membership.tier, membership.verified, userId]);
 
   useEffect(() => {
     if (!episodeSnackbar) return;
@@ -417,6 +469,19 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
     return () => { active = false; };
   }, [currentDevice, initialChapters, initialComic, slug]);
 
+  useEffect(() => {
+    let active = true;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      window.setTimeout(() => {
+        if (active) setUserId(session?.user.id ?? null);
+      }, 0);
+    });
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   const toggleBookmark = async () => {
     if (!comic || !userId || bookmarkBusy) return;
     setBookmarkBusy(true);
@@ -484,6 +549,144 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
     shareUrlRef.current?.focus();
     shareUrlRef.current?.select();
     setShareMessage("Tautan dipilih. Salin dengan menekan Ctrl+C atau tahan lalu pilih Salin.");
+  };
+
+  const runOfflineDownload = async (chapter: Chapter, replacementChapterId?: string) => {
+    if (!comic || !userId || !membership.ready || !membership.verified
+      || (membership.tier !== "premium" && membership.tier !== "vip")) {
+      setOfflineDownloadError("Unduhan offline hanya tersedia untuk akun Premium yang statusnya berhasil diverifikasi.");
+      return;
+    }
+    if (!navigator.onLine) {
+      setOfflineDownloadError("Koneksi internet diperlukan untuk mengunduh episode.");
+      return;
+    }
+    if (!("serviceWorker" in navigator)) {
+      setOfflineDownloadError("Browser ini tidak mendukung layanan offline. Gunakan browser yang mendukung PWA.");
+      return;
+    }
+    if (!publicUrl) {
+      setOfflineDownloadError("Alamat penyimpanan gambar belum dikonfigurasi. Hubungi admin.");
+      return;
+    }
+    const connection = (navigator as Navigator & { connection?: { type?: string; effectiveType?: string } }).connection;
+    const likelyMobileNetwork = connection?.type === "cellular";
+    const networkUnverified = connection?.type !== "wifi" && connection?.type !== "ethernet" && !likelyMobileNetwork;
+    if (likelyMobileNetwork || (!allowMobileData && networkUnverified)) {
+      const warning = likelyMobileNetwork
+        ? "Browser mendeteksi koneksi seluler. Unduhan dapat memakai kuota data. Tetap lanjutkan?"
+        : "Browser tidak dapat mengenali jenis koneksi (misalnya kabel LAN atau Wi-Fi). Jika saat ini menggunakan data seluler, unduhan dapat memakai kuota. Tetap lanjutkan?";
+      if (!window.confirm(warning)) return;
+    }
+    const existingEpisode = offlineEpisodes.find((episode) => episode.chapterId === chapter.id);
+    if (!replacementChapterId && !existingEpisode && offlineEpisodes.length >= OFFLINE_EPISODE_LIMIT) {
+      setOfflineReplacementChapter(chapter);
+      setOfflineDownloadError("");
+      return;
+    }
+    setOfflineReplacementChapter(null);
+    setOfflineDownloadId(chapter.id);
+    setOfflineDownloadError("");
+    setOfflineDownloadProgress("Memeriksa halaman episode…");
+    try {
+      let serviceWorkerTimeout = 0;
+      const serviceWorker = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<never>((_resolve, reject) => {
+          serviceWorkerTimeout = window.setTimeout(() => reject(new Error("Layanan offline belum siap. Muat ulang halaman lalu coba lagi.")), 10000);
+        }),
+      ]).finally(() => window.clearTimeout(serviceWorkerTimeout));
+      if (!serviceWorker.active) throw new Error("Layanan offline belum aktif. Muat ulang halaman lalu coba lagi.");
+      const { data: publishedChapter, error: publishedChapterError } = await supabase
+        .from("chapters")
+        .select("id")
+        .eq("id", chapter.id)
+        .eq("comic_id", comic.id)
+        .not("published_at", "is", null)
+        .maybeSingle();
+      if (publishedChapterError) throw new Error(`Status terbit episode tidak dapat diverifikasi: ${publishedChapterError.message}`);
+      if (!publishedChapter) throw new Error("Episode ini sudah tidak diterbitkan dan tidak dapat diunduh.");
+      const { data: pageRows, error: pagesError } = await supabase
+        .from("pages")
+        .select("id, page_number, object_key")
+        .eq("chapter_id", chapter.id)
+        .order("page_number", { ascending: true });
+      if (pagesError) throw new Error(`Daftar halaman tidak dapat dimuat: ${pagesError.message}`);
+      if (!pageRows?.length) throw new Error("Episode ini belum memiliki halaman untuk diunduh.");
+      const storageEstimate = "storage" in navigator && navigator.storage.estimate
+        ? await navigator.storage.estimate()
+        : null;
+      const replacedEpisode = replacementChapterId
+        ? offlineEpisodes.find((episode) => episode.chapterId === replacementChapterId)
+        : existingEpisode;
+      const pages: OfflineEpisode["pages"] = [];
+      let downloadedBytes = 0;
+      for (let index = 0; index < pageRows.length; index += 1) {
+        const page = pageRows[index];
+        setOfflineDownloadProgress(`Mengunduh halaman ${index + 1} dari ${pageRows.length}…`);
+        let response: Response;
+        try {
+          response = await fetch(`${publicUrl.replace(/\/$/, "")}/${page.object_key}`, { cache: "no-store" });
+        } catch (error) {
+          console.error(`Unable to fetch image for offline episode page ${index + 1}:`, error);
+          throw new Error(`Koneksi ke gambar halaman ${index + 1} gagal. Periksa koneksi dan pengaturan penyimpanan gambar.`);
+        }
+        if (!response.ok) throw new Error(`Gagal mengunduh halaman ${index + 1} (HTTP ${response.status}).`);
+        const image = await response.blob();
+        if (!image.size || !image.type.startsWith("image/")) {
+          throw new Error(`File halaman ${index + 1} bukan gambar yang valid.`);
+        }
+        downloadedBytes += image.size;
+        const projectedUsage = Math.max(0, (storageEstimate?.usage ?? 0) - (replacedEpisode?.sizeBytes ?? 0)) + downloadedBytes;
+        if (storageEstimate?.quota && projectedUsage > storageEstimate.quota) {
+          throw new Error("Ruang penyimpanan browser tidak cukup. Hapus unduhan lama lalu coba lagi.");
+        }
+        pages.push({ id: page.id, pageNumber: page.page_number, image });
+      }
+      const [{ data: sessionData, error: sessionError }, { data: currentMembership, error: membershipError }] = await Promise.all([
+        supabase.auth.getSession(),
+        supabase.from("reader_memberships").select("tier").eq("user_id", userId).maybeSingle(),
+      ]);
+      if (sessionError) throw new Error(`Sesi akun tidak dapat diverifikasi: ${sessionError.message}`);
+      if (sessionData.session?.user.id !== userId) throw new Error("Akun berubah selama pengunduhan. Silakan mulai lagi.");
+      if (membershipError) throw new Error(`Status Premium tidak dapat diverifikasi: ${membershipError.message}`);
+      if (currentMembership?.tier !== "premium" && currentMembership?.tier !== "vip") {
+        throw new Error("Keanggotaan Premium tidak aktif. Episode tidak disimpan.");
+      }
+      localStorage.removeItem(`mu-komik:offline-revoked:${userId}`);
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", userId)
+        .maybeSingle();
+      if (profileError) console.error("Unable to load the reader name for offline watermark:", profileError);
+      const watermarkName = profile?.display_name?.trim().slice(0, 32) || "Pembaca";
+      localStorage.setItem("mu-komik:offline-watermark-name", watermarkName);
+      setOfflineDownloadProgress("Menyimpan episode di perangkat…");
+      const downloadTimestamp = getOfflineTimestamp();
+      await saveOfflineEpisode({
+        chapterId: chapter.id,
+        comicSlug: comic.slug,
+        comicTitle: comic.title,
+        chapterTitle: chapter.title || `Episode ${chapter.chapter_number}`,
+        chapterNumber: chapter.chapter_number,
+        ownerId: userId,
+        downloadedAt: downloadTimestamp,
+        verifiedAt: downloadTimestamp,
+        sizeBytes: downloadedBytes,
+        pages,
+      }, replacementChapterId);
+      const savedEpisodes = await getOfflineEpisodes();
+      setOfflineEpisodes(savedEpisodes);
+      setOfflineStorageMessage(`Unduhan di perangkat ini: ${savedEpisodes.length}/${OFFLINE_EPISODE_LIMIT} episode · ${formatOfflineSize(downloadedBytes)} diunduh`);
+      setOfflineDownloadProgress("Episode tersedia untuk dibaca offline.");
+    } catch (error) {
+      console.error("Unable to download an offline episode:", error);
+      setOfflineDownloadError(error instanceof Error ? error.message : "Episode tidak dapat disimpan offline.");
+      setOfflineDownloadProgress("");
+    } finally {
+      setOfflineDownloadId(null);
+    }
   };
 
   if (loading) return (
@@ -618,6 +821,17 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
       <SponsoredAd slotKey="comic_detail_sponsor" placement="comic" comicId={comic.id} />
       <section className="reader-episodes">
         <div className="reader-section-heading"><div><p className="reader-section-kicker">LANJUTKAN CERITA</p><h2>Episode</h2></div><span className="reader-result-count">{chapters.length} episode</span></div>
+        {membership.ready && membership.verified && (membership.tier === "premium" || membership.tier === "vip") && (
+          <div className="reader-offline-settings">
+            <p>Unduhan Premium tersimpan di perangkat ini, maksimal {OFFLINE_EPISODE_LIMIT} episode. Lisensi dibarui saat status Premium berhasil diverifikasi online dan berlaku 7 hari sejak verifikasi terakhir.</p>
+            {offlineStorageMessage && <small>{offlineStorageMessage}</small>}
+            <label><input type="checkbox" checked={allowMobileData} onChange={(event) => {
+              const allowed = event.currentTarget.checked;
+              setAllowMobileData(allowed);
+              localStorage.setItem("mu-komik:offline-allow-mobile-data", String(allowed));
+            }} /> Ingat bahwa saya memakai Wi-Fi/LAN saat browser tidak dapat mengenali jenis koneksi</label>
+          </div>
+        )}
         {chapterProgressError && <p className="reader-episode-progress-error" role="status">Progres episode belum dapat diverifikasi. Muat ulang halaman untuk mencoba lagi; episode berikutnya dikunci sementara.</p>}
         {chapterListLoading ? (
           <div className="reader-detail-episode-skeletons" aria-label="Memuat episode">{[0, 1, 2].map((item) => <span className="reader-detail-skeleton" key={item} />)}</div>
@@ -626,6 +840,9 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
             {chapters.map((chapter) => {
               const index = chapters.findIndex((item) => item.id === chapter.id);
               const unlocked = isChapterUnlocked(index);
+              const savedOfflineEpisode = offlineEpisodes.find((episode) => episode.chapterId === chapter.id);
+              const savedForCurrentAccount = Boolean(userId && savedOfflineEpisode?.ownerId === userId);
+              const validOfflineLicense = Boolean(savedOfflineEpisode && userId && isOfflineLicenseValid(savedOfflineEpisode, userId));
               const rowClass = `reader-episode-row${chapter.id === lastReadChapterId ? " reader-episode-last-read" : ""}${unlocked ? "" : " reader-episode-row-locked"}`;
               const content = (
                 <>
@@ -648,14 +865,79 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
                   </span>
                 </>
               );
-              return unlocked
-                ? <Link className={rowClass} href={`/comic/${comic.slug}/chapter/${chapter.id}`} key={chapter.id}>{content}</Link>
-                : <button className={rowClass} type="button" aria-label={`Episode ${chapter.chapter_number} terkunci`} key={chapter.id} onClick={() => setEpisodeSnackbar("Selesaikan episode sebelumnya")}>{content}</button>;
+              return (
+                <div className="reader-episode-entry" key={chapter.id}>
+                  {unlocked
+                    ? savedForCurrentAccount
+                      ? <a className={rowClass} href={`/comic/${comic.slug}/chapter/${chapter.id}`}>{content}</a>
+                      : <Link className={rowClass} href={`/comic/${comic.slug}/chapter/${chapter.id}`}>{content}</Link>
+                    : <button className={rowClass} type="button" aria-label={`Episode ${chapter.chapter_number} terkunci`} onClick={() => setEpisodeSnackbar("Selesaikan episode sebelumnya")}>{content}</button>}
+                  <div className="reader-episode-offline-actions">
+                    {savedOfflineEpisode && (
+                      <small className={validOfflineLicense ? "reader-offline-saved" : "reader-offline-locked"}>
+                        {savedForCurrentAccount
+                          ? validOfflineLicense ? "Tersimpan offline" : "Unduhan terkunci"
+                          : "Unduhan akun lain"}
+                      </small>
+                    )}
+                    {membership.ready && membership.verified && userId
+                      && (membership.tier === "premium" || membership.tier === "vip") && (
+                        <button
+                          className="reader-offline-download"
+                          type="button"
+                          disabled={offlineDownloadId !== null}
+                          onClick={() => void runOfflineDownload(chapter)}
+                          aria-label={`${savedForCurrentAccount ? "Perbarui unduhan" : "Unduh"} episode ${chapter.chapter_number} untuk offline`}
+                        >
+                          {offlineDownloadId === chapter.id
+                            ? <><LoaderCircle className="spin" size={15} /> Mengunduh…</>
+                            : <><Download size={15} /> {savedForCurrentAccount ? "Perbarui" : "Unduh"}</>}
+                        </button>
+                      )}
+                    {savedOfflineEpisode && (
+                      <button className="reader-offline-remove" type="button" onClick={async () => {
+                        if (!window.confirm(`Hapus unduhan Episode ${chapter.chapter_number} dari perangkat ini?`)) return;
+                        try {
+                        await removeOfflineEpisode(chapter.id);
+                        setOfflineEpisodes(await getOfflineEpisodes());
+                        setOfflineDownloadProgress("");
+                        } catch (error) {
+                        console.error("Unable to remove an offline episode:", error);
+                        setOfflineDownloadError(error instanceof Error ? error.message : "Unduhan offline tidak dapat dihapus.");
+                        }
+                      }} aria-label={`Hapus unduhan episode ${chapter.chapter_number}`}>
+                        Hapus
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
             })}
           </div>
         ) : chapterLoadError
           ? <div className="reader-empty-state"><p>Tidak dapat memuat episode.</p><button type="button" onClick={() => window.location.reload()}>Coba lagi</button></div>
           : <div className="reader-empty-state"><p>Belum ada episode yang diterbitkan.</p></div>}
+        {offlineDownloadProgress && <p className="reader-offline-progress" role="status">{offlineDownloadProgress}</p>}
+        {offlineDownloadError && <p className="reader-episode-progress-error" role="alert">{offlineDownloadError}</p>}
+        {offlineReplacementChapter && (
+          <div className="reader-share-backdrop" role="presentation" onClick={() => setOfflineReplacementChapter(null)}>
+            <section className="reader-offline-replace-dialog" role="dialog" aria-modal="true" aria-labelledby="reader-offline-replace-title" onClick={(event) => event.stopPropagation()}>
+              <button className="reader-share-close" type="button" aria-label="Tutup pilihan penggantian" onClick={() => setOfflineReplacementChapter(null)}><X size={19} /></button>
+              <p className="reader-section-kicker">BATAS {OFFLINE_EPISODE_LIMIT} EPISODE</p>
+              <h2 id="reader-offline-replace-title">Pilih unduhan yang akan diganti</h2>
+              <p>Episode baru baru akan menggantikan pilihanmu setelah seluruh halamannya berhasil diunduh dan disimpan.</p>
+              <div className="reader-offline-replacement-list">
+                {offlineEpisodes.map((episode) => (
+                  <button key={episode.chapterId} type="button" disabled={offlineDownloadId !== null} onClick={() => void runOfflineDownload(offlineReplacementChapter, episode.chapterId)}>
+                    <span><strong>{episode.comicTitle}</strong><small>Episode {episode.chapterNumber}: {episode.chapterTitle} · {formatOfflineSize(episode.sizeBytes)}{episode.ownerId === userId ? "" : " · akun lain"}</small></span>
+                    <span>Ganti</span>
+                  </button>
+                ))}
+              </div>
+              <button className="reader-offline-cancel" type="button" onClick={() => setOfflineReplacementChapter(null)}>Batal</button>
+            </section>
+          </div>
+        )}
       </section>
       <section className="reader-about-comic" aria-labelledby="reader-about-title">
         <div className="reader-section-heading"><div><p className="reader-section-kicker">INFORMASI CERITA</p><h2 id="reader-about-title">Tentang komik</h2></div></div>

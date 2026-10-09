@@ -49,6 +49,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const [currentPage, setCurrentPage] = useState(0);
   const [bookSpreadIndex, setBookSpreadIndex] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
+  const [watermarkName, setWatermarkName] = useState("Pembaca");
   const [historyReady, setHistoryReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -64,6 +65,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const bookTurnInProgressRef = useRef(false);
   const bookTurnSpreadCommitTimeoutRef = useRef<number | null>(null);
   const pagesContainerRef = useRef<HTMLElement>(null);
+  const watermarkLabel = `MU-KOMIK.COM · ${watermarkName}`;
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
   const desktopBookMode = currentDevice === "desktop"
     && (comic?.target_device ?? seed.comic.target_device) === "desktop";
@@ -71,6 +73,19 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     () => getDesktopBookLeaves(pages, membership.ready && membership.tier === "free"),
     [membership.ready, membership.tier, pages],
   );
+
+  useEffect(() => {
+    const blockReaderShortcuts = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLElement && event.target.closest("input, textarea, select, [contenteditable='true']")) return;
+      const key = event.key.toLowerCase();
+      if ((event.ctrlKey || event.metaKey) && (key === "s" || key === "p") || event.key === "PrintScreen") {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener("keydown", blockReaderShortcuts, true);
+    return () => window.removeEventListener("keydown", blockReaderShortcuts, true);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -172,15 +187,20 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
 
       const chapterIds = chapters.map((item) => item.id);
       const currentUserId = sessionData.session?.user.id ?? null;
-      const [{ data: allPageData, error: allPagesError }, { data: history, error: historyError }] = await Promise.all([
+      const [{ data: allPageData, error: allPagesError }, { data: history, error: historyError }, { data: profile, error: profileError }] = await Promise.all([
         supabase.from("pages").select("id, chapter_id, page_number, object_key").in("chapter_id", chapterIds).order("page_number"),
         currentUserId
           ? supabase.from("reading_history").select("chapter_id, last_page").eq("user_id", currentUserId).in("chapter_id", chapterIds)
           : Promise.resolve({ data: [], error: null }),
+        currentUserId
+          ? supabase.from("profiles").select("display_name").eq("id", currentUserId).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
       ]);
       if (allPagesError) console.error("Unable to verify episode reading order:", allPagesError);
       if (historyError) console.error("Unable to load episode reading progress:", historyError);
+      if (profileError) console.error("Unable to load reader watermark name:", profileError);
       if (!active) return;
+      setWatermarkName(profile?.display_name?.trim().slice(0, 32) || "Pembaca");
       if (allPagesError || historyError) {
         setComic(comicData);
         setErrorMessage("Urutan episode belum dapat diverifikasi. Periksa koneksi lalu coba lagi.");
@@ -640,6 +660,8 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   return (
     <main
       className={`reader-experience${controlsVisible ? "" : " reader-controls-hidden"}`}
+      onContextMenu={(event) => event.preventDefault()}
+      onDragStart={(event) => event.preventDefault()}
       onPointerDown={(event) => {
         if (!controlsVisible && !(event.target instanceof Element && event.target.closest("a, button, summary"))) {
           setControlsVisible(true);
@@ -762,6 +784,9 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                     </div>
                   </div>
                 )}
+                <div className="reader-watermark-overlay" aria-hidden="true">
+                  {Array.from({ length: 6 }, (_, index) => <span key={index}>{watermarkLabel}</span>)}
+                </div>
                 <span className="reader-book-spine" aria-hidden="true" />
               </div>
             </>
@@ -783,8 +808,9 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                         <span>{pageIsRead ? "Dibaca" : "Belum dibaca"}</span>
                       </span>
                       {src
-                        ? <img src={src} alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`} loading={index < 2 ? "eager" : "lazy"} onClick={() => setControlsVisible(true)} />
+                        ? <img src={src} alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`} loading={index < 2 ? "eager" : "lazy"} draggable={false} onClick={() => setControlsVisible(true)} />
                         : <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div>}
+                      {src && <div className="reader-watermark-overlay reader-page-watermark" aria-hidden="true">{Array.from({ length: 6 }, (_, watermarkIndex) => <span key={watermarkIndex}>{watermarkLabel}</span>)}</div>}
                     </div>
                     {(index + 1) % 5 === 0 && index < pages.length - 1 && (
                       <SponsoredAd

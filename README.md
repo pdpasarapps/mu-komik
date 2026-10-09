@@ -34,7 +34,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 Before deploying, run `npm run build` to verify the production build locally.
 
-For direct browser uploads and share-preview generation from R2, apply `r2-cors.json` in Cloudflare R2 bucket `mu-komik-assets` under Settings -> CORS policy. Add the final frontend domain to `AllowedOrigins` before production deployment.
+For direct browser uploads, share-preview generation, and Premium offline episode downloads from R2, apply `r2-cors.json` in Cloudflare R2 bucket `mu-komik-assets` under Settings -> CORS policy. The local production preview at `http://localhost:3030` is included; add other local ports or the final frontend domain to `AllowedOrigins` when needed.
 Comic cover file sharing fetches images through the same-origin `/api/share-cover` route, so it does not depend on browser CORS access to the R2 public host.
 
 For production uploads, configure these variables for the deployed Cloudflare Worker and redeploy:
