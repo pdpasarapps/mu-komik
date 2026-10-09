@@ -674,6 +674,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
         <p>Tempat cerita Indonesia menemukan pembacanya.</p>
         <PlatformLinks />
         <Link href="/">Jelajahi komik <ArrowRight size={15} /></Link>
+        <Link href="/syarat-ketentuan">Syarat layanan</Link>
       </footer>
       {stickyReadVisible && firstChapter && (
         <aside className="reader-sticky-read" aria-label="Lanjutkan membaca">

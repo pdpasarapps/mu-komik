@@ -10,6 +10,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: new URL("/manifesto", siteUrl).toString(),
     changeFrequency: "monthly",
     priority: 0.6,
+  }, {
+    url: new URL("/syarat-ketentuan", siteUrl).toString(),
+    changeFrequency: "yearly",
+    priority: 0.4,
   }];
   const supabase = createPublicSupabaseClient();
   if (!supabase) {
