@@ -636,7 +636,7 @@ export default function CreatorComicPage() {
           </div>
           <label>Judul Komik<input required maxLength={120} value={comicForm.title} onChange={(event) => setComicForm({ ...comicForm, title: event.target.value })} /></label>
           <label>Genre<select value={comicForm.genre} onChange={(event) => setComicForm({ ...comicForm, genre: event.target.value })}>{COMIC_GENRES.map((genre) => <option key={genre} value={genre}>{getComicGenreLabel(genre)}</option>)}</select></label>
-          <label>Target perangkat<select value={comicForm.targetDevice} onChange={(event) => setComicForm({ ...comicForm, targetDevice: COMIC_TARGET_DEVICES.find((device) => device.value === event.target.value)?.value ?? "all" })}>{COMIC_TARGET_DEVICES.map((device) => <option key={device.value} value={device.value}>{device.label}</option>)}</select><small>Komik hanya akan ditampilkan dan dapat dibaca di perangkat yang dipilih.</small></label>
+          <label>Target perangkat<select value={comicForm.targetDevice} onChange={(event) => setComicForm({ ...comicForm, targetDevice: COMIC_TARGET_DEVICES.find((device) => device.value === event.target.value)?.value ?? "all" })}>{COMIC_TARGET_DEVICES.map((device) => <option key={device.value} value={device.value}>{device.label}</option>)}</select><small>{comicForm.targetDevice === "all" ? "Komik akan tampil di semua perangkat." : `Komik hanya akan tampil dan dapat dibaca di ${COMIC_TARGET_DEVICES.find((device) => device.value === comicForm.targetDevice)?.label.toLowerCase()}; komik tidak akan tampil di perangkat lain.`}</small></label>
           <label>Deskripsi<textarea required maxLength={3000} rows={4} value={comicForm.synopsis} onChange={(event) => setComicForm({ ...comicForm, synopsis: event.target.value })} /></label>
           <fieldset className="comic-contributors-fieldset">
             <legend>Kredit kreator (minimal satu)</legend>
@@ -753,7 +753,7 @@ export default function CreatorComicPage() {
                   </button>
                   <label className="page-upload-button">
                     <input type="file" accept={settings.allowed_image_types.join(",")} multiple disabled={uploading || deletingChapterId !== null || (pagesByChapter[chapter.id]?.length ?? 0) >= settings.max_pages_per_chapter} onChange={(event) => { setUploadChapter(chapter); void uploadPages(event); }} />
-                    <small>Maks. {settings.max_pages_per_chapter} halaman per bab, {settings.max_upload_size_mb} MB per gambar.</small>
+                    <small>Komposisi khusus perangkat: ponsel 720 × 1280 px (9:16), tablet 900 × 1200 px (3:4), desktop 1200 × 1800 px per halaman (2:3). Uploader menyimpan satu gambar per halaman tanpa varian perangkat. Jika komik tersedia di semua perangkat, gunakan satu master 1200 × 1800 px per halaman; reader menampilkan gambar utuh tanpa crop. Maks. {settings.max_pages_per_chapter} halaman per bab, {settings.max_upload_size_mb} MB per gambar.</small>
                     Unggah halaman
                   </label>
                   <Link className="round-arrow" href={`/comic/${comic.slug}/chapter/${chapter.id}`} aria-label={`Pratinjau ${chapter.title}`}><ArrowUpRight size={17} /></Link>

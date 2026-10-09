@@ -8,16 +8,20 @@ Unggah **satu gambar untuk setiap halaman**, bukan satu gambar gabungan untuk sa
 
 | Penggunaan | Ukuran yang disarankan | Rasio | Catatan tampilan |
 | --- | ---: | ---: | --- |
-| Halaman komik ponsel/tablet | 900 × 1350 px | 2:3 | Ditampilkan mengikuti rasio asli gambar; jangan menaruh teks penting terlalu dekat ke tepi. |
-| Halaman komik desktop | 1200 × 1800 px per halaman | 2:3 | Dua halaman membentuk spread desktop dengan rasio keseluruhan 4:3. |
+| Halaman komik ponsel | 720 × 1280 px per halaman | 9:16 (potret) | Rekomendasi komposisi jika komik ditargetkan khusus untuk ponsel. |
+| Halaman komik tablet | 900 × 1200 px per halaman | 3:4 (potret) | Rekomendasi komposisi jika komik ditargetkan khusus untuk tablet. |
+| Halaman komik desktop | 1200 × 1800 px per halaman | 2:3 (potret) | Dua halaman terpisah membentuk spread desktop 4:3. |
+| Satu berkas untuk semua perangkat | 1200 × 1800 px per halaman | 2:3 (potret) | Opsi master lintas perangkat: unggah berkas yang sama untuk ponsel, tablet, dan desktop. |
 | Sampul komik | 1200 × 1600 px | 3:4 | Rasio kartu sampul adalah 3:4. Gambar ditampilkan utuh, jadi ruang kosong di sekitar gambar dapat terlihat. |
 
 ### Cara menyiapkan halaman
 
-- Buat halaman dalam orientasi potret. Rasio 2:3 adalah patokan agar dua halaman desktop membentuk spread 4:3.
-- Reader menggunakan `contain` untuk halaman komik: gambar utuh terlihat dan tidak dipotong. Jika rasio gambar berbeda, ruang kosong dapat muncul di sisi tertentu.
+- Gunakan komposisi potret yang sesuai target: 9:16 untuk ponsel, 3:4 untuk tablet, atau 2:3 untuk desktop.
+- Reader menggunakan `contain` untuk halaman komik: gambar utuh terlihat dan tidak dipotong. Rasio perangkat adalah rekomendasi komposisi, bukan crop wajib; rasio berbeda dapat menyisakan ruang kosong.
 - Halaman komik tidak melalui crop otomatis. Pertahankan seluruh panel dan teks; uploader bab tetap menerima halaman asli.
-- Target perangkat komik menentukan perangkat yang boleh membuka komik, bukan varian berkas gambar. Halaman yang diunggah dipakai bersama pada perangkat yang diizinkan.
+- Target perangkat komik menentukan perangkat yang boleh membuka komik, bukan varian berkas gambar. Saat ini sistem menyimpan satu gambar untuk setiap halaman, tanpa varian gambar terpisah per perangkat.
+- Jika targetnya ponsel, tablet, atau desktop tertentu, komik hanya akan ditampilkan dan dapat dibaca pada target tersebut; komik tidak akan tampil di perangkat lain. Pilih “Semua perangkat” agar komik tersedia di seluruh target.
+- Jika komik tersedia di semua perangkat, gunakan master 1200 × 1800 px (2:3) per halaman. Ini seimbang untuk reader vertikal dan membentuk spread desktop 4:3 dari dua halaman; unggah satu gambar per halaman, bukan beberapa versi untuk satu halaman.
 - Jaga balon dialog, teks, wajah, dan detail penting tetap masuk ke area aman; sisakan margin sekitar 3–5% dari tiap tepi.
 - Hindari menggabungkan halaman kiri dan kanan menjadi satu berkas.
 - Di editor komik, memilih sampul membuka alat crop rasio 3:4. Geser atau zoom gambar, lalu gunakan hasilnya; pemrosesan dilakukan di browser dan hasil diunggah saat perubahan komik disimpan. Gambar sumber maksimal 25 MB, sedangkan hasil mengikuti batas unggah platform.

@@ -821,10 +821,16 @@ export default function AccountContent({ section, children }: { section: Account
                   </thead>
                   <tbody>
                     <tr>
-                      <th scope="row">Halaman ponsel/tablet</th><td>900 × 1350 px</td><td>2:3 (potret)</td><td>Satu gambar untuk setiap halaman.</td>
+                      <th scope="row">Halaman komik · ponsel</th><td>720 × 1280 px</td><td>9:16 (potret)</td><td>Rekomendasi jika komik ditargetkan khusus untuk ponsel; unggah satu gambar per halaman.</td>
                     </tr>
                     <tr>
-                      <th scope="row">Halaman desktop</th><td>1200 × 1800 px per halaman</td><td>2:3 (potret)</td><td>Dua halaman terpisah membentuk spread 4:3; jangan gabungkan halaman kiri dan kanan.</td>
+                      <th scope="row">Halaman komik · tablet</th><td>900 × 1200 px</td><td>3:4 (potret)</td><td>Rekomendasi jika komik ditargetkan khusus untuk tablet; unggah satu gambar per halaman.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Halaman komik · desktop</th><td>1200 × 1800 px per halaman</td><td>2:3 (potret)</td><td>Dua halaman terpisah membentuk spread desktop 4:3; jangan gabungkan halaman kiri dan kanan.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Satu berkas untuk semua perangkat</th><td>1200 × 1800 px per halaman</td><td>2:3 (potret)</td><td>Gunakan satu berkas yang sama di ponsel, tablet, dan desktop jika komik tersedia untuk semua perangkat.</td>
                     </tr>
                     <tr>
                       <th scope="row">Sampul komik</th><td>1200 × 1600 px</td><td>3:4 (potret)</td><td>Sampul ditampilkan utuh. Sisakan ruang tepi untuk teks dan elemen penting.</td>
@@ -833,7 +839,9 @@ export default function AccountContent({ section, children }: { section: Account
                 </table>
               </div>
               <ul>
-                <li>Reader menampilkan halaman dan sampul secara utuh tanpa memotong gambar. Rasio yang berbeda dapat menimbulkan ruang kosong.</li>
+                <li>Rasio perangkat di atas adalah rekomendasi komposisi, bukan crop wajib. Reader menampilkan gambar utuh tanpa memotongnya; rasio yang berbeda dapat menyisakan ruang kosong.</li>
+                <li>Uploader menyimpan satu gambar untuk setiap halaman, bukan varian terpisah per perangkat. Jika komik tersedia di semua perangkat, gunakan master 1200 × 1800 px (2:3) agar dua halaman cocok menjadi spread desktop 4:3; jangan membuat versi ponsel/tablet terpisah karena belum ada slot varian halaman.</li>
+                <li>Target perangkat mengatur ketersediaan komik: jika memilih ponsel, tablet, atau desktop, komik hanya tampil dan bisa dibaca pada target tersebut, serta tidak tampil di perangkat lain. Pilih “Semua perangkat” agar tersedia di semuanya.</li>
                 <li>Letakkan balon dialog, teks, wajah, dan detail penting setidaknya 3–5% dari tepi gambar.</li>
                 <li>Ukuran file, format yang diizinkan, dan jumlah halaman mengikuti batas yang tampil di uploader saat mengunggah.</li>
               </ul>
