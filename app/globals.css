@@ -1224,7 +1224,8 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 @media (max-width: 640px) {
   .reader-transition-ad-backdrop { padding: 12px; }
   .reader-transition-ad-dialog { max-height: calc(100dvh - 24px); gap: 10px; padding: 18px 14px; }
-  .reader-sponsored-ad-transition.reader-sponsored-ad-native .reader-sponsored-ad-link { height: clamp(190px, 36dvh, 280px); }
+  .reader-sponsored-ad-transition.reader-sponsored-ad-native { height: auto; aspect-ratio: 9 / 16; }
+  .reader-sponsored-ad-transition.reader-sponsored-ad-native .reader-sponsored-ad-link { height: 100%; }
 }
 .reader-episode-next-action, .reader-episode-secondary-action { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 13px; border-radius: 7px; font-size: .72rem; font-weight: 750; }
 .reader-episode-next-action { background: #f26b43; color: #1e2524; }.reader-episode-next-action:hover { background: #fa8663; }
