@@ -1212,7 +1212,7 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
   .reader-sponsored-ad-comic { width: 100%; max-width: none; box-sizing: border-box; }
   .reader-sponsored-ad-comic .reader-sponsored-ad-link { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; }
   .reader-sponsored-ad-comic .reader-sponsored-ad-picture { width: 100%; height: auto; min-height: 0; aspect-ratio: 16 / 9; overflow: hidden; }
-  .reader-sponsored-ad-comic .reader-sponsored-ad-image { width: 100%; height: 100%; min-height: 0; object-fit: cover; }
+  .reader-sponsored-ad-comic .reader-sponsored-ad-image { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
   .reader-sponsored-ad-comic .reader-sponsored-ad-copy { padding: 16px; }
   .reader-sponsored-ad-banner .reader-sponsored-ad-link { height: 130px; min-height: 0; }
 }
