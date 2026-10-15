@@ -886,6 +886,11 @@ html[data-theme="dark"] .page-upload-guide { background: #29312d; color: #b4beb6
 .reader-welcome > p:not(.reader-kicker) { max-width: 500px; margin: 0; color: #59675e; line-height: 1.6; }
 .reader-home-content { max-width: 1440px; margin: 0 auto; padding: 0 clamp(20px, 5vw, 76px); }
 .reader-home-section { padding: 48px 0 13px; scroll-margin-top: 84px; }
+.reader-home-article-quote { margin-top: 35px; }
+.reader-home-article-quote .reader-section-kicker { color: #68776d; }
+.reader-home-article-quote h2 { max-width: 800px; }
+.reader-home-article-quote blockquote { max-width: 840px; margin-top: 10px; color: #59675e; font-size: .88rem; line-height: 1.7; }
+html[data-theme="dark"] .reader-home-article-quote blockquote { color: #a9b2ab; }
 .reader-seo-about { max-width: 1440px; margin: 42px auto 0; padding: 36px clamp(20px, 5vw, 76px); border-top: 1px solid var(--reader-border); }
 .reader-seo-about-header { max-width: 790px; display: grid; gap: 10px; margin-bottom: 22px; }
 .reader-seo-about-header .reader-section-kicker { margin: 0; }
@@ -1290,6 +1295,7 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
   .reader-featured-cover { width: 112px; height: 150px; border-radius: 8px; box-shadow: 0 8px 19px rgba(31,39,33,.13); }.reader-featured-cover > span { font-size: 2.7rem; }.reader-welcome { min-height: 265px; gap: 12px; padding: 28px 20px; }.reader-welcome h1, .reader-welcome h2 { font-size: 2.55rem; }.reader-welcome > p:not(.reader-kicker) { font-size: .83rem; }
   .reader-featured-loading { min-height: 210px; grid-template-columns: minmax(0,1fr) 92px; }.reader-featured-loading .reader-featured-skeleton-kicker { width: 110px; margin-bottom: 14px; }.reader-featured-loading .reader-featured-skeleton-meta { width: 84px; height: 8px; margin-bottom: 10px; }.reader-featured-loading .reader-featured-skeleton-title { width: 100px; height: 25px; margin-bottom: 10px; }.reader-featured-loading .reader-featured-skeleton-description { width: 100%; height: 30px; margin-bottom: 11px; }.reader-featured-loading .reader-featured-skeleton-button { width: 100px; height: 39px; }.reader-featured-cover-skeleton { width: 92px; height: 124px; border-radius: 8px; }
   .reader-home-content { padding: 0 16px; }.reader-home-section { padding: 34px 0 5px; scroll-margin-top: 70px; }.reader-section-heading { min-height: 45px; margin-bottom: 14px; }.reader-section-heading h2 { font-size: 1.45rem; }.reader-section-heading > a { font-size: .67rem; }.reader-section-heading > a svg { width: 14px; }
+  .reader-home-article-quote { margin-top: 26px; }.reader-home-article-quote blockquote { font-size: .78rem; line-height: 1.65; }
   .reader-seo-about { margin-top: 25px; padding: 27px 16px; }.reader-seo-about-grid { grid-template-columns: 1fr; gap: 10px; }.reader-seo-about-grid article { padding: 16px; }.reader-seo-about-image { margin: -16px -16px 5px; }
   .reader-comic-rail { grid-auto-columns: 136px; gap: 12px; margin-right: -16px; padding-right: 16px; }.reader-comic-info h3 { font-size: .85rem; }.reader-comic-info p { font-size: .66rem; }.reader-card-engagement { gap: 7px; }.reader-card-engagement > span { gap: 2px; font-size: .59rem; }.reader-card-engagement > span svg { width: 12px; height: 12px; }.reader-card-engagement > span b { font-size: .59rem; }
   .reader-ongoing-single { grid-template-columns: minmax(0, 1fr); grid-auto-flow: row; gap: 12px; margin: 0; padding: 0; overflow: visible; }

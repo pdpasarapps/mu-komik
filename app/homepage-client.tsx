@@ -13,7 +13,7 @@ import SponsoredAd from "@/components/sponsored-ad";
 import { usePlatformSettings } from "./platform-runtime";
 import { useCurrentDevice } from "@/components/use-current-device";
 import { isComicAvailableOnDevice } from "@/lib/comic-target-device";
-import type { ContinueReading, HomepageCatalog, HomepageComic } from "@/lib/homepage-data";
+import type { ContinueReading, HomepageArticle, HomepageCatalog, HomepageComic } from "@/lib/homepage-data";
 
 const supabase = createClient();
 
@@ -142,7 +142,8 @@ export default function HomePageClient({
   comics: initialComics,
   catalogState: initialCatalogState,
   episodeLoadError: initialEpisodeLoadError,
-}: HomepageCatalog) {
+  articles,
+}: HomepageCatalog & { articles: HomepageArticle[] }) {
   const { settings } = usePlatformSettings();
   const currentDevice = useCurrentDevice();
   const router = useRouter();
@@ -427,6 +428,17 @@ export default function HomePageClient({
           ))}</div>}
           {catalogState === "ready" && searchedComics.length === 0 && <div className="reader-empty-state"><p>{query ? "Komik yang kamu cari belum ditemukan." : genre !== "all" ? "Belum ada komik dalam kategori ini." : visibleComics.length === 0 ? "Belum ada komik yang tersedia di perangkat ini." : "Belum ada komik terbit."}</p><button onClick={() => { setGenre("all"); setQuery(""); }}>Jelajahi semua komik</button></div>}
         </section>
+
+        {articles.length > 0 && (
+          <section className="reader-editorial-callout reader-home-article-quote" aria-labelledby="reader-home-article-title">
+            <div>
+              <p className="reader-section-kicker">WAWASAN & CERITA · {articles[0].category}</p>
+              <h2 id="reader-home-article-title">{articles[0].title}</h2>
+              <blockquote>{articles[0].excerpt}</blockquote>
+            </div>
+            <Link className="reader-primary-button" href={`/artikel/${encodeURIComponent(articles[0].slug)}`}>Baca artikel <ArrowUpRight size={16} /></Link>
+          </section>
+        )}
       </div>
 
       <section className="reader-seo-about" aria-labelledby="reader-seo-about-title">

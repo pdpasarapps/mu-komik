@@ -1,5 +1,15 @@
 import { createPublicSupabaseClient } from "@/lib/seo";
 import type { ComicTargetDevice } from "@/lib/comic-target-device";
+import { getArticleCoverUrl } from "@/lib/article-cover";
+
+export type HomepageArticle = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  category: string;
+  coverUrl: string | undefined;
+};
 
 export type HomepageComic = {
   id: string;
@@ -32,6 +42,36 @@ export type HomepageCatalog = {
   catalogState: "ready" | "empty" | "error";
   episodeLoadError: boolean;
 };
+
+export async function getHomepageArticles(): Promise<HomepageArticle[]> {
+  const supabase = createPublicSupabaseClient();
+  if (!supabase) {
+    console.error("Unable to load published articles for homepage: Supabase public environment variables are missing.");
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("articles")
+    .select("id, title, slug, excerpt, category, cover_key")
+    .eq("status", "published")
+    .lte("published_at", new Date().toISOString())
+    .order("published_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error("Unable to load published articles for homepage:", error);
+    return [];
+  }
+
+  return (data ?? []).map((article) => ({
+    id: article.id,
+    title: article.title,
+    slug: article.slug,
+    excerpt: article.excerpt,
+    category: article.category,
+    coverUrl: getArticleCoverUrl(article.cover_key),
+  }));
+}
 
 function parseComicEngagementRows(data: unknown) {
   if (!Array.isArray(data)) return null;

@@ -1,7 +1,7 @@
 import HomePageClient from "./homepage-client";
-import { getHomepageCatalog } from "@/lib/homepage-data";
+import { getHomepageArticles, getHomepageCatalog } from "@/lib/homepage-data";
 
 export default async function HomePage() {
-  const catalog = await getHomepageCatalog();
-  return <HomePageClient {...catalog} />;
+  const [catalog, articles] = await Promise.all([getHomepageCatalog(), getHomepageArticles()]);
+  return <HomePageClient {...catalog} articles={articles} />;
 }
