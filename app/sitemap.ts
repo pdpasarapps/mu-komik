@@ -7,6 +7,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "daily",
     priority: 1,
   }, {
+    url: new URL("/artikel", siteUrl).toString(),
+    changeFrequency: "weekly",
+    priority: 0.7,
+  }, {
     url: new URL("/manifesto", siteUrl).toString(),
     changeFrequency: "monthly",
     priority: 0.6,
@@ -19,6 +23,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (!supabase) {
     console.error("Unable to generate comic sitemap: Supabase public environment variables are missing.");
     return entries;
+  }
+
+  const { data: articles, error: articleError } = await supabase
+    .from("articles")
+    .select("slug, updated_at, published_at")
+    .eq("status", "published")
+    .lte("published_at", new Date().toISOString())
+    .order("published_at", { ascending: false });
+  if (articleError) {
+    console.error("Unable to load published articles for sitemap:", articleError);
+  } else {
+    entries.push(...(articles ?? []).map((article) => ({
+      url: new URL(`/artikel/${encodeURIComponent(article.slug)}`, siteUrl).toString(),
+      lastModified: article.updated_at || article.published_at,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })));
   }
 
   const { data: creators, error: creatorError } = await supabase

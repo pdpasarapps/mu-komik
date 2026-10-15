@@ -11,6 +11,7 @@ For static comic share previews on an existing database, run `supabase/comic-sha
 For admin reading analytics on an existing database, run `supabase/comic-analytics.sql` once in the Supabase SQL Editor after `supabase/creator-request.sql`, then configure `SUPABASE_SERVICE_ROLE_KEY` as a server-only secret in the production Worker and `.env.local`. The analytics route needs it to record anonymous views; never expose it in client-side code. Counts start after this migration is installed. A browser opening the same episode is counted at most once per 30-minute interval; unique readers use a random first-party cookie, not an IP address or user-agent.
 For reader Free/Premium/VIP memberships on an existing database, run `supabase/reader-memberships.sql` once in the Supabase SQL Editor after `supabase/creator-request.sql`. Admins assign tiers from user management; Premium removes ads and VIP also unlocks direct access to every published episode.
 For reader-interest quiz and genre-based sponsor targeting on an existing database, run `supabase/reader-profiling.sql` once in the Supabase SQL Editor after `supabase/ads-management.sql`. The signup quiz is optional, ad-personalization consent is separate and off by default, and readers can change or clear their interests in account settings. Genre campaigns can match the comic currently being read without using a reader profile; profile-based matching requires explicit consent.
+For the article CMS, run `supabase/article-cms.sql` once in the Supabase SQL Editor before deploying. Admins can write Markdown articles at `/admin/articles`; only published articles are public at `/artikel` and included in the sitemap.
 
 ## Getting Started
 
@@ -45,7 +46,7 @@ For production uploads, configure these variables for the deployed Cloudflare Wo
 
 The local `.env.local` file does not configure the production Worker.
 
-For search indexing, set `NEXT_PUBLIC_SITE_URL` to the canonical public origin (`https://mu-komik.com`) in both local and production environments. The app exposes `robots.txt` and a sitemap containing published comics and episodes; submit `https://mu-komik.com/sitemap.xml` to Google Search Console and Bing Webmaster Tools after deployment.
+For search indexing, set `NEXT_PUBLIC_SITE_URL` to the canonical public origin (`https://mu-komik.com`) in both local and production environments. The app exposes `robots.txt` and a sitemap containing published articles, comics, and episodes; submit `https://mu-komik.com/sitemap.xml` to Google Search Console and Bing Webmaster Tools after deployment.
 
 The home page renders its published comic catalog on the server and includes visible Indonesian platform information. The global layout emits `Organization` and `WebSite` JSON-LD; published comic pages emit `CreativeWorkSeries` and `BreadcrumbList` data. Keep structured data accurate and consistent with visible page content. After deploying SEO changes, inspect the canonical home page and sitemap in Google Search Console; indexing and search snippets are determined by search engines and are not guaranteed.
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useState } from "react";
-import { ArrowLeft, Archive, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Megaphone, Search, Settings2, ShieldCheck, UserRound, Users, X } from "lucide-react";
+import { ArrowLeft, Archive, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, FileText, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Megaphone, Search, Settings2, ShieldCheck, UserRound, Users, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -11,6 +11,7 @@ import AdminAnalyticsPanel from "./analytics-panel";
 import AdsManagementPanel from "./ads-management-panel";
 import HomepagePromosPanel from "./homepage-promos-panel";
 import AdRequestsPanel from "./ad-requests-panel";
+import ArticlesPanel from "./articles-panel";
 import { createComicSharePreview } from "@/lib/comic-share-preview";
 import { defaultPlatformSettings, type PlatformSettings } from "@/lib/platform-settings";
 import { usePlatformSettings } from "../platform-runtime";
@@ -22,7 +23,7 @@ type ComicReview = { id: string; title: string; slug: string; synopsis: string; 
 type AdminUser = { id: string; display_name: string; role: "reader" | "creator" | "admin"; membershipTier: ReaderMembershipTier; created_at: string };
 type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string };
 type SettingsAuditEntry = { id: number; changed_by: string | null; changed_at: string; previous_values: Record<string, unknown>; new_values: Record<string, unknown> };
-type AdminSection = "overview" | "analytics" | "comic-review" | "creator-requests" | "users" | "comics" | "share-previews" | "ad-requests" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "homepage-promos" | "platform-settings";
+type AdminSection = "overview" | "analytics" | "comic-review" | "creator-requests" | "users" | "comics" | "articles" | "share-previews" | "ad-requests" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "homepage-promos" | "platform-settings";
 
 const supabase = createClient();
 const adminSections: Record<AdminSection, { label: string; description: string }> = {
@@ -32,6 +33,7 @@ const adminSections: Record<AdminSection, { label: string; description: string }
   "creator-requests": { label: "Pengajuan kreator", description: "Tinjau permohonan akses kreator." },
   users: { label: "Manajemen pengguna", description: "Kelola akun dan peran pengguna." },
   comics: { label: "Katalog komik", description: "Cari komik dan kelola status publikasinya." },
+  articles: { label: "Artikel", description: "Tulis, pratinjau, dan terbitkan artikel seputar komik." },
   "share-previews": { label: "Pratinjau berbagi komik", description: "Buat gambar pratinjau statis di R2 agar dapat ditampilkan di WhatsApp dan platform sosial." },
   "ad-requests": { label: "Pengajuan iklan", description: "Tinjau kebutuhan kampanye iklan dari calon pengiklan." },
   "ads-management": { label: "Kampanye sponsor", description: "Kelola kampanye, materi, target, dan periode tayang sponsor." },
@@ -451,6 +453,7 @@ export default function AdminPage() {
               <p className="admin-sidebar-group-label">Kelola konten</p>
               <Link href="/admin/users" aria-current={section === "users" ? "page" : undefined}><Users size={18} /><span>Pengguna</span></Link>
               <Link href="/admin/comics" aria-current={section === "comics" ? "page" : undefined}><BookOpen size={18} /><span>Katalog komik</span></Link>
+              <Link href="/admin/articles" aria-current={section === "articles" ? "page" : undefined}><FileText size={18} /><span>Artikel</span></Link>
               <Link href="/admin/share-previews" aria-current={section === "share-previews" ? "page" : undefined}><ImageIcon size={18} /><span>Pratinjau berbagi</span></Link>
               <Link href="/admin/homepage-promos" aria-current={section === "homepage-promos" ? "page" : undefined}><ImageIcon size={18} /><span>Hero & promo beranda</span></Link>
             </div>
@@ -504,6 +507,12 @@ export default function AdminPage() {
             <div><p className="eyebrow">Konten beranda</p><h2>Hero & promo beranda</h2><p>Buat carousel promo dengan gambar dan konten bebas, tanpa mengambil data dari katalog komik.</p></div>
           </div>
           <HomepagePromosPanel />
+        </section>}
+        {section === "articles" && <section className="admin-management-section">
+          <div className="admin-section-heading">
+            <div><p className="eyebrow">Konten editorial</p><h2>Kelola artikel</h2><p>Tulis Markdown, cek pratinjau, atur metadata pencarian, dan terbitkan artikel seputar komik.</p></div>
+          </div>
+          <ArticlesPanel />
         </section>}
         {section === "ad-requests" && <section className="admin-management-section">
           <div className="admin-section-heading">

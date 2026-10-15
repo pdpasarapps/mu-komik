@@ -338,6 +338,7 @@ export default function HomePageClient({
       <nav className="reader-nav-links" aria-label="Navigasi utama">
         <a className="reader-primary-nav-link" href="#jelajah">Jelajah</a>
         <a className="reader-primary-nav-link" href="#genre">Genre</a>
+        <Link href="/artikel">Artikel</Link>
         {signedIn && settings.feature_flags.creators && <a href="#creator">Kreator</a>}
         {signedIn && <Link href="/account">Koleksi saya</Link>}
         {!signedIn && <Link href="/login">Masuk</Link>}
@@ -465,7 +466,7 @@ export default function HomePageClient({
           <BrandLogo className="wordmark reader-wordmark" />
           <PlatformLinks />
           <div className="reader-footer-utility-links">
-            <nav className="reader-footer-links" aria-label="Tautan footer"><a href="#jelajah">Jelajah</a><a href="#genre">Genre</a><a href="#creator">Kreator</a><Link href="/push-ads">Pasang iklan</Link><Link href="/manifesto">Manifesto AI</Link><Link href="/syarat-ketentuan">Syarat layanan</Link></nav>
+            <nav className="reader-footer-links" aria-label="Tautan footer"><a href="#jelajah">Jelajah</a><a href="#genre">Genre</a><a href="#creator">Kreator</a><Link href="/artikel">Artikel</Link><Link href="/push-ads">Pasang iklan</Link><Link href="/manifesto">Manifesto AI</Link><Link href="/syarat-ketentuan">Syarat layanan</Link></nav>
           </div>
         </div>
         <p>Tempat cerita Indonesia menemukan pembacanya.</p>
