@@ -756,7 +756,8 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
       <section className="reader-comic-detail">
         <div className="reader-detail-cover-wrap">
           <div className="reader-detail-cover">
-          {coverUrl ? <img src={coverUrl} alt={`Sampul ${comic.title}`} fetchPriority="high" /> : <span>{comic.title.slice(0, 2).toUpperCase()}</span>}
+            {coverUrl ? <img src={coverUrl} alt={`Sampul ${comic.title}`} fetchPriority="high" /> : <span>{comic.title.slice(0, 2).toUpperCase()}</span>}
+            {firstChapter && <Link className="reader-primary-button reader-detail-primary-button reader-detail-mobile-primary-button" href={`/comic/${comic.slug}/chapter/${firstChapter.id}`}><BookOpen size={19} /> {resumeChapter ? "Lanjutkan baca" : "Mulai baca"} <ArrowRight size={18} /></Link>}
           </div>
           <span className="reader-detail-access"><Check size={15} strokeWidth={2.5} /> Gratis dibaca</span>
         </div>
