@@ -1915,7 +1915,7 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
   .account-profile-editor .creator-social-row > button { justify-self: end; }
 }
 
-.article-site-page { min-height: 100vh; background: var(--reader-bg); color: var(--reader-text); }
+.article-site-page { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; background: var(--reader-bg); color: var(--reader-text); }
 .article-site-header { max-width: 1240px; min-height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 0 auto; padding: 0 28px; border-bottom: 1px solid var(--reader-border); }
 .article-site-header .wordmark-image { width: 42px; height: 42px; }
 .article-site-header nav { display: flex; align-items: center; gap: 20px; }
@@ -1942,7 +1942,8 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .article-listing-empty h2 { font-size: 1.4rem; }
 .article-listing-empty p { color: #68756d; font-size: .78rem; }
 .article-listing-empty a { display: inline-flex; align-items: center; gap: 7px; margin-top: 8px; color: var(--reader-text); font-size: .76rem; font-weight: 800; }
-.article-site-footer { max-width: 1184px; display: flex; justify-content: space-between; gap: 16px; margin: 0 auto; padding: 18px 0 28px; border-top: 1px solid var(--reader-border); }
+.article-site-footer { width: calc(100% - 56px); max-width: 1184px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; margin: auto auto 0; padding: 18px 0 28px; border-top: 1px solid var(--reader-border); }
+.article-site-footer a { min-width: 0; overflow-wrap: anywhere; }
 .article-detail { width: min(100% - 40px, 800px); margin: 0 auto; padding: 24px 0 60px; }
 .article-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-bottom: 30px; color: #8a928c; font-size: .68rem; }
 .article-breadcrumb a { color: #667269; text-decoration: none; }
@@ -2045,7 +2046,7 @@ html[data-theme="dark"] .article-admin-upload { background: #1a1f1c; color: #c4c
   .article-listing-card h2 { font-size: .91rem; }
   .article-listing-card-copy > p { font-size: .68rem; -webkit-line-clamp: 2; }
   .article-byline { font-size: .59rem; }
-  .article-site-footer { margin: 0 16px; padding: 16px 0 24px; }
+  .article-site-footer { width: calc(100% - 32px); padding: 16px 0 24px; }
   .article-detail { width: calc(100% - 34px); padding-top: 18px; }
   .article-breadcrumb { margin-bottom: 22px; }
   .article-detail-header { gap: 10px; }

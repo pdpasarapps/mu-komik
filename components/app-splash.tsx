@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BookOpen } from "lucide-react";
 import BrandLogo from "@/components/brand-logo";
 
@@ -8,16 +8,25 @@ type SplashStage = "brand" | "welcome" | "hidden";
 
 export default function AppSplash() {
   const [stage, setStage] = useState<SplashStage>("brand");
+  const hideSplash = useCallback(() => {
+    const root = document.documentElement;
+    root.setAttribute("data-splash-seen", "true");
+    root.removeAttribute("data-splash-first-visit");
+    setStage("hidden");
+  }, []);
 
   useEffect(() => {
-    if (document.documentElement.hasAttribute("data-splash-seen")) return;
     if (stage === "hidden") return;
+    if (document.documentElement.hasAttribute("data-splash-seen")) return;
     const timer = window.setTimeout(
-      () => setStage(stage === "brand" ? "welcome" : "hidden"),
+      () => {
+        if (stage === "brand") setStage("welcome");
+        else hideSplash();
+      },
       stage === "brand" ? 3000 : 6000,
     );
     return () => window.clearTimeout(timer);
-  }, [stage]);
+  }, [hideSplash, stage]);
 
   if (stage === "hidden") return null;
 
@@ -36,7 +45,7 @@ export default function AppSplash() {
             <p className="app-splash-eyebrow">HALO, PEMBACA!</p>
             <h1>Selamat datang,<br />para pembaca.</h1>
             <p className="app-splash-message">Selamat membaca dan menikmati cerita di MU-komik!</p>
-            <button className="app-splash-button" type="button" onClick={() => setStage("hidden")}>
+            <button className="app-splash-button" type="button" onClick={hideSplash}>
               Mulai membaca
             </button>
           </>
