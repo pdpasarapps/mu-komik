@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Bookmark, Compass, Eye, Heart, Palette, Pause, Play, Search, Share2, UserRound, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Bookmark, ChevronLeft, ChevronRight, Compass, Eye, Heart, Palette, Pause, Play, Search, Share2, UserRound, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -152,6 +152,8 @@ export default function HomePageClient({
   const episodeLoadError = initialEpisodeLoadError;
   const [query, setQuery] = useState("");
   const [genre, setGenre] = useState("all");
+  const [comicPage, setComicPage] = useState(1);
+  const [comicsPerPage, setComicsPerPage] = useState(12);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [continueReading, setContinueReading] = useState<ContinueReading | null>(null);
@@ -321,10 +323,27 @@ export default function HomePageClient({
       return matchesGenre && (!normalizedQuery || searchable.includes(normalizedQuery));
     });
   }, [visibleComics, genre, query, settings.feature_flags.search]);
+  const pageCount = Math.max(1, Math.ceil(searchedComics.length / comicsPerPage));
+  const currentComicPage = Math.min(comicPage, pageCount);
+  const pageStartIndex = (currentComicPage - 1) * comicsPerPage;
+  const paginatedComics = searchedComics.slice(pageStartIndex, pageStartIndex + comicsPerPage);
   const latestComics = [...visibleComics].filter((comic) => comic.latestChapter).sort((a, b) =>
     new Date(b.latestChapter?.published_at || 0).getTime() - new Date(a.latestChapter?.published_at || 0).getTime(),
   );
   const ongoingComics = [...visibleComics].sort((a, b) => b.chapterCount - a.chapterCount).filter((comic) => comic.chapterCount > 1);
+
+  useEffect(() => {
+    const updatePageSize = () => {
+      const pageSize = window.innerWidth <= 640 ? 4 : window.innerWidth <= 900 ? 8 : 12;
+      setComicsPerPage((current) => current === pageSize ? current : pageSize);
+    };
+    const frame = window.requestAnimationFrame(updatePageSize);
+    window.addEventListener("resize", updatePageSize);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", updatePageSize);
+    };
+  }, []);
 
   const focusSearch = () => {
     setMobileSearchOpen(true);
@@ -346,7 +365,7 @@ export default function HomePageClient({
         </nav>
         {settings.feature_flags.search && <form className={`reader-header-search${mobileSearchOpen ? " reader-header-search-open" : ""}`} onSubmit={(event) => { event.preventDefault(); document.querySelector("#jelajah")?.scrollIntoView({ behavior: "smooth" }); }}>
           <Search size={17} aria-hidden="true" />
-          <input ref={searchInputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari komik, kreator, genre..." aria-label="Cari komik, kreator, atau genre" />
+          <input ref={searchInputRef} value={query} onChange={(event) => { setQuery(event.target.value); setComicPage(1); }} placeholder="Cari komik, kreator, genre..." aria-label="Cari komik, kreator, atau genre" />
           {mobileSearchOpen && <button type="button" className="reader-search-close" onClick={() => setMobileSearchOpen(false)} aria-label="Tutup pencarian"><X size={17} /></button>}
         </form>}
         <div className="reader-header-actions">
@@ -413,28 +432,45 @@ export default function HomePageClient({
           <div className="reader-discovery-tools" id="genre">
             <div className="reader-genre-chips" aria-label="Saring berdasarkan genre">
               {genres.map((item) => (
-                <button key={item} className={genre === item ? "reader-genre-chip reader-genre-chip-active" : "reader-genre-chip"} onClick={() => setGenre(item)}>
+                <button key={item} className={genre === item ? "reader-genre-chip reader-genre-chip-active" : "reader-genre-chip"} onClick={() => { setGenre(item); setComicPage(1); }}>
                   {item === "all" ? "Semua" : comicGenre(item)}
                 </button>
               ))}
             </div>
-            {settings.feature_flags.search && <div className="reader-mobile-search-inline"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari komik, kreator, atau genre..." aria-label="Cari komik, kreator, atau genre" /></div>}
+            {settings.feature_flags.search && <div className="reader-mobile-search-inline"><Search size={17} /><input value={query} onChange={(event) => { setQuery(event.target.value); setComicPage(1); }} placeholder="Cari komik, kreator, atau genre..." aria-label="Cari komik, kreator, atau genre" /></div>}
           </div>
-          {catalogState === "ready" && searchedComics.length > 0 && <div className="reader-comic-grid">{searchedComics.map((comic, index) => (
+          {catalogState === "ready" && searchedComics.length > 0 && <div className="reader-comic-grid">{paginatedComics.map((comic, index) => (
             <Fragment key={comic.id}>
               <ComicCard comic={comic} />
-              {index === 7 && searchedComics.length > 8 && <SponsoredAd slotKey="catalog_grid_native" placement="catalog" />}
+              {pageStartIndex + index === 7 && searchedComics.length > 8 && <SponsoredAd slotKey="catalog_grid_native" placement="catalog" />}
             </Fragment>
           ))}</div>}
-          {catalogState === "ready" && searchedComics.length === 0 && <div className="reader-empty-state"><p>{query ? "Komik yang kamu cari belum ditemukan." : genre !== "all" ? "Belum ada komik dalam kategori ini." : visibleComics.length === 0 ? "Belum ada komik yang tersedia di perangkat ini." : "Belum ada komik terbit."}</p><button onClick={() => { setGenre("all"); setQuery(""); }}>Jelajahi semua komik</button></div>}
+          {catalogState === "ready" && searchedComics.length > comicsPerPage && (
+            <nav className="reader-catalog-pagination" aria-label="Navigasi halaman komik">
+              <span aria-live="polite">Menampilkan {pageStartIndex + 1}–{Math.min(pageStartIndex + comicsPerPage, searchedComics.length)} dari {searchedComics.length} komik</span>
+              <div>
+                <button type="button" onClick={() => setComicPage(currentComicPage - 1)} disabled={currentComicPage <= 1} aria-label="Halaman sebelumnya"><ChevronLeft size={17} /><span>Sebelumnya</span></button>
+                <span className="reader-catalog-page-count">Halaman {currentComicPage} dari {pageCount}</span>
+                <button type="button" onClick={() => setComicPage(currentComicPage + 1)} disabled={currentComicPage >= pageCount} aria-label="Halaman berikutnya"><span>Berikutnya</span><ChevronRight size={17} /></button>
+              </div>
+            </nav>
+          )}
+          {catalogState === "ready" && searchedComics.length === 0 && <div className="reader-empty-state"><p>{query ? "Komik yang kamu cari belum ditemukan." : genre !== "all" ? "Belum ada komik dalam kategori ini." : visibleComics.length === 0 ? "Belum ada komik yang tersedia di perangkat ini." : "Belum ada komik terbit."}</p><button onClick={() => { setGenre("all"); setQuery(""); setComicPage(1); }}>Jelajahi semua komik</button></div>}
         </section>
 
         {articles.length > 0 && (
           <section className="reader-editorial-callout reader-home-article-quote" aria-labelledby="reader-home-article-title">
-            <div>
-              <p className="reader-section-kicker">WAWASAN & CERITA · {articles[0].category}</p>
-              <h2 id="reader-home-article-title">{articles[0].title}</h2>
-              <blockquote>{articles[0].excerpt}</blockquote>
+            <div className="reader-home-article-main">
+              {articles[0].coverUrl && (
+                <div className="reader-home-article-cover">
+                  <Image src={articles[0].coverUrl} alt={`Cover ${articles[0].title}`} width={720} height={540} sizes="(max-width: 640px) 136px, 180px" unoptimized />
+                </div>
+              )}
+              <div className="reader-home-article-copy">
+                <p className="reader-section-kicker">WAWASAN & CERITA · {articles[0].category}</p>
+                <h2 id="reader-home-article-title">{articles[0].title}</h2>
+                <blockquote>{articles[0].excerpt}</blockquote>
+              </div>
             </div>
             <Link className="reader-primary-button" href={`/artikel/${encodeURIComponent(articles[0].slug)}`}>Baca artikel <ArrowUpRight size={16} /></Link>
           </section>
