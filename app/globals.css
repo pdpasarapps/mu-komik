@@ -1264,6 +1264,8 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
   .reader-home { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
   .reader-vertical-pages:not(.reader-book-mode) .reader-page-frame { width: 100%; min-width: 0; min-height: 0; box-sizing: border-box; aspect-ratio: 9 / 16; }
   .reader-vertical-pages:not(.reader-book-mode) .reader-page-frame > img { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; object-position: center center; }
+  .reader-controls-hidden .reader-progress-track { visibility: hidden; }
+  .reader-controls-hidden.reader-experience { padding-top: var(--reader-mobile-fullscreen-top-padding, 0px); }
   .reader-header { height: 60px; grid-template-columns: 1fr auto; gap: 8px; padding: 0 12px; }
   .reader-search-mobile { display: inline-flex; }
   .reader-wordmark { justify-self: start; }.reader-wordmark .wordmark-image { width: 44px; height: 44px; }

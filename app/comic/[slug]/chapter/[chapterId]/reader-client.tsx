@@ -407,8 +407,9 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     }
     const targetIndex = requestedIndex;
     setCurrentPage(targetIndex);
-    document.querySelector(`[data-reader-page="${targetIndex}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [bookLeaves.length, bookSpreadIndex, currentPage, desktopBookMode, pages.length]);
+    const scrollBlock = currentDevice === "mobile" && !controlsVisible ? "center" : "start";
+    document.querySelector(`[data-reader-page="${targetIndex}"]`)?.scrollIntoView({ behavior: "smooth", block: scrollBlock });
+  }, [bookLeaves.length, bookSpreadIndex, controlsVisible, currentDevice, currentPage, desktopBookMode, pages.length]);
 
   const finishBookTurn = useCallback(() => {
     if (!bookTurn) return;
@@ -442,16 +443,17 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       const target = event.target;
       if (target instanceof HTMLElement && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
       event.preventDefault();
-      setControlsVisible(true);
+      if (currentDevice === "desktop") setControlsVisible(true);
       const direction = event.key === "ArrowRight" ? 1 : -1;
       scrollToPage(currentPage + direction);
     };
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
-  }, [currentPage, loading, pages.length, scrollToPage]);
+  }, [currentDevice, currentPage, loading, pages.length, scrollToPage]);
 
   useEffect(() => {
     if (loading || !pages.length) return;
+    if (currentDevice !== "desktop") return;
     lastScrollY.current = window.scrollY;
     let animationFrame = 0;
     const handleScroll = () => {
@@ -473,7 +475,21 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       window.removeEventListener("scroll", handleScroll);
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
     };
-  }, [loading, pages.length]);
+  }, [currentDevice, loading, pages.length]);
+
+  useEffect(() => {
+    if (currentDevice !== "mobile" || controlsVisible || desktopBookMode) return;
+    const updateFullscreenTopPadding = () => {
+      const frame = document.querySelector<HTMLElement>(`[data-reader-page="${currentPage}"]`);
+      const reader = pagesContainerRef.current?.closest<HTMLElement>(".reader-experience");
+      if (!frame || !reader) return;
+      const topPadding = Math.max(0, (window.innerHeight - frame.getBoundingClientRect().height) / 2);
+      reader.style.setProperty("--reader-mobile-fullscreen-top-padding", `${topPadding}px`);
+    };
+    updateFullscreenTopPadding();
+    window.addEventListener("resize", updateFullscreenTopPadding);
+    return () => window.removeEventListener("resize", updateFullscreenTopPadding);
+  }, [controlsVisible, currentDevice, currentPage, desktopBookMode]);
 
   useEffect(() => {
     if (!userId || !historyReady || !chapter || !pages.length) return;
@@ -573,7 +589,8 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       const stops = Array.from(pagesContainer.querySelectorAll<HTMLElement>("[data-reader-stop]"));
       const startIndex = stops.findIndex((stop) => stop.dataset.readerStop === touchStart.stopId);
       const targetStop = stops[startIndex + (deltaY > 0 ? 1 : -1)];
-      targetStop?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const scrollBlock = currentDevice === "mobile" && !controlsVisible ? "center" : "start";
+      targetStop?.scrollIntoView({ behavior: "smooth", block: scrollBlock });
     };
     const handleTouchCancel = () => { start = null; };
     pagesContainer.addEventListener("touchstart", handleTouchStart, { passive: true });
@@ -586,7 +603,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       pagesContainer.removeEventListener("touchend", handleTouchEnd);
       pagesContainer.removeEventListener("touchcancel", handleTouchCancel);
     };
-  }, [loading, pages.length]);
+  }, [controlsVisible, currentDevice, loading, pages.length]);
 
   if (currentDevice !== null && !isComicAvailableOnDevice(comic?.target_device ?? seed.comic.target_device, currentDevice)) {
     const targetLabel = COMIC_TARGET_DEVICES.find((device) => device.value === (comic?.target_device ?? seed.comic.target_device))?.label.toLowerCase() || "perangkat tertentu";
@@ -663,7 +680,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       onContextMenu={(event) => event.preventDefault()}
       onDragStart={(event) => event.preventDefault()}
       onPointerDown={(event) => {
-        if (!controlsVisible && !(event.target instanceof Element && event.target.closest("a, button, summary"))) {
+        if (currentDevice === "desktop" && !controlsVisible && !(event.target instanceof Element && event.target.closest("a, button, summary"))) {
           setControlsVisible(true);
         }
       }}
@@ -808,7 +825,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                         <span>{pageIsRead ? "Dibaca" : "Belum dibaca"}</span>
                       </span>
                       {src
-                        ? <img src={src} alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`} loading={index < 2 ? "eager" : "lazy"} draggable={false} onClick={() => setControlsVisible(true)} />
+                        ? <img src={src} alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`} loading={index < 2 ? "eager" : "lazy"} draggable={false} onClick={() => { if (currentDevice === "desktop") setControlsVisible(true); }} />
                         : <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div>}
                       {src && <div className="reader-watermark-overlay reader-page-watermark" aria-hidden="true">{Array.from({ length: 6 }, (_, watermarkIndex) => <span key={watermarkIndex}>{watermarkLabel}</span>)}</div>}
                     </div>
@@ -837,7 +854,31 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         <section className="reader-no-pages"><BookOpen size={28} /><h2>{pageLoadError ? "Halaman komik belum dapat dimuat." : "Episode ini belum memiliki halaman."}</h2><p>{pageLoadError ? "Periksa koneksi lalu muat ulang episode ini." : "Kembali lagi nanti untuk membaca cerita ini."}</p>{pageLoadError ? <button onClick={() => window.location.reload()}>Coba lagi</button> : <Link href={`/comic/${comic.slug}`}>Kembali ke komik</Link>}</section>
       )}
 
-      <button className="reader-controls-toggle" onClick={() => setControlsVisible((visible) => !visible)} aria-label={controlsVisible ? "Sembunyikan kontrol" : "Tampilkan kontrol"}>
+      <button
+        className="reader-controls-toggle"
+        onClick={() => {
+          const nextControlsVisible = !controlsVisible;
+          setControlsVisible(nextControlsVisible);
+          if (currentDevice === "mobile" && !desktopBookMode) {
+            const reader = pagesContainerRef.current?.closest<HTMLElement>(".reader-experience");
+            const frame = document.querySelector<HTMLElement>(`[data-reader-page="${currentPage}"]`);
+            if (nextControlsVisible) {
+              reader?.style.removeProperty("--reader-mobile-fullscreen-top-padding");
+            } else if (reader && frame) {
+              const topPadding = Math.max(0, (window.innerHeight - frame.getBoundingClientRect().height) / 2);
+              reader.style.setProperty("--reader-mobile-fullscreen-top-padding", `${topPadding}px`);
+            }
+            window.requestAnimationFrame(() => {
+              frame?.scrollIntoView({
+                behavior: "smooth",
+                block: nextControlsVisible ? "start" : "center",
+              });
+            });
+          }
+        }}
+        aria-label={controlsVisible ? "Aktifkan layar penuh" : "Keluar dari layar penuh"}
+        aria-pressed={!controlsVisible}
+      >
         {controlsVisible ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
       </button>
 
