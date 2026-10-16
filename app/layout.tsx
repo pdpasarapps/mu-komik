@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { siteUrl } from "@/lib/seo";
 import { getPlatformSettings } from "@/lib/platform-settings";
+import { cookies } from "next/headers";
+import { KIDS_MODE_COOKIE_NAME, readKidsModeState } from "@/lib/kids-mode";
 import PlatformRuntime from "./platform-runtime";
 import ReaderMembershipRuntime from "./membership-runtime";
 import PwaSupport from "./pwa-support";
@@ -100,6 +102,8 @@ const structuredData = {
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const { settings } = await getPlatformSettings();
+  const cookieStore = await cookies();
+  const kidsModeState = readKidsModeState(cookieStore.get(KIDS_MODE_COOKIE_NAME)?.value);
   return (
     <html lang="id" className="h-full antialiased" data-theme="light" suppressHydrationWarning>
       <body className="min-h-full flex flex-col">
@@ -108,7 +112,13 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
         />
         <ReaderMembershipRuntime>
-          <PlatformRuntime initialSettings={settings}>{children}</PlatformRuntime>
+          <PlatformRuntime
+            initialSettings={settings}
+            initialKidsMode={kidsModeState?.enabled ?? false}
+            initialKidsModePinConfigured={Boolean(kidsModeState)}
+          >
+            {children}
+          </PlatformRuntime>
         </ReaderMembershipRuntime>
         <AppSplash />
         <PwaSupport />

@@ -1,7 +1,9 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import ComicDetailPage, { type Chapter, type Comic, type ComicDetailPageProps } from "./comic-detail-client";
 import { getComicGenreLabel } from "@/lib/comic-genres";
 import { createPublicSupabaseClient, siteUrl } from "@/lib/seo";
+import { cookies } from "next/headers";
+import { KIDS_MODE_COOKIE_NAME, readKidsModeState } from "@/lib/kids-mode";
 
 const COMIC_REQUEST_TIMEOUT_MS = 8000;
 
@@ -53,6 +55,19 @@ export default async function ComicPage({
   if (!data) notFound();
 
   const comic = data as Omit<Comic, "profiles"> & { profiles: Comic["profiles"] };
+  const kidsMode = readKidsModeState((await cookies()).get(KIDS_MODE_COOKIE_NAME)?.value)?.enabled ?? false;
+  const { data: kidsCuration, error: kidsCurationError } = await supabase
+    .from("comic_kids_curation")
+    .select("age_range")
+    .eq("comic_id", comic.id)
+    .eq("review_status", "approved")
+    .maybeSingle();
+  if (kidsCurationError) {
+    console.error("Unable to verify Kids Mode curation for comic:", { slug, error: kidsCurationError });
+    if (kidsMode) throw kidsCurationError;
+  }
+  if (kidsMode && !kidsCuration) redirect("/");
+  const kidsAgeRange = kidsCuration?.age_range as "4_6" | "7_9" | "10_12" | undefined;
   const { data: chapterData, error: chapterError } = await supabase
     .from("chapters")
     .select("id, title, chapter_number, published_at")
@@ -76,6 +91,8 @@ export default async function ComicPage({
     language: comic.language ?? "id",
     origin_type: comic.origin_type ?? "original",
     source_info: comic.source_info ?? "",
+    kids_mode_approved: Boolean(kidsCuration),
+    kids_age_range: kidsAgeRange ?? null,
   };
   const initialChapters = (chapterData ?? []) as Chapter[];
   const props: ComicDetailPageProps = { initialComic, initialChapters };

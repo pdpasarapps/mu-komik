@@ -10,7 +10,7 @@ import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
 import BrandLogo from "@/components/brand-logo";
 import PlatformLinks from "@/components/platform-links";
 import SponsoredAd from "@/components/sponsored-ad";
-import { usePlatformSettings } from "./platform-runtime";
+import { KidsModeToggle, useKidsMode, usePlatformSettings } from "./platform-runtime";
 import { useCurrentDevice } from "@/components/use-current-device";
 import { isComicAvailableOnDevice } from "@/lib/comic-target-device";
 import type { ContinueReading, HomepageArticle, HomepageCatalog, HomepageComic } from "@/lib/homepage-data";
@@ -97,17 +97,19 @@ function HomepagePromoCarousel({ promos }: { promos: HomepagePromo[] }) {
 
 function ComicCard({ comic, compact = false, overlayDetails = false, landscapeCard = false }: { comic: HomepageComic; compact?: boolean; overlayDetails?: boolean; landscapeCard?: boolean }) {
   const chapter = comic.latestChapter;
-  const creatorProfile = comic.creatorHandle && comic.creatorProfilePublic
+  const { kidsMode } = useKidsMode();
+  const creatorProfile = !kidsMode && comic.creatorHandle && comic.creatorProfilePublic
     ? `/kreator/${encodeURIComponent(comic.creatorHandle)}`
     : null;
   const comicInfo = (
     <div className="reader-comic-info">
       {!overlayDetails && <><span className="reader-card-genre">{comicGenre(comic.genre)}</span><h3>{comic.title}</h3></>}
-      <div className={overlayDetails ? "reader-card-author" : undefined}>
+      {kidsMode && comic.kidsModeApproved && <span className="kids-comic-age-badge">Kids Mode · {comic.kidsAgeRange === "4_6" ? "4–6" : comic.kidsAgeRange === "7_9" ? "7–9" : "10–12"} tahun</span>}
+      {!kidsMode && <div className={overlayDetails ? "reader-card-author" : undefined}>
         <p>{comic.contributor || comic.creator}</p>
         {overlayDetails && creatorProfile && <Link className="reader-card-creator-shortcut" href={creatorProfile} aria-label={`Lihat profil kreator ${comic.contributor || comic.creator}`} title="Profil kreator"><ArrowUpRight size={13} /></Link>}
-      </div>
-      {comic.engagement && (
+      </div>}
+      {!kidsMode && comic.engagement && (
         <div className="reader-card-engagement" aria-label={`Statistik ${comic.title}`}>
           <span aria-label={`${comic.engagement.views.toLocaleString("id-ID")} dilihat`} title="Dilihat"><Eye size={13} /><b>{formatEngagementCount(comic.engagement.views)}</b></span>
           <span aria-label={`${comic.engagement.likes.toLocaleString("id-ID")} favorit`} title="Favorit"><Heart size={13} /><b>{formatEngagementCount(comic.engagement.likes)}</b></span>
@@ -142,9 +144,11 @@ export default function HomePageClient({
   comics: initialComics,
   catalogState: initialCatalogState,
   episodeLoadError: initialEpisodeLoadError,
+  kidsCurationAvailable,
   articles,
 }: HomepageCatalog & { articles: HomepageArticle[] }) {
   const { settings } = usePlatformSettings();
+  const { kidsMode } = useKidsMode();
   const currentDevice = useCurrentDevice();
   const router = useRouter();
   const comics = initialComics;
@@ -277,6 +281,8 @@ export default function HomePageClient({
                     latestChapter: null,
                     chapterCount: 0,
                     engagement: null,
+                    kidsModeApproved: comics.find((comic) => comic.id === historyComic.id)?.kidsModeApproved ?? false,
+                    kidsAgeRange: comics.find((comic) => comic.id === historyComic.id)?.kidsAgeRange ?? null,
                   },
                   chapterId: history.chapter_id,
                   chapterTitle: chapter.title,
@@ -296,7 +302,7 @@ export default function HomePageClient({
 
     void loadHome();
     return () => { active = false; };
-  }, [authRetry, publicUrl]);
+  }, [authRetry, comics, publicUrl]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -308,21 +314,25 @@ export default function HomePageClient({
   }, []);
 
   const visibleComics = useMemo(
-    () => comics.filter((comic) => isComicAvailableOnDevice(comic.target_device, currentDevice)),
-    [comics, currentDevice],
+    () => comics.filter((comic) => isComicAvailableOnDevice(comic.target_device, currentDevice)
+      && (!kidsMode || comic.kidsModeApproved)),
+    [comics, currentDevice, kidsMode],
   );
-  const genres = useMemo(() => ["all", ...new Set([
-    ...COMIC_GENRES,
-    ...visibleComics.map((comic) => comic.genre).filter(Boolean),
-  ])], [visibleComics]);
+  const genres = useMemo(() => {
+    const availableGenres = new Set(visibleComics.map((comic) => comic.genre).filter(Boolean));
+    const standardGenres = COMIC_GENRES.filter((item) => availableGenres.has(item));
+    const otherGenres = Array.from(availableGenres).filter((item) => !(COMIC_GENRES as readonly string[]).includes(item));
+    return ["all", ...standardGenres, ...otherGenres];
+  }, [visibleComics]);
+  const activeGenre = genres.includes(genre) ? genre : "all";
   const searchedComics = useMemo(() => {
     const normalizedQuery = settings.feature_flags.search ? query.trim().toLocaleLowerCase("id-ID") : "";
     return visibleComics.filter((comic) => {
-      const matchesGenre = genre === "all" || comic.genre === genre;
-      const searchable = `${comic.title} ${comic.creator} ${comic.contributor} ${comic.genre}`.toLocaleLowerCase("id-ID");
+      const matchesGenre = activeGenre === "all" || comic.genre === activeGenre;
+      const searchable = `${comic.title} ${comic.genre}${kidsMode ? "" : ` ${comic.creator} ${comic.contributor}`}`.toLocaleLowerCase("id-ID");
       return matchesGenre && (!normalizedQuery || searchable.includes(normalizedQuery));
     });
-  }, [visibleComics, genre, query, settings.feature_flags.search]);
+  }, [visibleComics, activeGenre, query, settings.feature_flags.search, kidsMode]);
   const pageCount = Math.max(1, Math.ceil(searchedComics.length / comicsPerPage));
   const currentComicPage = Math.min(comicPage, pageCount);
   const pageStartIndex = (currentComicPage - 1) * comicsPerPage;
@@ -353,40 +363,44 @@ export default function HomePageClient({
   return (
     <main className="reader-home">
     <h1 className="reader-sr-only">Baca komik Indonesia dari kreator lokal</h1>
-    <header className="reader-header">
+    <header className={`reader-header${kidsMode ? " reader-header-kids-mode" : ""}`}>
       <BrandLogo className="wordmark reader-wordmark" showName />
       <nav className="reader-nav-links" aria-label="Navigasi utama">
         <a className="reader-primary-nav-link" href="#jelajah">Jelajah</a>
         <a className="reader-primary-nav-link" href="#genre">Genre</a>
-        <Link href="/artikel">Artikel</Link>
-        {signedIn && settings.feature_flags.creators && <a href="#creator">Kreator</a>}
-        {signedIn && <Link href="/account">Koleksi saya</Link>}
-        {!signedIn && <Link href="/login">Masuk</Link>}
+        {!kidsMode && <Link href="/artikel">Artikel</Link>}
+        {!kidsMode && signedIn && settings.feature_flags.creators && <a href="#creator">Kreator</a>}
+        {!kidsMode && signedIn && <Link href="/account">Koleksi saya</Link>}
+        {!kidsMode && !signedIn && <Link href="/login">Masuk</Link>}
+        <KidsModeToggle />
         </nav>
         {settings.feature_flags.search && <form className={`reader-header-search${mobileSearchOpen ? " reader-header-search-open" : ""}`} onSubmit={(event) => { event.preventDefault(); document.querySelector("#jelajah")?.scrollIntoView({ behavior: "smooth" }); }}>
           <Search size={17} aria-hidden="true" />
-          <input ref={searchInputRef} value={query} onChange={(event) => { setQuery(event.target.value); setComicPage(1); }} placeholder="Cari komik, kreator, genre..." aria-label="Cari komik, kreator, atau genre" />
+          <input ref={searchInputRef} value={query} onChange={(event) => { setQuery(event.target.value); setComicPage(1); }} placeholder={kidsMode ? "Cari komik atau genre..." : "Cari komik, kreator, genre..."} aria-label={kidsMode ? "Cari komik atau genre" : "Cari komik, kreator, atau genre"} />
           {mobileSearchOpen && <button type="button" className="reader-search-close" onClick={() => setMobileSearchOpen(false)} aria-label="Tutup pencarian"><X size={17} /></button>}
         </form>}
         <div className="reader-header-actions">
+          <KidsModeToggle />
           {settings.feature_flags.search && <button className="reader-search-mobile" aria-label="Cari komik" onClick={focusSearch}><Search size={20} /></button>}
-          {signedIn
+          {!kidsMode && (signedIn
             ? <Link className="reader-login-button" href="/account"><UserRound size={17} /><span>Profil</span></Link>
-            : <Link className="reader-login-button" href="/login"><UserRound size={17} /><span>Masuk</span></Link>}
+            : <Link className="reader-login-button" href="/login"><UserRound size={17} /><span>Masuk</span></Link>)}
         </div>
       </header>
-      <nav className="reader-bottom-nav" aria-label="Navigasi bawah">
+      <nav className={`reader-bottom-nav${kidsMode ? " reader-bottom-nav-kids" : ""}`} aria-label="Navigasi bawah">
         <a href="#jelajah"><Compass size={19} /><span>Jelajah</span></a>
-        <Link href="/account" aria-label="Koleksi saya"><Bookmark size={19} /><span>Koleksi saya</span></Link>
-        {settings.feature_flags.creators && <a href="#creator"><Palette size={19} /><span>Kreator</span></a>}
-        {signedIn
-          ? <Link href="/account" aria-label="Profil"><UserRound size={19} /><span>Profil</span></Link>
-          : <Link href="/login" aria-label="Masuk"><UserRound size={19} /><span>Masuk</span></Link>}
+        {kidsMode ? <a href="#genre"><BookOpen size={19} /><span>Genre</span></a> : <>
+          <Link href="/account" aria-label="Koleksi saya"><Bookmark size={19} /><span>Koleksi saya</span></Link>
+          {settings.feature_flags.creators && <a href="#creator"><Palette size={19} /><span>Kreator</span></a>}
+          {signedIn
+            ? <Link href="/account" aria-label="Profil"><UserRound size={19} /><span>Profil</span></Link>
+            : <Link href="/login" aria-label="Masuk"><UserRound size={19} /><span>Masuk</span></Link>}
+        </>}
       </nav>
 
       {authMessage && <div className="reader-inline-message" role="alert">{authMessage}<button onClick={() => setAuthRetry((attempt) => attempt + 1)}>Coba lagi</button></div>}
 
-      <HomepagePromoCarousel promos={homepagePromos} />
+      {!kidsMode && <HomepagePromoCarousel promos={homepagePromos} />}
 
       <section className="reader-home-section" id="terbaru">
         <div className="reader-home-content">
@@ -395,17 +409,19 @@ export default function HomePageClient({
           {catalogState === "empty" && <div className="reader-empty-state"><p>Belum ada cerita terbit. Kunjungi lagi nanti untuk menemukan komik baru.</p></div>}
           {catalogState === "ready" && episodeLoadError && <div className="reader-empty-state"><p>Episode terbaru belum dapat dimuat. Komik tetap bisa dijelajahi di bawah.</p><button onClick={() => router.refresh()}>Coba lagi</button></div>}
           {catalogState === "ready" && !episodeLoadError && latestComics.length > 0 && <div className="reader-comic-grid reader-latest-comic-grid">{latestComics.slice(0, 8).map((comic) => <ComicCard key={comic.id} comic={comic} compact overlayDetails />)}</div>}
-          {catalogState === "ready" && !episodeLoadError && latestComics.length === 0 && <div className="reader-empty-state"><p>Belum ada episode terbit. Jelajahi komik dan nantikan update berikutnya.</p><a href="#jelajah">Lihat semua komik <ArrowRight size={16} /></a></div>}
+          {kidsMode && !kidsCurationAvailable && <div className="reader-empty-state" role="alert"><p>Library Kids Mode belum dapat diverifikasi. Coba muat ulang halaman.</p><button onClick={() => router.refresh()}>Coba lagi</button></div>}
+          {catalogState === "ready" && !episodeLoadError && latestComics.length === 0 && <div className="reader-empty-state"><p>{kidsMode ? "Belum ada episode terbaru dari komik anak yang disetujui." : "Belum ada episode terbit. Jelajahi komik dan nantikan update berikutnya."}</p><a href="#jelajah">{kidsMode ? "Lihat komik anak" : "Lihat semua komik"} <ArrowRight size={16} /></a></div>}
         </div>
       </section>
 
       <div className="reader-home-content">
-        {signedIn && continueReading && isComicAvailableOnDevice(continueReading.comic.target_device, currentDevice) && (
+        {signedIn && continueReading && isComicAvailableOnDevice(continueReading.comic.target_device, currentDevice)
+          && (!kidsMode || continueReading.comic.kidsModeApproved) && (
           <section className="reader-home-section reader-continue-section">
             <div className="reader-section-heading"><div><p className="reader-section-kicker">KEMBALI KE CERITAMU</p><h2>Lanjutkan membaca</h2></div></div>
             <Link className="reader-continue-card" href={`/comic/${continueReading.comic.slug}/chapter/${continueReading.chapterId}`}>
               <div className="reader-continue-cover">{continueReading.comic.coverUrl && <img src={continueReading.comic.coverUrl} alt="" loading="lazy" />}</div>
-              <div className="reader-continue-info"><span>{comicGenre(continueReading.comic.genre)}</span><h3>{continueReading.comic.title}</h3><p>Episode {continueReading.chapterNumber} · {continueReading.chapterTitle}</p><span className="reader-continue-progress">Terakhir dibaca di halaman {continueReading.lastPage}{continueReading.pageCount ? ` dari ${continueReading.pageCount}` : ""}</span>{continueReading.pageCount > 0 && <span className="reader-continue-progressbar" role="progressbar" aria-label="Progres membaca" aria-valuemin={0} aria-valuemax={continueReading.pageCount} aria-valuenow={Math.min(continueReading.pageCount, continueReading.lastPage)}><i style={{ width: `${Math.min(100, (continueReading.lastPage / continueReading.pageCount) * 100)}%` }} /></span>}</div>
+              <div className="reader-continue-info"><span>{comicGenre(continueReading.comic.genre)}</span><h3>{continueReading.comic.title}</h3>{kidsMode && continueReading.comic.kidsModeApproved && <span className="kids-comic-age-badge">Kids Mode · {continueReading.comic.kidsAgeRange === "4_6" ? "4–6" : continueReading.comic.kidsAgeRange === "7_9" ? "7–9" : "10–12"} tahun</span>}<p>Episode {continueReading.chapterNumber} · {continueReading.chapterTitle}</p><span className="reader-continue-progress">Terakhir dibaca di halaman {continueReading.lastPage}{continueReading.pageCount ? ` dari ${continueReading.pageCount}` : ""}</span>{continueReading.pageCount > 0 && <span className="reader-continue-progressbar" role="progressbar" aria-label="Progres membaca" aria-valuemin={0} aria-valuemax={continueReading.pageCount} aria-valuenow={Math.min(continueReading.pageCount, continueReading.lastPage)}><i style={{ width: `${Math.min(100, (continueReading.lastPage / continueReading.pageCount) * 100)}%` }} /></span>}</div>
               <span className="reader-continue-action">Lanjutkan <ArrowRight size={17} /></span>
             </Link>
           </section>
@@ -420,7 +436,7 @@ export default function HomePageClient({
           </section>
         )}
 
-        {latestComics.length > 1 && (
+        {!kidsMode && latestComics.length > 1 && (
           <section className="reader-editorial-callout">
             <div><p className="reader-section-kicker">CERITA MENUNGGU UNTUK DITEMUKAN</p><h2>Setiap komik punya dunia yang berbeda.</h2><p>Mulai dari fantasi hingga drama, pilih cerita yang paling dekat denganmu.</p></div>
             <a className="reader-primary-button" href="#genre">Pilih genre <ArrowRight size={17} /></a>
@@ -432,12 +448,12 @@ export default function HomePageClient({
           <div className="reader-discovery-tools" id="genre">
             <div className="reader-genre-chips" aria-label="Saring berdasarkan genre">
               {genres.map((item) => (
-                <button key={item} className={genre === item ? "reader-genre-chip reader-genre-chip-active" : "reader-genre-chip"} onClick={() => { setGenre(item); setComicPage(1); }}>
+                <button key={item} className={activeGenre === item ? "reader-genre-chip reader-genre-chip-active" : "reader-genre-chip"} onClick={() => { setGenre(item); setComicPage(1); }}>
                   {item === "all" ? "Semua" : comicGenre(item)}
                 </button>
               ))}
             </div>
-            {settings.feature_flags.search && <div className="reader-mobile-search-inline"><Search size={17} /><input value={query} onChange={(event) => { setQuery(event.target.value); setComicPage(1); }} placeholder="Cari komik, kreator, atau genre..." aria-label="Cari komik, kreator, atau genre" /></div>}
+            {settings.feature_flags.search && <div className="reader-mobile-search-inline"><Search size={17} /><input value={query} onChange={(event) => { setQuery(event.target.value); setComicPage(1); }} placeholder={kidsMode ? "Cari komik atau genre..." : "Cari komik, kreator, atau genre..."} aria-label={kidsMode ? "Cari komik atau genre" : "Cari komik, kreator, atau genre"} /></div>}
           </div>
           {catalogState === "ready" && searchedComics.length > 0 && <div className="reader-comic-grid">{paginatedComics.map((comic, index) => (
             <Fragment key={comic.id}>
@@ -455,10 +471,10 @@ export default function HomePageClient({
               </div>
             </nav>
           )}
-          {catalogState === "ready" && searchedComics.length === 0 && <div className="reader-empty-state"><p>{query ? "Komik yang kamu cari belum ditemukan." : genre !== "all" ? "Belum ada komik dalam kategori ini." : visibleComics.length === 0 ? "Belum ada komik yang tersedia di perangkat ini." : "Belum ada komik terbit."}</p><button onClick={() => { setGenre("all"); setQuery(""); setComicPage(1); }}>Jelajahi semua komik</button></div>}
+          {catalogState === "ready" && searchedComics.length === 0 && <div className="reader-empty-state"><p>{kidsMode ? query ? "Komik anak yang cocok belum ditemukan." : "Belum ada komik anak yang disetujui untuk Kids Mode." : query ? "Komik yang kamu cari belum ditemukan." : activeGenre !== "all" ? "Belum ada komik dalam kategori ini." : visibleComics.length === 0 ? "Belum ada komik yang tersedia di perangkat ini." : "Belum ada komik terbit."}</p>{!kidsMode && <button onClick={() => { setGenre("all"); setQuery(""); setComicPage(1); }}>Jelajahi semua komik</button>}</div>}
         </section>
 
-        {articles.length > 0 && (
+        {!kidsMode && articles.length > 0 && (
           <section className="reader-editorial-callout reader-home-article-quote" aria-labelledby="reader-home-article-title">
             <div className="reader-home-article-main">
               {articles[0].coverUrl && (
@@ -477,7 +493,7 @@ export default function HomePageClient({
         )}
       </div>
 
-      <section className="reader-seo-about" aria-labelledby="reader-seo-about-title">
+      {!kidsMode && <section className="reader-seo-about" aria-labelledby="reader-seo-about-title">
         <header className="reader-seo-about-header">
           <p className="reader-section-kicker">TENTANG MU KOMIK</p>
           <h2 id="reader-seo-about-title">Cerita komik Indonesia dari kreator lokal</h2>
@@ -503,18 +519,18 @@ export default function HomePageClient({
             <Link href="/manifesto">Baca manifesto AI MU Komik</Link>
           </article>
         </div>
-      </section>
+      </section>}
 
-      {settings.feature_flags.creators && <section className="reader-creator-cta" id="creator">
+      {!kidsMode && settings.feature_flags.creators && <section className="reader-creator-cta" id="creator">
         <div><p className="reader-section-kicker">PUNYA CERITA?</p><h2>Terbitkan komikmu dan temukan pembaca baru.</h2></div>
         <Link className="reader-primary-button" href={signedIn ? "/account" : "/login"}>Jadi kreator <ArrowRight size={17} /></Link>
       </section>}
       <footer className="reader-footer">
         <div className="reader-footer-main-row">
           <BrandLogo className="wordmark reader-wordmark" />
-          <PlatformLinks />
+          {!kidsMode && <PlatformLinks />}
           <div className="reader-footer-utility-links">
-            <nav className="reader-footer-links" aria-label="Tautan footer"><a href="#jelajah">Jelajah</a><a href="#genre">Genre</a><a href="#creator">Kreator</a><Link href="/artikel">Artikel</Link><Link href="/push-ads">Pasang iklan</Link><Link href="/manifesto">Manifesto AI</Link><Link href="/syarat-ketentuan">Syarat layanan</Link></nav>
+            <nav className="reader-footer-links" aria-label="Tautan footer"><a href="#jelajah">Jelajah</a><a href="#genre">Genre</a>{!kidsMode && <><a href="#creator">Kreator</a><Link href="/artikel">Artikel</Link><Link href="/push-ads">Pasang iklan</Link><Link href="/manifesto">Manifesto AI</Link><Link href="/syarat-ketentuan">Syarat layanan</Link></>}</nav>
           </div>
         </div>
         <p>Tempat cerita Indonesia menemukan pembacanya.</p>

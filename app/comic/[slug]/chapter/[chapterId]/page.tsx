@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import ChapterReaderPage, { type ChapterReaderSeed } from "./reader-client";
 import { createPublicSupabaseClient } from "@/lib/seo";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { KIDS_MODE_COOKIE_NAME, readKidsModeState } from "@/lib/kids-mode";
 
 const EPISODE_REQUEST_TIMEOUT_MS = 8000;
 
@@ -45,6 +48,18 @@ export default async function ChapterPage({
 
   const linkedComic = Array.isArray(data.comics) ? data.comics[0] : data.comics;
   if (!linkedComic) notFound();
+  const kidsMode = readKidsModeState((await cookies()).get(KIDS_MODE_COOKIE_NAME)?.value)?.enabled ?? false;
+  const { data: kidsCuration, error: kidsCurationError } = await supabase
+    .from("comic_kids_curation")
+    .select("age_range")
+    .eq("comic_id", data.comic_id)
+    .eq("review_status", "approved")
+    .maybeSingle();
+  if (kidsCurationError) {
+    console.error("Unable to verify Kids Mode curation for episode:", { slug, chapterId, error: kidsCurationError });
+    if (kidsMode) throw kidsCurationError;
+  }
+  if (kidsMode && !kidsCuration) redirect("/");
 
   const seed: ChapterReaderSeed = {
     chapter: {
@@ -58,6 +73,8 @@ export default async function ChapterPage({
       title: linkedComic.title,
       slug: linkedComic.slug,
       target_device: linkedComic.target_device || "all",
+      kids_mode_approved: Boolean(kidsCuration),
+      kids_age_range: kidsCuration?.age_range as "4_6" | "7_9" | "10_12" | null,
     },
   };
   return <ChapterReaderPage key={chapterId} seed={seed} />;

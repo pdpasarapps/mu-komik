@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, CheckCircle2, ChevronUp, CircleDot, Copy, Download, ExternalLink, Eye, Heart, LoaderCircle, Share2, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { usePlatformSettings } from "../../platform-runtime";
+import { KidsModeToggle, useKidsMode, usePlatformSettings } from "../../platform-runtime";
 import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import PlatformLinks from "@/components/platform-links";
@@ -43,6 +43,8 @@ export type Comic = {
   language: string;
   origin_type: string;
   source_info: string;
+  kids_mode_approved: boolean;
+  kids_age_range: "4_6" | "7_9" | "10_12" | null;
   cover_key: string | null;
   profiles: { id?: string; public_handle?: string | null; display_name: string; public_profile?: boolean } | { id?: string; public_handle?: string | null; display_name: string; public_profile?: boolean }[] | null;
 };
@@ -116,6 +118,7 @@ function cleanSynopsis(synopsis: string) {
 
 export default function ComicDetailPage({ initialComic, initialChapters }: ComicDetailPageProps) {
   const { settings } = usePlatformSettings();
+  const { kidsMode } = useKidsMode();
   const currentDevice = useCurrentDevice();
   const membership = useReaderMembership();
   const { slug } = useParams<{ slug: string }>();
@@ -309,6 +312,8 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
         production_technique: "production_technique" in data ? data.production_technique : "traditional_drawing",
         story_status: "story_status" in data ? data.story_status : "ongoing",
         target_audience: "target_audience" in data ? data.target_audience : "all_ages",
+        kids_mode_approved: initialComic?.kids_mode_approved ?? false,
+        kids_age_range: initialComic?.kids_age_range ?? null,
         language: "language" in data ? data.language : "id",
         origin_type: "origin_type" in data ? data.origin_type : "original",
         source_info: "source_info" in data ? data.source_info : "",
@@ -691,7 +696,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
 
   if (loading) return (
     <main className="reader-detail-page" aria-busy="true">
-      <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" showName /><span className="reader-detail-skeleton reader-detail-skeleton-nav" /></nav>
+      <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" showName /><KidsModeToggle /><span className="reader-detail-skeleton reader-detail-skeleton-nav" /></nav>
       <div className="reader-comic-detail reader-detail-loading">
         <span className="reader-detail-skeleton reader-detail-cover-skeleton" />
         <div className="reader-detail-skeleton-copy">
@@ -712,13 +717,24 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   if (!comic) {
     return (
       <main className="reader-detail-page">
-        <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" showName /><Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi komik</Link></nav>
+        <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" showName /><KidsModeToggle /><Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi komik</Link></nav>
         <div className="reader-detail-not-found"><h1>{loadError ? "Komik belum bisa dibuka." : "Komik tidak ditemukan."}</h1><p>{loadError || "Cerita ini mungkin telah dipindahkan atau belum diterbitkan."}</p>{loadError && <button className="reader-primary-button" type="button" onClick={() => window.location.reload()}>Coba lagi <ArrowRight size={17} /></button>}<Link className="reader-detail-secondary-link" href="/">Jelajahi komik</Link></div>
       </main>
     );
   }
   if (currentDevice === null) {
     return <main className="reader-detail-page" aria-busy="true"><div className="reader-detail-not-found">Memeriksa ketersediaan komik...</div></main>;
+  }
+  if (kidsMode && !comic.kids_mode_approved) {
+    return (
+      <main className="reader-detail-page reader-detail-not-found kids-mode-restricted-page">
+        <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" showName /><KidsModeToggle /></nav>
+        <p className="reader-section-kicker">KIDS MODE AKTIF</p>
+        <h1>Komik ini belum tersedia di library anak.</h1>
+        <p>Kids Mode hanya menampilkan komik yang telah disetujui kurasi untuk anak.</p>
+        <Link className="reader-primary-button" href="/">Kembali ke cerita anak</Link>
+      </main>
+    );
   }
   if (!isComicAvailableOnDevice(comic.target_device, currentDevice)) {
     const targetLabel = COMIC_TARGET_DEVICES.find((device) => device.value === comic.target_device)?.label.toLowerCase() || "perangkat tertentu";
@@ -751,6 +767,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
     <main className="reader-detail-page">
       <nav className="reader-subnav">
         <BrandLogo className="wordmark reader-wordmark" showName />
+        <KidsModeToggle />
         <Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi</Link>
       </nav>
       <section className="reader-comic-detail">
@@ -763,14 +780,15 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
         <div className="reader-detail-copy">
           <p className="reader-detail-genre-count">{getComicGenreLabel(comic.genre)}<span aria-hidden="true">·</span>{chapters.length} episode</p>
           <h1>{comic.title}</h1>
-          <p className="reader-detail-creator">Karya <strong>{byline}</strong></p>
-          {creatorProfile?.public_handle && creatorProfile.public_profile && (
+          {kidsMode && comic.kids_mode_approved && <span className="kids-comic-age-badge">Kids Mode · {comic.kids_age_range === "4_6" ? "4–6" : comic.kids_age_range === "7_9" ? "7–9" : "10–12"} tahun</span>}
+          {!kidsMode && <p className="reader-detail-creator">Karya <strong>{byline}</strong></p>}
+          {!kidsMode && creatorProfile?.public_handle && creatorProfile.public_profile && (
             <Link className="reader-creator-profile-link reader-detail-creator-profile" href={`/kreator/${encodeURIComponent(creatorProfile.public_handle)}`}>
               Lihat profil kreator {creator}
               <ArrowRight size={14} />
             </Link>
           )}
-          {engagement && (
+          {!kidsMode && engagement && (
             <div className="reader-detail-engagement" aria-label="Statistik komik">
               <span title={`${engagement.views.toLocaleString("id-ID")} kali dilihat`}><Eye size={15} /><strong>{formatEngagementCount(engagement.views)}</strong><small>Dilihat</small></span>
               <span title={`${engagement.likes.toLocaleString("id-ID")} favorit`}><Heart size={15} /><strong>{formatEngagementCount(engagement.likes)}</strong><small>Favorit</small></span>
@@ -787,20 +805,20 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
               : <span className="reader-detail-unavailable">Episode akan segera hadir</span>}
             {resumeChapter && <p className="reader-detail-resume">Terakhir dibaca · Episode {resumeChapter.chapter_number}</p>}
           </div>
-          <div className="reader-detail-actions">
+          {!kidsMode && <div className="reader-detail-actions">
             {settings.feature_flags.favorites && (userId
               ? <button className={`reader-detail-action${isBookmarked ? " reader-detail-action-saved" : ""}`} onClick={() => void toggleBookmark()} disabled={bookmarkBusy} aria-pressed={isBookmarked} aria-label={isBookmarked ? "Hapus dari favorit" : "Simpan ke favorit"}>
                   {bookmarkBusy ? <LoaderCircle className="spin" size={17} /> : <Heart size={17} fill={isBookmarked ? "currentColor" : "none"} />}
                   Favorit
                 </button>
               : <Link className="reader-detail-action" href="/login" aria-label="Masuk untuk menyimpan komik ke favorit"><Heart size={17} /> Favorit</Link>)}
-            <button className="reader-detail-action" onClick={() => void shareComic()}><Share2 size={17} /> Bagikan</button>
-          </div>
-          {bookmarkMessage && <p className="reader-detail-action-message" role="status">{bookmarkMessage}</p>}
-          {shareMessage && <p className="reader-detail-action-message" role="status">{shareMessage}</p>}
+            {!kidsMode && <button className="reader-detail-action" onClick={() => void shareComic()}><Share2 size={17} /> Bagikan</button>}
+          </div>}
+          {!kidsMode && bookmarkMessage && <p className="reader-detail-action-message" role="status">{bookmarkMessage}</p>}
+          {!kidsMode && shareMessage && <p className="reader-detail-action-message" role="status">{shareMessage}</p>}
         </div>
       </section>
-      {shareDialogOpen && (
+      {!kidsMode && shareDialogOpen && (
         <div className="reader-share-backdrop" role="presentation" onClick={() => setShareDialogOpen(false)}>
           <section className="reader-share-dialog" role="dialog" aria-modal="true" aria-labelledby="reader-share-title" onClick={(event) => event.stopPropagation()}>
             <button className="reader-share-close" type="button" aria-label="Tutup pilihan berbagi" onClick={() => setShareDialogOpen(false)}><X size={19} /></button>
@@ -821,7 +839,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
       <SponsoredAd slotKey="comic_detail_sponsor" placement="comic" comicId={comic.id} />
       <section className="reader-episodes">
         <div className="reader-section-heading"><div><p className="reader-section-kicker">LANJUTKAN CERITA</p><h2>Episode</h2></div><span className="reader-result-count">{chapters.length} episode</span></div>
-        {membership.ready && membership.verified && (membership.tier === "premium" || membership.tier === "vip") && (
+        {!kidsMode && membership.ready && membership.verified && (membership.tier === "premium" || membership.tier === "vip") && (
           <div className="reader-offline-settings">
             <p>Unduhan Premium tersimpan di perangkat ini, maksimal {OFFLINE_EPISODE_LIMIT} episode. Lisensi dibarui saat status Premium berhasil diverifikasi online dan berlaku 7 hari sejak verifikasi terakhir.</p>
             {offlineStorageMessage && <small>{offlineStorageMessage}</small>}
@@ -872,7 +890,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
                       ? <a className={rowClass} href={`/comic/${comic.slug}/chapter/${chapter.id}`}>{content}</a>
                       : <Link className={rowClass} href={`/comic/${comic.slug}/chapter/${chapter.id}`}>{content}</Link>
                     : <button className={rowClass} type="button" aria-label={`Episode ${chapter.chapter_number} terkunci`} onClick={() => setEpisodeSnackbar("Selesaikan episode sebelumnya")}>{content}</button>}
-                  <div className="reader-episode-offline-actions">
+                  {!kidsMode && <div className="reader-episode-offline-actions">
                     {savedOfflineEpisode && (
                       <small className={validOfflineLicense ? "reader-offline-saved" : "reader-offline-locked"}>
                         {savedForCurrentAccount
@@ -909,7 +927,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
                         Hapus
                       </button>
                     )}
-                  </div>
+                  </div>}
                 </div>
               );
             })}
@@ -917,9 +935,9 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
         ) : chapterLoadError
           ? <div className="reader-empty-state"><p>Tidak dapat memuat episode.</p><button type="button" onClick={() => window.location.reload()}>Coba lagi</button></div>
           : <div className="reader-empty-state"><p>Belum ada episode yang diterbitkan.</p></div>}
-        {offlineDownloadProgress && <p className="reader-offline-progress" role="status">{offlineDownloadProgress}</p>}
-        {offlineDownloadError && <p className="reader-episode-progress-error" role="alert">{offlineDownloadError}</p>}
-        {offlineReplacementChapter && (
+        {!kidsMode && offlineDownloadProgress && <p className="reader-offline-progress" role="status">{offlineDownloadProgress}</p>}
+        {!kidsMode && offlineDownloadError && <p className="reader-episode-progress-error" role="alert">{offlineDownloadError}</p>}
+        {!kidsMode && offlineReplacementChapter && (
           <div className="reader-share-backdrop" role="presentation" onClick={() => setOfflineReplacementChapter(null)}>
             <section className="reader-offline-replace-dialog" role="dialog" aria-modal="true" aria-labelledby="reader-offline-replace-title" onClick={(event) => event.stopPropagation()}>
               <button className="reader-share-close" type="button" aria-label="Tutup pilihan penggantian" onClick={() => setOfflineReplacementChapter(null)}><X size={19} /></button>
@@ -939,7 +957,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
           </div>
         )}
       </section>
-      <section className="reader-about-comic" aria-labelledby="reader-about-title">
+      {!kidsMode && <section className="reader-about-comic" aria-labelledby="reader-about-title">
         <div className="reader-section-heading"><div><p className="reader-section-kicker">INFORMASI CERITA</p><h2 id="reader-about-title">Tentang komik</h2></div></div>
         <dl className="reader-comic-metadata">
           <div><dt>Teknik produksi</dt><dd>{getMetadataLabel(PRODUCTION_TECHNIQUES, comic.production_technique || "traditional_drawing", "Gambar tradisional")}</dd></div>
@@ -950,11 +968,11 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
           <div className="reader-comic-metadata-access"><dt>Akses</dt><dd>Gratis</dd></div>
           {credits.map((credit, index) => <div key={`${credit.role}-${index}`}><dt>{credit.role}</dt><dd>{credit.name}</dd></div>)}
         </dl>
-      </section>
+      </section>}
       <footer className="reader-footer">
         <BrandLogo className="wordmark reader-wordmark" />
         <p>Tempat cerita Indonesia menemukan pembacanya.</p>
-        <PlatformLinks />
+        {!kidsMode && <PlatformLinks />}
         <Link href="/">Jelajahi komik <ArrowRight size={15} /></Link>
         <Link href="/syarat-ketentuan">Syarat layanan</Link>
       </footer>

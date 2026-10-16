@@ -11,6 +11,7 @@ import DeviceUnavailableNotice from "@/components/device-unavailable-notice";
 import { useCurrentDevice } from "@/components/use-current-device";
 import { COMIC_TARGET_DEVICES, isComicAvailableOnDevice, type ComicTargetDevice } from "@/lib/comic-target-device";
 import { useReaderMembership } from "@/app/membership-runtime";
+import { KidsModeToggle, useKidsMode } from "@/app/platform-runtime";
 
 const supabase = createClient();
 const TRANSITION_AD_LOAD_TIMEOUT_MS = 2000;
@@ -19,7 +20,7 @@ const BOOK_TURN_SPREAD_COMMIT_DELAY_MS = 340;
 
 type Page = { id: string; page_number: number; object_key: string };
 type Chapter = { id: string; title: string; chapter_number: number; comic_id: string };
-type Comic = { id: string; title: string; slug: string; target_device: ComicTargetDevice };
+type Comic = { id: string; title: string; slug: string; target_device: ComicTargetDevice; kids_mode_approved: boolean; kids_age_range: "4_6" | "7_9" | "10_12" | null };
 type BookLeaf = { kind: "page"; page: Page; pageIndex: number } | { kind: "ad"; afterPageIndex: number } | { kind: "blank" } | { kind: "end" };
 type BookTurn = { from: number; to: number; direction: "next" | "previous" };
 export type ChapterReaderSeed = { chapter: Chapter; comic: Comic };
@@ -41,6 +42,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const router = useRouter();
   const currentDevice = useCurrentDevice();
   const membership = useReaderMembership();
+  const { kidsMode } = useKidsMode();
   const [chapter, setChapter] = useState<Chapter | null>(seed.chapter);
   const [comic, setComic] = useState<Comic | null>(seed.comic);
   const [chapterList, setChapterList] = useState<Chapter[]>([]);
@@ -72,8 +74,8 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const desktopBookMode = currentDevice === "desktop"
     && (comic?.target_device ?? seed.comic.target_device) === "desktop";
   const bookLeaves = useMemo(
-    () => getDesktopBookLeaves(pages, membership.ready && membership.tier === "free"),
-    [membership.ready, membership.tier, pages],
+    () => getDesktopBookLeaves(pages, !kidsMode && membership.ready && membership.tier === "free"),
+    [kidsMode, membership.ready, membership.tier, pages],
   );
 
   useEffect(() => {
@@ -132,13 +134,15 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         }
         return;
       }
-      let { data: comicData, error: comicError } = await supabase
+      const { data: comicDataResult, error: initialComicError } = await supabase
         .from("comics")
         .select("id, title, slug, target_device")
         .eq("id", chapterData.comic_id)
         .eq("slug", slug)
         .abortSignal(requestController.signal)
         .maybeSingle();
+      let comicError = initialComicError;
+      let legacyComicData: Pick<Comic, "id" | "title" | "slug"> | null = null;
       if (comicError?.code === "42703") {
         const legacyComic = await supabase
           .from("comics")
@@ -147,10 +151,11 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
           .eq("slug", slug)
           .abortSignal(requestController.signal)
           .maybeSingle();
-        comicData = legacyComic.data as typeof comicData;
+        legacyComicData = legacyComic.data;
         comicError = legacyComic.error;
       }
-      if (comicError || !comicData) {
+      const loadedComicData = comicDataResult ?? legacyComicData;
+      if (comicError || !loadedComicData) {
         if (comicError) console.error("Unable to load the reader comic:", comicError);
         if (active) {
           setErrorMessage(comicError ? "Komik belum dapat dimuat. Periksa koneksi lalu coba lagi." : "Episode ini bukan bagian dari komik tersebut.");
@@ -158,7 +163,12 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         }
         return;
       }
-      comicData = { ...comicData, target_device: comicData.target_device || seed.comic.target_device || "all" };
+      const comicData: Comic = {
+        ...loadedComicData,
+        target_device: ("target_device" in loadedComicData ? loadedComicData.target_device : null) || seed.comic.target_device || "all",
+        kids_mode_approved: seed.comic.kids_mode_approved,
+        kids_age_range: seed.comic.kids_age_range,
+      };
       if (!isComicAvailableOnDevice(comicData.target_device, currentDevice)) {
         if (active) {
           setComic(comicData);
@@ -272,7 +282,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       const useDesktopBook = currentDevice === "desktop" && comicData.target_device === "desktop";
       const readerResumePage = useDesktopBook ? Math.max(0, resumePage) : resumePage;
       const initialBookLeaves = useDesktopBook
-        ? getDesktopBookLeaves(pageData, membership.tier === "free")
+        ? getDesktopBookLeaves(pageData, !kidsMode && membership.tier === "free")
         : [];
       const resumeLeafIndex = useDesktopBook
         ? Math.max(0, initialBookLeaves.findIndex((leaf) => leaf.kind === "page" && leaf.pageIndex === readerResumePage))
@@ -345,7 +355,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         bookTurnSpreadCommitTimeoutRef.current = null;
       }
     };
-  }, [chapterId, currentDevice, membership.ready, membership.tier, router, seed.comic.target_device, slug]);
+  }, [chapterId, currentDevice, kidsMode, membership.ready, membership.tier, router, seed.comic.kids_age_range, seed.comic.kids_mode_approved, seed.comic.target_device, slug]);
 
   useEffect(() => {
     if (loading || !chapter || !pages.length) return;
@@ -561,6 +571,10 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   }, []);
 
   const requestChapterTransition = (href: string) => {
+    if (kidsMode) {
+      router.push(href);
+      return;
+    }
     setPendingChapterHref(href);
     setTransitionAdAvailable(null);
     setTransitionCountdown(null);
@@ -648,6 +662,17 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   if (currentDevice !== null && !isComicAvailableOnDevice(comic?.target_device ?? seed.comic.target_device, currentDevice)) {
     const targetLabel = COMIC_TARGET_DEVICES.find((device) => device.value === (comic?.target_device ?? seed.comic.target_device))?.label.toLowerCase() || "perangkat tertentu";
     return <DeviceUnavailableNotice deviceName={targetLabel} />;
+  }
+  if (kidsMode && !(comic?.kids_mode_approved ?? seed.comic.kids_mode_approved)) {
+    return (
+      <main className="reader-detail-page reader-detail-not-found kids-mode-restricted-page">
+        <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" showName /><KidsModeToggle /></nav>
+        <p className="reader-section-kicker">KIDS MODE AKTIF</p>
+        <h1>Komik ini belum tersedia di library anak.</h1>
+        <p>Kids Mode hanya menampilkan komik yang telah disetujui kurasi untuk anak.</p>
+        <Link className="reader-primary-button" href="/">Kembali ke cerita anak</Link>
+      </main>
+    );
   }
   if (errorMessage) {
     return (
@@ -741,6 +766,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       <header className="reader-experience-header">
         <Link className="reader-experience-back" href={`/comic/${comic.slug}`} aria-label="Kembali ke detail komik"><ArrowLeft size={19} /><span>{comic.title}</span></Link>
         <div className="reader-experience-chapter"><span>Episode {chapter.chapter_number}</span><strong>{chapter.title}</strong></div>
+        <KidsModeToggle />
         <details className="reader-episode-menu">
           <summary aria-label="Daftar episode"><List size={19} /><ChevronDown size={14} /></summary>
           <div className="reader-episode-menu-popover">

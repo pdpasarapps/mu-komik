@@ -11,6 +11,7 @@ import { COMIC_TARGET_DEVICES, type ComicTargetDevice } from "@/lib/comic-target
 import { createComicSharePreview } from "@/lib/comic-share-preview";
 import { usePlatformSettings } from "../../../platform-runtime";
 import ImageCropDialog from "@/components/image-crop-dialog";
+import CreatorKidsCuration from "@/components/creator-kids-curation";
 
 type ComicContributor = { role: string; name: string };
 type Comic = {
@@ -802,6 +803,7 @@ export default function CreatorComicPage() {
           <label>Teknik produksi<select value={comicForm.technique} onChange={(event) => setComicForm({ ...comicForm, technique: event.target.value })}>{PRODUCTION_TECHNIQUES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
           <label>Status cerita<select value={comicForm.storyStatus} onChange={(event) => setComicForm({ ...comicForm, storyStatus: event.target.value })}>{STORY_STATUSES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
           <label>Target pembaca<select value={comicForm.targetAudience} onChange={(event) => setComicForm({ ...comicForm, targetAudience: event.target.value })}>{TARGET_AUDIENCES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+          <CreatorKidsCuration comicId={comic.id} />
           <label>Bahasa<select value={comicForm.language} onChange={(event) => setComicForm({ ...comicForm, language: event.target.value })}>{COMIC_LANGUAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}<option value="other">Bahasa lainnya</option></select></label>
           {comicForm.language === "other" && <label>Nama bahasa<input required maxLength={80} value={comicForm.otherLanguage} onChange={(event) => setComicForm({ ...comicForm, otherLanguage: event.target.value })} placeholder="Contoh: Bahasa Jawa" /></label>}
           <label>Asal karya<select value={comicForm.originType} onChange={(event) => setComicForm({ ...comicForm, originType: event.target.value })}>{ORIGIN_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>

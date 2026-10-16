@@ -26,6 +26,8 @@ export type HomepageComic = {
   latestChapter: { id: string; title: string; chapter_number: number; published_at: string | null } | null;
   chapterCount: number;
   engagement: { views: number; likes: number; shares: number } | null;
+  kidsModeApproved: boolean;
+  kidsAgeRange: "4_6" | "7_9" | "10_12" | null;
 };
 
 export type ContinueReading = {
@@ -41,6 +43,7 @@ export type HomepageCatalog = {
   comics: HomepageComic[];
   catalogState: "ready" | "empty" | "error";
   episodeLoadError: boolean;
+  kidsCurationAvailable: boolean;
 };
 
 export async function getHomepageArticles(): Promise<HomepageArticle[]> {
@@ -94,7 +97,7 @@ export async function getHomepageCatalog(): Promise<HomepageCatalog> {
   const supabase = createPublicSupabaseClient();
   if (!supabase) {
     console.error("Unable to load published comics: Supabase public environment variables are missing.");
-    return { comics: [], catalogState: "error", episodeLoadError: false };
+    return { comics: [], catalogState: "error", episodeLoadError: false, kidsCurationAvailable: false };
   }
 
   let { data, error } = await supabase
@@ -124,11 +127,23 @@ export async function getHomepageCatalog(): Promise<HomepageCatalog> {
 
   if (error) {
     console.error("Unable to load published comics:", error);
-    return { comics: [], catalogState: "error", episodeLoadError: false };
+    return { comics: [], catalogState: "error", episodeLoadError: false, kidsCurationAvailable: false };
   }
 
   const rows = data ?? [];
   const comicIds = rows.map((comic) => comic.id);
+  const { data: kidsCurationRows, error: kidsCurationError } = comicIds.length
+    ? await supabase
+      .from("comic_kids_curation")
+      .select("comic_id, age_range")
+      .eq("review_status", "approved")
+      .in("comic_id", comicIds)
+    : { data: [], error: null };
+  if (kidsCurationError) console.error("Unable to load Kids Mode curation for homepage catalog:", kidsCurationError);
+  const kidsCurationByComic = new Map((kidsCurationRows ?? []).map((row) => [
+    row.comic_id,
+    row.age_range as NonNullable<HomepageComic["kidsAgeRange"]>,
+  ]));
   const { data: chapterRows, error: chapterError } = comicIds.length
     ? await supabase
       .from("chapters")
@@ -171,6 +186,8 @@ export async function getHomepageCatalog(): Promise<HomepageCatalog> {
       latestChapter: chapters[0] ?? null,
       chapterCount: chapters.length,
       engagement: null,
+      kidsModeApproved: !kidsCurationError && kidsCurationByComic.has(comic.id),
+      kidsAgeRange: !kidsCurationError ? kidsCurationByComic.get(comic.id) ?? null : null,
     };
   });
 
@@ -205,5 +222,6 @@ export async function getHomepageCatalog(): Promise<HomepageCatalog> {
     comics,
     catalogState: comics.length ? "ready" : "empty",
     episodeLoadError: Boolean(chapterError),
+    kidsCurationAvailable: !kidsCurationError,
   };
 }

@@ -5,6 +5,7 @@ import { ExternalLink, Megaphone } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useReaderMembership } from "@/app/membership-runtime";
+import { useKidsMode } from "@/app/platform-runtime";
 
 type SponsoredCampaign = {
   campaign_id: string;
@@ -22,10 +23,15 @@ const supabase = createClient();
 
 export default function SponsoredAd({ slotKey, placement, comicId, matchPageIndex, readerStopId, onCampaignAvailability, fallback, ctaOnly = false }: { slotKey: string; placement: "home" | "comic" | "reader" | "catalog" | "transition"; comicId?: string; matchPageIndex?: number; readerStopId?: string; onCampaignAvailability?: (available: boolean) => void; fallback?: ReactNode; ctaOnly?: boolean }) {
   const membership = useReaderMembership();
+  const { kidsMode } = useKidsMode();
   const [campaign, setCampaign] = useState<SponsoredCampaign | null>(null);
   const [matchedPageHeight, setMatchedPageHeight] = useState<number | null>(null);
 
   useEffect(() => {
+    if (kidsMode) {
+      onCampaignAvailability?.(false);
+      return;
+    }
     if (!membership.ready) return;
     if (membership.tier !== "free") {
       onCampaignAvailability?.(false);
@@ -80,7 +86,7 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
     };
     void load();
     return () => { cancelled = true; };
-  }, [comicId, membership.ready, membership.tier, onCampaignAvailability, slotKey]);
+  }, [comicId, kidsMode, membership.ready, membership.tier, onCampaignAvailability, slotKey]);
 
   useEffect(() => {
     if (!membership.ready || membership.tier !== "free") return;
@@ -101,6 +107,7 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
     return () => observer.disconnect();
   }, [matchPageIndex, membership.ready, membership.tier, placement]);
 
+  if (kidsMode) return null;
   if (!membership.ready || membership.tier !== "free" || !campaign) return fallback ?? null;
   const sponsorLabel = campaign.format === "sponsor" ? "Sponsor" : "Iklan";
   const nativeReaderAd = (placement === "reader" || placement === "transition") && campaign.format === "native";

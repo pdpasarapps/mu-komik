@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useState } from "react";
-import { ArrowLeft, Archive, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, FileText, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Megaphone, Search, Settings2, ShieldCheck, UserRound, Users, X } from "lucide-react";
+import { ArrowLeft, Archive, Baby, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, FileText, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Megaphone, Search, Settings2, ShieldCheck, UserRound, Users, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -20,16 +20,18 @@ import { READER_MEMBERSHIP_TIERS, type ReaderMembershipTier } from "@/lib/reader
 type RequestStatus = "pending" | "approved" | "rejected";
 type CreatorRequest = { id: string; user_id: string; note: string; portfolio_url: string | null; instagram_url: string | null; other_url: string | null; status: RequestStatus; created_at: string; applicant: string; role: string };
 type ComicReview = { id: string; title: string; slug: string; synopsis: string; contributor: string; created_at: string; creator_id: string; creator: string };
+type KidsCurationReview = { comic_id: string; age_range: "4_6" | "7_9" | "10_12"; submitted_at: string; review_note: string; title: string; slug: string; creator: string };
 type AdminUser = { id: string; display_name: string; role: "reader" | "creator" | "admin"; membershipTier: ReaderMembershipTier; created_at: string };
-type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string };
+type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string; kids_curation_status: "pending" | "approved" | "rejected" | null; kids_age_range: "4_6" | "7_9" | "10_12" | null };
 type SettingsAuditEntry = { id: number; changed_by: string | null; changed_at: string; previous_values: Record<string, unknown>; new_values: Record<string, unknown> };
-type AdminSection = "overview" | "analytics" | "comic-review" | "creator-requests" | "users" | "comics" | "articles" | "share-previews" | "ad-requests" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "homepage-promos" | "platform-settings";
+type AdminSection = "overview" | "analytics" | "comic-review" | "kids-review" | "creator-requests" | "users" | "comics" | "articles" | "share-previews" | "ad-requests" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "homepage-promos" | "platform-settings";
 
 const supabase = createClient();
 const adminSections: Record<AdminSection, { label: string; description: string }> = {
   overview: { label: "Dasbor admin", description: "Kelola akun, komik, kurasi, dan pengajuan kreator mu-komik." },
   analytics: { label: "Analitik", description: "Pantau aktivitas membaca dan komik yang paling banyak dibaca." },
   "comic-review": { label: "Kurasi komik", description: "Tinjau komik yang menunggu persetujuan untuk diterbitkan." },
+  "kids-review": { label: "Kurasi Kids Mode", description: "Tinjau komik dan rentang usia yang diajukan untuk library anak." },
   "creator-requests": { label: "Pengajuan kreator", description: "Tinjau permohonan akses kreator." },
   users: { label: "Manajemen pengguna", description: "Kelola akun dan peran pengguna." },
   comics: { label: "Katalog komik", description: "Cari komik dan kelola status publikasinya." },
@@ -70,6 +72,9 @@ export default function AdminPage() {
     : "overview";
   const [requests, setRequests] = useState<CreatorRequest[]>([]);
   const [comicReviews, setComicReviews] = useState<ComicReview[]>([]);
+  const [kidsCurationReviews, setKidsCurationReviews] = useState<KidsCurationReview[]>([]);
+  const [kidsCurationSetupError, setKidsCurationSetupError] = useState("");
+  const [kidsReviewNotes, setKidsReviewNotes] = useState<Record<string, string>>({});
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [comics, setComics] = useState<AdminComic[]>([]);
   const [adminUserId, setAdminUserId] = useState("");
@@ -79,6 +84,7 @@ export default function AdminPage() {
   const [userSearch, setUserSearch] = useState("");
   const [comicSearch, setComicSearch] = useState("");
   const [comicStatusFilter, setComicStatusFilter] = useState("all");
+  const [kidsCurationFilter, setKidsCurationFilter] = useState("all");
   const [message, setMessage] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<CreatorRequest | null>(null);
   const [generatingSharePreviews, setGeneratingSharePreviews] = useState(false);
@@ -102,11 +108,12 @@ export default function AdminPage() {
       return;
     }
     setAdminUserId(userData.user.id);
-    const [requestResult, profileResult, membershipResult, comicResult] = await Promise.all([
+    const [requestResult, profileResult, membershipResult, comicResult, kidsCurationResult] = await Promise.all([
       supabase.from("creator_requests").select("id, user_id, note, portfolio_url, instagram_url, other_url, status, created_at").eq("status", "pending").order("created_at", { ascending: false }),
       supabase.from("profiles").select("id, display_name, role, created_at").order("created_at", { ascending: false }),
       supabase.from("reader_memberships").select("user_id, tier"),
       supabase.from("comics").select("id, title, slug, synopsis, contributor, genre, cover_key, share_preview_key, status, created_at, creator_id").order("created_at", { ascending: false }),
+      supabase.from("comic_kids_curation").select("comic_id, age_range, review_status, submitted_at, review_note").order("submitted_at", { ascending: true }),
     ]);
     const loadErrors = [requestResult.error, profileResult.error, membershipResult.error, comicResult.error].filter(Boolean);
     if (loadErrors.length) {
@@ -133,10 +140,41 @@ export default function AdminPage() {
       role: profileMap.get(request.user_id)?.role || "reader",
     })));
     const comicData = (comicResult.data ?? []) as Omit<AdminComic, "creator">[];
+    const kidsCurationByComic = new Map((kidsCurationResult.data ?? []).map((request) => [
+      request.comic_id,
+      {
+        status: request.review_status as AdminComic["kids_curation_status"],
+        ageRange: request.age_range as AdminComic["kids_age_range"],
+      },
+    ]));
     setComics(comicData.map((comic) => ({
       ...comic,
       creator: profileMap.get(comic.creator_id)?.display_name || `Akun ${comic.creator_id.slice(0, 8)}`,
+      kids_curation_status: kidsCurationByComic.get(comic.id)?.status ?? null,
+      kids_age_range: kidsCurationByComic.get(comic.id)?.ageRange ?? null,
     })));
+    if (kidsCurationResult.error) {
+      const missingKidsTable = kidsCurationResult.error.code === "42P01" || kidsCurationResult.error.code === "PGRST205";
+      if (missingKidsTable) {
+        setKidsCurationSetupError("Jalankan supabase/comic-kids-curation.sql untuk mengaktifkan kurasi Kids Mode.");
+      } else {
+        console.error("Unable to load Kids Mode curation queue:", kidsCurationResult.error);
+        setKidsCurationSetupError("Antrean Kids Mode gagal dimuat. Periksa koneksi dan coba lagi.");
+      }
+    } else {
+      const comicMap = new Map(comicData.map((comic) => [comic.id, comic]));
+      setKidsCurationReviews((kidsCurationResult.data ?? []).filter((request) => request.review_status === "pending").flatMap((request) => {
+        const comic = comicMap.get(request.comic_id);
+        if (!comic) return [];
+        return [{
+          ...request,
+          age_range: request.age_range as KidsCurationReview["age_range"],
+          title: comic.title,
+          slug: comic.slug,
+          creator: profileMap.get(comic.creator_id)?.display_name || `Akun ${comic.creator_id.slice(0, 8)}`,
+        }];
+      }));
+    }
     const { data: pendingComics, error: comicError } = await supabase
       .from("comics")
       .select("id, title, slug, synopsis, contributor, created_at, creator_id")
@@ -421,10 +459,55 @@ export default function AdminPage() {
     setComicActionId(null);
   };
 
+  const reviewKidsCuration = async (request: KidsCurationReview, decision: "approved" | "rejected") => {
+    const reviewNote = kidsReviewNotes[request.comic_id]?.trim() ?? "";
+    if (decision === "rejected" && !reviewNote) {
+      setMessage("Tambahkan alasan sebelum menolak pengajuan Kids Mode.");
+      return;
+    }
+    setComicActionId(request.comic_id);
+    setMessage("");
+    const { data, error } = await supabase
+      .from("comic_kids_curation")
+      .update({
+        review_status: decision,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: adminUserId,
+        review_note: decision === "rejected" ? reviewNote : "",
+      })
+      .eq("comic_id", request.comic_id)
+      .eq("review_status", "pending")
+      .select("comic_id")
+      .maybeSingle();
+    if (error || !data) {
+      if (error) console.error("Unable to review Kids Mode request:", error);
+      setMessage(error
+        ? "Kurasi Kids Mode gagal diperbarui. Periksa koneksi dan coba lagi."
+        : "Pengajuan ini sudah ditinjau admin lain. Muat ulang halaman.");
+    } else {
+      setKidsCurationReviews((current) => current.filter((item) => item.comic_id !== request.comic_id));
+      setComics((current) => current.map((comic) => comic.id === request.comic_id
+        ? { ...comic, kids_curation_status: decision }
+        : comic));
+      setKidsReviewNotes((current) => {
+        const next = { ...current };
+        delete next[request.comic_id];
+        return next;
+      });
+      setMessage(decision === "approved"
+        ? `${request.title} disetujui untuk Kids Mode.`
+        : `${request.title} ditolak dari Kids Mode.`);
+    }
+    setComicActionId(null);
+  };
+
   const filteredUsers = users.filter((user) => `${user.display_name} ${user.id}`.toLowerCase().includes(userSearch.toLowerCase()));
   const filteredComics = comics.filter((comic) => {
     const matchesSearch = `${comic.title} ${comic.creator} ${comic.genre}`.toLowerCase().includes(comicSearch.toLowerCase());
-    return matchesSearch && (comicStatusFilter === "all" || comic.status === comicStatusFilter);
+    const matchesPublicationStatus = comicStatusFilter === "all" || comic.status === comicStatusFilter;
+    const matchesKidsStatus = kidsCurationFilter === "all"
+      || (kidsCurationFilter === "not_submitted" ? comic.kids_curation_status === null : comic.kids_curation_status === kidsCurationFilter);
+    return matchesSearch && matchesPublicationStatus && matchesKidsStatus;
   });
   const pendingRequests = requests.filter((request) => request.status === "pending").length;
   const publishedComics = comics.filter((comic) => comic.status === "published").length;
@@ -447,6 +530,7 @@ export default function AdminPage() {
             <div className="admin-sidebar-group" aria-label="Moderasi">
               <p className="admin-sidebar-group-label">Moderasi</p>
               <Link href="/admin/comic-review" aria-current={section === "comic-review" ? "page" : undefined}><BookOpen size={18} /><span>Kurasi komik</span>{comicReviews.length > 0 && <small>{comicReviews.length}</small>}</Link>
+              <Link href="/admin/kids-review" aria-current={section === "kids-review" ? "page" : undefined}><ShieldCheck size={18} /><span>Kurasi Kids Mode</span>{kidsCurationReviews.length > 0 && <small>{kidsCurationReviews.length}</small>}</Link>
               <Link href="/admin/creator-requests" aria-current={section === "creator-requests" ? "page" : undefined}><ClipboardList size={18} /><span>Pengajuan kreator</span>{requests.length > 0 && <small>{requests.length}</small>}</Link>
             </div>
             <div className="admin-sidebar-group" aria-label="Kelola konten">
@@ -668,6 +752,48 @@ export default function AdminPage() {
             </div>
           )}
         </section>}
+        {section === "kids-review" && <section className="comic-review-section" id="kids-review">
+          <div className="admin-section-heading">
+            <div><p className="eyebrow">Library anak</p><h2>Kurasi Kids Mode</h2></div>
+            <span>{kidsCurationReviews.length} pengajuan menunggu</span>
+          </div>
+          {kidsCurationSetupError ? (
+            <div className="admin-empty"><ShieldCheck size={26} /><h2>Kurasi Kids Mode belum siap.</h2><p>{kidsCurationSetupError}</p></div>
+          ) : kidsCurationReviews.length === 0 ? (
+            <div className="admin-empty"><ShieldCheck size={26} /><h2>Tidak ada pengajuan Kids Mode.</h2><p>Pengajuan kreator akan muncul di sini. Status terbit komik tidak terpengaruh oleh keputusan kurasi anak.</p></div>
+          ) : (
+            <div className="comic-review-list">
+              {kidsCurationReviews.map((request) => (
+                <article className="comic-review-card" key={request.comic_id}>
+                  <div className="comic-review-copy">
+                    <span className="request-status request-pending">Menunggu kurasi anak</span>
+                    <h3>{request.title}</h3>
+                    <p className="comic-review-creator">Oleh {request.creator} · diajukan {new Date(request.submitted_at).toLocaleDateString("id-ID")}</p>
+                    <p>Rentang usia: {request.age_range === "4_6" ? "4–6 tahun" : request.age_range === "7_9" ? "7–9 tahun" : "10–12 tahun"}</p>
+                    <Link className="admin-manage-link" href={`/comic/${request.slug}`} target="_blank">Pratinjau komik</Link>
+                    <label className="admin-kids-review-note">Catatan penolakan
+                      <textarea
+                        rows={2}
+                        maxLength={500}
+                        value={kidsReviewNotes[request.comic_id] ?? ""}
+                        onChange={(event) => setKidsReviewNotes((current) => ({ ...current, [request.comic_id]: event.target.value }))}
+                        placeholder="Wajib diisi jika pengajuan ditolak"
+                      />
+                    </label>
+                  </div>
+                  <div className="comic-review-actions">
+                    <button className="approve-button" onClick={() => void reviewKidsCuration(request, "approved")} disabled={comicActionId === request.comic_id}>
+                      {comicActionId === request.comic_id ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />} Setujui untuk anak
+                    </button>
+                    <button className="reject-button" onClick={() => void reviewKidsCuration(request, "rejected")} disabled={comicActionId === request.comic_id}>
+                      <X size={16} /> Tolak
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>}
         {section === "creator-requests" && <section className="creator-requests-section" id="creator-requests">
           <div className="admin-section-heading">
             <div><p className="eyebrow">Akses kreator</p><h2>Pengajuan kreator</h2></div>
@@ -731,7 +857,7 @@ export default function AdminPage() {
         {section === "comics" && <section className="admin-management-section" id="comic-management">
           <div className="admin-section-heading">
             <div><p className="eyebrow">Katalog</p><h2>Manajemen komik</h2></div>
-            <span>{comics.length} komik</span>
+            <span>{filteredComics.length} dari {comics.length} komik</span>
           </div>
           <div className="admin-comic-filters">
             <label className="admin-search"><Search size={17} /><input value={comicSearch} onChange={(event) => setComicSearch(event.target.value)} placeholder="Cari judul, kreator, atau genre" /></label>
@@ -742,7 +868,15 @@ export default function AdminPage() {
               <option value="published">Terbit</option>
               <option value="archived">Diarsipkan</option>
             </select>
+            <select aria-label="Saring berdasarkan status Kids Mode" value={kidsCurationFilter} onChange={(event) => setKidsCurationFilter(event.target.value)} disabled={Boolean(kidsCurationSetupError)}>
+              <option value="all">Semua status Kids Mode</option>
+              <option value="approved">Disetujui untuk anak</option>
+              <option value="pending">Menunggu kurasi anak</option>
+              <option value="rejected">Ditolak dari Kids Mode</option>
+              <option value="not_submitted">Belum diajukan ke Kids Mode</option>
+            </select>
           </div>
+          {kidsCurationSetupError && <p className="admin-kids-filter-note" role="status">{kidsCurationSetupError}</p>}
           {filteredComics.length === 0 ? (
             <div className="admin-empty"><BookOpen size={26} /><h2>Komik tidak ditemukan.</h2><p>Coba kata kunci atau status lain.</p></div>
           ) : (
@@ -751,7 +885,20 @@ export default function AdminPage() {
                 <thead><tr><th>Komik</th><th>Kreator</th><th>Genre</th><th>Status</th><th>Tindakan</th></tr></thead>
                 <tbody>{filteredComics.map((comic) => (
                   <tr key={comic.id}>
-                    <td><strong>{comic.title}</strong><code>{comic.slug}</code></td>
+                    <td>
+                      <strong>{comic.title}</strong>
+                      {comic.kids_curation_status === "approved" && (
+                        <span
+                          className="admin-kids-comic-badge"
+                          title={`Disetujui untuk Kids Mode · ${comic.kids_age_range === "4_6" ? "4–6" : comic.kids_age_range === "7_9" ? "7–9" : "10–12"} tahun`}
+                          aria-label={`Kids Mode, usia ${comic.kids_age_range === "4_6" ? "4 sampai 6" : comic.kids_age_range === "7_9" ? "7 sampai 9" : "10 sampai 12"} tahun`}
+                        >
+                          <Baby size={14} aria-hidden="true" />
+                          <span>Kids Mode · {comic.kids_age_range === "4_6" ? "4–6" : comic.kids_age_range === "7_9" ? "7–9" : "10–12"} th</span>
+                        </span>
+                      )}
+                      <code>{comic.slug}</code>
+                    </td>
                     <td>{comic.creator}</td>
                     <td>{comic.genre}</td>
                     <td><span className={`request-status request-${comic.status === "published" ? "approved" : comic.status === "pending_review" ? "pending" : comic.status}`}>{comicStatusLabels[comic.status]}</span></td>
