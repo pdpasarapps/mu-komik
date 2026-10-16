@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import ChapterReaderPage, { type ChapterReaderSeed } from "./reader-client";
 import { createPublicSupabaseClient } from "@/lib/seo";
 
+const EPISODE_REQUEST_TIMEOUT_MS = 8000;
+
 export default async function ChapterPage({
   params,
 }: {
@@ -20,6 +22,7 @@ export default async function ChapterPage({
     .eq("comics.slug", slug)
     .eq("comics.status", "published")
     .not("published_at", "is", null)
+    .abortSignal(AbortSignal.timeout(EPISODE_REQUEST_TIMEOUT_MS))
     .maybeSingle();
   if (error?.code === "42703") {
     const legacy = await supabase
@@ -29,6 +32,7 @@ export default async function ChapterPage({
       .eq("comics.slug", slug)
       .eq("comics.status", "published")
       .not("published_at", "is", null)
+      .abortSignal(AbortSignal.timeout(EPISODE_REQUEST_TIMEOUT_MS))
       .maybeSingle();
     data = legacy.data as typeof data;
     error = legacy.error;

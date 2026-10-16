@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import SponsoredAd from "@/components/sponsored-ad";
+import BrandLogo from "@/components/brand-logo";
 import DeviceUnavailableNotice from "@/components/device-unavailable-notice";
 import { useCurrentDevice } from "@/components/use-current-device";
 import { COMIC_TARGET_DEVICES, isComicAvailableOnDevice, type ComicTargetDevice } from "@/lib/comic-target-device";
@@ -13,6 +14,7 @@ import { useReaderMembership } from "@/app/membership-runtime";
 
 const supabase = createClient();
 const TRANSITION_AD_LOAD_TIMEOUT_MS = 2000;
+const READER_LOAD_TIMEOUT_MS = 8000;
 const BOOK_TURN_SPREAD_COMMIT_DELAY_MS = 340;
 
 type Page = { id: string; page_number: number; object_key: string };
@@ -88,7 +90,17 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   }, []);
 
   useEffect(() => {
+    if (currentDevice === null || !membership.ready) {
+      const readinessTimeoutId = window.setTimeout(() => {
+        setErrorMessage("Koneksi ke server terlalu lama. Periksa koneksi lalu coba lagi.");
+        setLoading(false);
+      }, READER_LOAD_TIMEOUT_MS);
+      return () => window.clearTimeout(readinessTimeoutId);
+    }
+
     let active = true;
+    let timedOut = false;
+    const requestController = new AbortController();
     const loadChapter = async () => {
       if (currentDevice === null || !membership.ready) return;
       if (!isComicAvailableOnDevice(seed.comic.target_device, currentDevice)) {
@@ -110,6 +122,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         .from("chapters")
         .select("id, title, chapter_number, comic_id")
         .eq("id", chapterId)
+        .abortSignal(requestController.signal)
         .maybeSingle();
       if (chapterError || !chapterData) {
         if (chapterError) console.error("Unable to load reader episode:", chapterError);
@@ -124,6 +137,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         .select("id, title, slug, target_device")
         .eq("id", chapterData.comic_id)
         .eq("slug", slug)
+        .abortSignal(requestController.signal)
         .maybeSingle();
       if (comicError?.code === "42703") {
         const legacyComic = await supabase
@@ -131,6 +145,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
           .select("id, title, slug")
           .eq("id", chapterData.comic_id)
           .eq("slug", slug)
+          .abortSignal(requestController.signal)
           .maybeSingle();
         comicData = legacyComic.data as typeof comicData;
         comicError = legacyComic.error;
@@ -153,7 +168,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       }
 
       const [{ data: chapters, error: chaptersError }, { data: sessionData, error: sessionError }] = await Promise.all([
-        supabase.from("chapters").select("id, title, chapter_number, comic_id").eq("comic_id", chapterData.comic_id).not("published_at", "is", null).order("chapter_number"),
+        supabase.from("chapters").select("id, title, chapter_number, comic_id").eq("comic_id", chapterData.comic_id).not("published_at", "is", null).order("chapter_number").abortSignal(requestController.signal),
         supabase.auth.getSession(),
       ]);
       if (chaptersError) console.error("Unable to load comic episode navigation:", chaptersError);
@@ -188,12 +203,12 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       const chapterIds = chapters.map((item) => item.id);
       const currentUserId = sessionData.session?.user.id ?? null;
       const [{ data: allPageData, error: allPagesError }, { data: history, error: historyError }, { data: profile, error: profileError }] = await Promise.all([
-        supabase.from("pages").select("id, chapter_id, page_number, object_key").in("chapter_id", chapterIds).order("page_number"),
+        supabase.from("pages").select("id, chapter_id, page_number, object_key").in("chapter_id", chapterIds).order("page_number").abortSignal(requestController.signal),
         currentUserId
-          ? supabase.from("reading_history").select("chapter_id, last_page").eq("user_id", currentUserId).in("chapter_id", chapterIds)
+          ? supabase.from("reading_history").select("chapter_id, last_page").eq("user_id", currentUserId).in("chapter_id", chapterIds).abortSignal(requestController.signal)
           : Promise.resolve({ data: [], error: null }),
         currentUserId
-          ? supabase.from("profiles").select("display_name").eq("id", currentUserId).maybeSingle()
+          ? supabase.from("profiles").select("display_name").eq("id", currentUserId).abortSignal(requestController.signal).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
       ]);
       if (allPagesError) console.error("Unable to verify episode reading order:", allPagesError);
@@ -297,9 +312,34 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       setHistoryReady(true);
       setLoading(false);
     };
-    void loadChapter();
+    let timeoutId: number | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = window.setTimeout(() => {
+        timedOut = true;
+        requestController.abort();
+        reject(new DOMException("Reader episode loading timed out.", "TimeoutError"));
+      }, READER_LOAD_TIMEOUT_MS);
+    });
+    void Promise.race([loadChapter(), timeout])
+      .catch((error: unknown) => {
+        if (!active) return;
+        active = false;
+        if (timedOut || (error instanceof Error && error.name === "TimeoutError")) {
+          console.warn("Reader episode loading timed out.", { slug, chapterId, timeoutMs: READER_LOAD_TIMEOUT_MS });
+          setErrorMessage("Koneksi ke server terlalu lama. Periksa koneksi lalu coba lagi.");
+        } else {
+          console.error("Unable to load reader episode:", error);
+          setErrorMessage("Episode belum dapat dimuat. Periksa koneksi lalu coba lagi.");
+        }
+        setLoading(false);
+      })
+      .finally(() => {
+        if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      });
     return () => {
       active = false;
+      requestController.abort();
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
       if (bookTurnSpreadCommitTimeoutRef.current !== null) {
         window.clearTimeout(bookTurnSpreadCommitTimeoutRef.current);
         bookTurnSpreadCommitTimeoutRef.current = null;
@@ -608,6 +648,19 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   if (currentDevice !== null && !isComicAvailableOnDevice(comic?.target_device ?? seed.comic.target_device, currentDevice)) {
     const targetLabel = COMIC_TARGET_DEVICES.find((device) => device.value === (comic?.target_device ?? seed.comic.target_device))?.label.toLowerCase() || "perangkat tertentu";
     return <DeviceUnavailableNotice deviceName={targetLabel} />;
+  }
+  if (errorMessage) {
+    return (
+      <main className="reader-detail-page">
+        <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" showName /><Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi komik</Link></nav>
+        <div className="reader-detail-not-found">
+          <h1>{errorMessage.startsWith("Koneksi ke server") ? "Komik belum bisa dibuka." : "Episode belum bisa dibuka."}</h1>
+          <p>{errorMessage}</p>
+          <button className="reader-primary-button" type="button" onClick={() => window.location.reload()}>Coba lagi <ArrowRight size={17} /></button>
+          <Link className="reader-detail-secondary-link" href="/">Jelajahi komik</Link>
+        </div>
+      </main>
+    );
   }
   if (currentDevice === null || loading) return (
     <main className="reader-loading">

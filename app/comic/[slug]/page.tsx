@@ -3,6 +3,8 @@ import ComicDetailPage, { type Chapter, type Comic, type ComicDetailPageProps } 
 import { getComicGenreLabel } from "@/lib/comic-genres";
 import { createPublicSupabaseClient, siteUrl } from "@/lib/seo";
 
+const COMIC_REQUEST_TIMEOUT_MS = 8000;
+
 export default async function ComicPage({
   params,
 }: {
@@ -19,6 +21,7 @@ export default async function ComicPage({
     .select("id, title, slug, synopsis, contributor, genre, cover_key, target_device, profiles!comics_creator_id_fkey(id, public_handle, display_name, public_profile)")
     .eq("slug", slug)
     .eq("status", "published")
+    .abortSignal(AbortSignal.timeout(COMIC_REQUEST_TIMEOUT_MS))
     .maybeSingle();
   if (error?.code === "42703") {
     console.warn("Creator public profiles are not configured. Loading comic profile fields without public-profile links.");
@@ -27,6 +30,7 @@ export default async function ComicPage({
       .select("id, title, slug, synopsis, contributor, genre, cover_key, target_device, profiles!comics_creator_id_fkey(display_name)")
       .eq("slug", slug)
       .eq("status", "published")
+      .abortSignal(AbortSignal.timeout(COMIC_REQUEST_TIMEOUT_MS))
       .maybeSingle();
     data = legacy.data as typeof data;
     error = legacy.error;
@@ -36,6 +40,7 @@ export default async function ComicPage({
         .select("id, title, slug, synopsis, contributor, genre, cover_key, profiles!comics_creator_id_fkey(display_name)")
         .eq("slug", slug)
         .eq("status", "published")
+        .abortSignal(AbortSignal.timeout(COMIC_REQUEST_TIMEOUT_MS))
         .maybeSingle();
       data = legacy.data as typeof data;
       error = legacy.error;
@@ -53,7 +58,8 @@ export default async function ComicPage({
     .select("id, title, chapter_number, published_at")
     .eq("comic_id", comic.id)
     .not("published_at", "is", null)
-    .order("chapter_number", { ascending: true });
+    .order("chapter_number", { ascending: true })
+    .abortSignal(AbortSignal.timeout(COMIC_REQUEST_TIMEOUT_MS));
   if (chapterError) {
     console.error("Unable to load published episodes for comic page:", { slug, error: chapterError });
   }

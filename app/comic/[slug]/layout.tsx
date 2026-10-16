@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { getComicGenreLabel } from "@/lib/comic-genres";
 import { createPublicSupabaseClient, siteUrl } from "@/lib/seo";
 
+const COMIC_METADATA_TIMEOUT_MS = 8000;
+
 type ComicMetadata = {
   title: string;
   synopsis: string | null;
@@ -30,6 +32,7 @@ export async function generateMetadata({
     .select("id, title, synopsis, genre, contributor, cover_key, share_preview_key, profiles!comics_creator_id_fkey(display_name)")
     .eq("slug", slug)
     .eq("status", "published")
+    .abortSignal(AbortSignal.timeout(COMIC_METADATA_TIMEOUT_MS))
     .maybeSingle();
   if (error) {
     console.error("Unable to load published comic metadata:", error);
