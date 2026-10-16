@@ -191,7 +191,33 @@ export default function CreatorComicPage() {
       if (new URLSearchParams(window.location.search).get("edit") === "comic") {
         setActiveTab("comic");
       }
-      const { data: chapterData } = await supabase.from("chapters").select("id, title, chapter_number, published_at, audio_object_key, subtitles_srt, subtitle_page_map").eq("comic_id", comicId).order("chapter_number", { ascending: true });
+      const audioChapters = await supabase
+        .from("chapters")
+        .select("id, title, chapter_number, published_at, audio_object_key, subtitles_srt, subtitle_page_map")
+        .eq("comic_id", comicId)
+        .order("chapter_number", { ascending: true });
+      let chapterData = audioChapters.data;
+      let chapterError = audioChapters.error;
+      if (chapterError?.code === "42703") {
+        const legacyChapters = await supabase
+          .from("chapters")
+          .select("id, title, chapter_number, published_at")
+          .eq("comic_id", comicId)
+          .order("chapter_number", { ascending: true });
+        chapterData = legacyChapters.data?.map((chapter) => ({
+          ...chapter,
+          audio_object_key: null,
+          subtitles_srt: null,
+          subtitle_page_map: null,
+        })) ?? null;
+        chapterError = legacyChapters.error;
+      }
+      if (chapterError) {
+        console.error("Unable to load comic chapters:", chapterError);
+        setMessage("Daftar bab belum dapat dimuat. Periksa koneksi lalu coba lagi.");
+        setLoading(false);
+        return;
+      }
       const loadedChapters = chapterData ?? [];
       setChapters(loadedChapters);
       const storageKey = `mu-komik:expanded-chapters:${comicData.id}`;
@@ -213,7 +239,17 @@ export default function CreatorComicPage() {
       }
       setExpandedChapterIds(expandedIds);
       if (loadedChapters.length) {
-        const { data: pageData } = await supabase.from("pages").select("id, chapter_id, page_number, object_key").in("chapter_id", loadedChapters.map((chapter) => chapter.id)).order("page_number", { ascending: true });
+        const { data: pageData, error: pagesError } = await supabase
+          .from("pages")
+          .select("id, chapter_id, page_number, object_key")
+          .in("chapter_id", loadedChapters.map((chapter) => chapter.id))
+          .order("page_number", { ascending: true });
+        if (pagesError) {
+          console.error("Unable to load comic chapter pages:", pagesError);
+          setMessage("Halaman bab belum dapat dimuat. Periksa koneksi lalu coba lagi.");
+          setLoading(false);
+          return;
+        }
         setPagesByChapter((pageData ?? []).reduce<Record<string, ChapterPage[]>>((grouped, page) => {
           grouped[page.chapter_id] = [...(grouped[page.chapter_id] ?? []), page];
           return grouped;
@@ -251,17 +287,23 @@ export default function CreatorComicPage() {
     const existingChapter = chapters.find((chapter) => chapter.id === editingChapterId);
     const publishedAt = form.published ? existingChapter?.published_at || new Date().toISOString() : null;
     if (editingChapterId) {
-      const { data, error } = await supabase
+      const { data: updatedChapter, error } = await supabase
         .from("chapters")
         .update({ title: form.title.trim(), chapter_number: chapterNumber, published_at: publishedAt })
         .eq("id", editingChapterId)
         .eq("comic_id", comic.id)
-        .select("id, title, chapter_number, published_at, audio_object_key, subtitles_srt, subtitle_page_map")
+        .select("id, title, chapter_number, published_at")
         .single();
       if (error) {
         console.error("Unable to update chapter:", error);
         setMessage(error.code === "23505" ? "Nomor bab ini sudah digunakan." : "Bab gagal diperbarui. Periksa koneksi dan coba lagi.");
       } else {
+        const data = {
+          ...updatedChapter,
+          audio_object_key: existingChapter?.audio_object_key ?? null,
+          subtitles_srt: existingChapter?.subtitles_srt ?? null,
+          subtitle_page_map: existingChapter?.subtitle_page_map ?? null,
+        };
         setChapters((current) => current.map((chapter) => chapter.id === data.id ? data : chapter).sort((a, b) => a.chapter_number - b.chapter_number));
         setShowForm(false);
         setEditingChapterId(null);
@@ -269,15 +311,21 @@ export default function CreatorComicPage() {
         setMessage("Bab berhasil diperbarui.");
       }
     } else {
-      const { data, error } = await supabase
+      const { data: insertedChapter, error } = await supabase
         .from("chapters")
         .insert({ comic_id: comic.id, title: form.title.trim(), chapter_number: chapterNumber, published_at: publishedAt })
-        .select("id, title, chapter_number, published_at, audio_object_key, subtitles_srt, subtitle_page_map")
+        .select("id, title, chapter_number, published_at")
         .single();
       if (error) {
         console.error("Unable to create chapter:", error);
         setMessage(error.code === "23505" ? "Nomor bab ini sudah digunakan." : "Bab gagal dibuat. Periksa koneksi dan coba lagi.");
       } else {
+        const data = {
+          ...insertedChapter,
+          audio_object_key: null,
+          subtitles_srt: null,
+          subtitle_page_map: null,
+        };
         setChapters((current) => [...current, data].sort((a, b) => a.chapter_number - b.chapter_number));
         setForm({ title: "", chapterNumber: "", published: false });
         setShowForm(false);
