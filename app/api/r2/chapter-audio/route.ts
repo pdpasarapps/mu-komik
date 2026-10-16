@@ -71,9 +71,17 @@ export async function POST(request: NextRequest) {
     });
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData.user) return errorResponse("Unauthorized", 401);
-    const { data: profile, error: profileError } = await supabase.from("profiles").select("role").eq("id", userData.user.id).maybeSingle();
-    if (profileError) return errorResponse("Could not read user profile", 500);
+    const { data: profile, error: profileError } = await supabase.from("profiles").select("role, can_upload_audio").eq("id", userData.user.id).maybeSingle();
+    if (profileError) {
+      if (profileError.code === "42703") {
+        return errorResponse("Jalankan supabase/chapter-audio-permissions.sql untuk mengaktifkan izin kreator audio.", 503);
+      }
+      return errorResponse("Could not read user profile", 500);
+    }
     if (profile?.role !== "creator" && profile?.role !== "admin") return errorResponse("Creator access required", 403);
+    if (profile.role === "creator" && profile.can_upload_audio !== true) {
+      return errorResponse("Unggah audio episode hanya tersedia untuk kreator khusus.", 403);
+    }
     const { settings, error: settingsError } = await getPlatformSettings();
     if (settingsError) return errorResponse("Platform settings are unavailable. Try again later.", 503);
     if (profile.role !== "admin" && !settings.feature_flags.creators) {

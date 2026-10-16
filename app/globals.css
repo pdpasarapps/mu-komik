@@ -821,7 +821,7 @@ html[data-theme="dark"] .admin-kids-comic-badge { border-color: #41644a; backgro
 .admin-action-danger { color: #bc4936; }
 .admin-action-link:disabled { cursor: wait; opacity: .55; }
 .admin-comic-table { min-width: 850px; }
-.admin-user-table { min-width: 700px; }
+.admin-user-table { min-width: 820px; }
 .admin-message[role="status"] { border-left: 3px solid #3b7965; padding: 8px 12px; }
 @media (max-width: 760px) {
   .comic-review-card { align-items: stretch; flex-direction: column; }

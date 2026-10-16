@@ -124,6 +124,7 @@ export default function CreatorComicPage() {
   const [expandedChapterIds, setExpandedChapterIds] = useState<string[] | null>(null);
   const [pagesByChapter, setPagesByChapter] = useState<Record<string, ChapterPage[]>>({});
   const [loading, setLoading] = useState(true);
+  const [canUploadEpisodeAudio, setCanUploadEpisodeAudio] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingComic, setSavingComic] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -179,6 +180,21 @@ export default function CreatorComicPage() {
       if (profile?.role !== "creator" && profile?.role !== "admin") {
         router.replace("/account");
         return;
+      }
+      if (profile.role === "admin") {
+        setCanUploadEpisodeAudio(true);
+      } else {
+        const { data: audioAccess, error: audioAccessError } = await supabase
+          .from("profiles")
+          .select("can_upload_audio")
+          .eq("id", userData.user.id)
+          .single();
+        if (audioAccessError) {
+          console.error("Unable to check episode audio permission:", audioAccessError);
+          setMessage("Hak unggah audio belum dapat diverifikasi. Jalankan supabase/chapter-audio-permissions.sql.");
+        } else {
+          setCanUploadEpisodeAudio(audioAccess.can_upload_audio === true);
+        }
       }
       const comicQuery = supabase.from("comics").select("id, title, slug, synopsis, contributor, contributors, genre, target_device, production_technique, story_status, target_audience, language, origin_type, source_info, status, cover_key, share_preview_key").eq("id", comicId);
       const { data: comicData } = profile.role === "admin" ? await comicQuery.single() : await comicQuery.eq("creator_id", userData.user.id).single();
@@ -956,13 +972,15 @@ export default function CreatorComicPage() {
                     <progress value={uploadProgress.percent} max={100} aria-label={`Progres unggah halaman ke ${chapter.title}`} />
                   </div>
                 )}
-                <ChapterAudioManager
-                  comicId={comic.id}
-                  chapterId={chapter.id}
-                  pages={(pagesByChapter[chapter.id] ?? []).map((page) => ({ id: page.id, page_number: page.page_number }))}
-                  audio={chapter}
-                  onSaved={(audio) => setChapters((current) => current.map((item) => item.id === chapter.id ? { ...item, ...audio } : item))}
-                />
+                {canUploadEpisodeAudio && (
+                  <ChapterAudioManager
+                    comicId={comic.id}
+                    chapterId={chapter.id}
+                    pages={(pagesByChapter[chapter.id] ?? []).map((page) => ({ id: page.id, page_number: page.page_number }))}
+                    audio={chapter}
+                    onSaved={(audio) => setChapters((current) => current.map((item) => item.id === chapter.id ? { ...item, ...audio } : item))}
+                  />
+                )}
                 <div className="chapter-page-list" aria-label={`Halaman dalam ${chapter.title}`}>
                   {(pagesByChapter[chapter.id] ?? []).map((page, pageIndex) => (
                     <div className="chapter-page-position" key={page.id}>

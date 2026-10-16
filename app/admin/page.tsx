@@ -21,7 +21,7 @@ type RequestStatus = "pending" | "approved" | "rejected";
 type CreatorRequest = { id: string; user_id: string; note: string; portfolio_url: string | null; instagram_url: string | null; other_url: string | null; status: RequestStatus; created_at: string; applicant: string; role: string };
 type ComicReview = { id: string; title: string; slug: string; synopsis: string; contributor: string; created_at: string; creator_id: string; creator: string };
 type KidsCurationReview = { comic_id: string; age_range: "4_6" | "7_9" | "10_12"; submitted_at: string; review_note: string; title: string; slug: string; creator: string };
-type AdminUser = { id: string; display_name: string; role: "reader" | "creator" | "admin"; membershipTier: ReaderMembershipTier; created_at: string };
+type AdminUser = { id: string; display_name: string; role: "reader" | "creator" | "admin"; canUploadAudio: boolean; membershipTier: ReaderMembershipTier; created_at: string };
 type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string; kids_curation_status: "pending" | "approved" | "rejected" | null; kids_age_range: "4_6" | "7_9" | "10_12" | null };
 type SettingsAuditEntry = { id: number; changed_by: string | null; changed_at: string; previous_values: Record<string, unknown>; new_values: Record<string, unknown> };
 type AdminSection = "overview" | "analytics" | "comic-review" | "kids-review" | "creator-requests" | "users" | "comics" | "articles" | "share-previews" | "ad-requests" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "homepage-promos" | "platform-settings";
@@ -76,6 +76,7 @@ export default function AdminPage() {
   const [kidsCurationSetupError, setKidsCurationSetupError] = useState("");
   const [kidsReviewNotes, setKidsReviewNotes] = useState<Record<string, string>>({});
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [audioPermissionSetupError, setAudioPermissionSetupError] = useState("");
   const [comics, setComics] = useState<AdminComic[]>([]);
   const [adminUserId, setAdminUserId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -108,9 +109,10 @@ export default function AdminPage() {
       return;
     }
     setAdminUserId(userData.user.id);
-    const [requestResult, profileResult, membershipResult, comicResult, kidsCurationResult] = await Promise.all([
+    const [requestResult, profileResult, audioPermissionResult, membershipResult, comicResult, kidsCurationResult] = await Promise.all([
       supabase.from("creator_requests").select("id, user_id, note, portfolio_url, instagram_url, other_url, status, created_at").eq("status", "pending").order("created_at", { ascending: false }),
       supabase.from("profiles").select("id, display_name, role, created_at").order("created_at", { ascending: false }),
+      supabase.from("profiles").select("id, can_upload_audio"),
       supabase.from("reader_memberships").select("user_id, tier"),
       supabase.from("comics").select("id, title, slug, synopsis, contributor, genre, cover_key, share_preview_key, status, created_at, creator_id").order("created_at", { ascending: false }),
       supabase.from("comic_kids_curation").select("comic_id, age_range, review_status, submitted_at, review_note").order("submitted_at", { ascending: true }),
@@ -128,8 +130,19 @@ export default function AdminPage() {
       membership.user_id,
       membership.tier === "premium" || membership.tier === "vip" ? membership.tier : "free",
     ]));
+    if (audioPermissionResult.error) {
+      console.error("Unable to load creator audio permissions:", audioPermissionResult.error);
+      setAudioPermissionSetupError("Jalankan supabase/chapter-audio-permissions.sql untuk mengaktifkan akses kreator audio.");
+    } else {
+      setAudioPermissionSetupError("");
+    }
+    const audioPermissionByUser = new Map((audioPermissionResult.data ?? []).map((profile) => [
+      profile.id,
+      profile.can_upload_audio === true,
+    ]));
     const profiles = (profileResult.data ?? []).map((profile) => ({
       ...profile,
+      canUploadAudio: audioPermissionByUser.get(profile.id) ?? false,
       membershipTier: membershipByUser.get(profile.id) || "free",
     })) as AdminUser[];
     const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
@@ -378,12 +391,17 @@ export default function AdminPage() {
     }
     setActionId(user.id);
     setMessage("");
-    const { error } = await supabase.from("profiles").update({ role }).eq("id", user.id);
+    const { error } = await supabase.from("profiles").update({
+      role,
+      ...(role === "reader" ? { can_upload_audio: false } : {}),
+    }).eq("id", user.id);
     if (error) {
       console.error("Unable to update user role:", error);
       setMessage("Peran pengguna gagal diperbarui. Periksa koneksi dan coba lagi.");
     } else {
-      setUsers((current) => current.map((item) => item.id === user.id ? { ...item, role } : item));
+      setUsers((current) => current.map((item) => item.id === user.id
+        ? { ...item, role, canUploadAudio: role === "reader" ? false : item.canUploadAudio }
+        : item));
       setMessage(`Peran ${user.display_name} diubah menjadi ${roleLabels[role]}.`);
     }
     setActionId(null);
@@ -403,6 +421,20 @@ export default function AdminPage() {
     } else {
       setUsers((current) => current.map((item) => item.id === user.id ? { ...item, membershipTier: tier } : item));
       setMessage(`Paket ${user.display_name} diubah menjadi ${tier.toUpperCase()}.`);
+    }
+    setActionId(null);
+  };
+
+  const updateCreatorAudioAccess = async (user: AdminUser, canUploadAudio: boolean) => {
+    setActionId(user.id);
+    setMessage("");
+    const { error } = await supabase.from("profiles").update({ can_upload_audio: canUploadAudio }).eq("id", user.id);
+    if (error) {
+      console.error("Unable to update creator audio permission:", error);
+      setMessage("Hak unggah audio gagal diperbarui. Pastikan migrasi izin audio sudah dijalankan.");
+    } else {
+      setUsers((current) => current.map((item) => item.id === user.id ? { ...item, canUploadAudio } : item));
+      setMessage(`Akses kreator audio ${user.display_name} ${canUploadAudio ? "diaktifkan" : "dinonaktifkan"}.`);
     }
     setActionId(null);
   };
@@ -825,12 +857,14 @@ export default function AdminPage() {
             <span>{users.length} pengguna</span>
           </div>
           <label className="admin-search"><Search size={17} /><input value={userSearch} onChange={(event) => setUserSearch(event.target.value)} placeholder="Cari nama atau ID pengguna" /></label>
+          <p className="admin-setting-note">Hanya kreator dengan akses khusus ini yang dapat mengelola audio episode. Admin dapat memberikan atau mencabut akses kapan saja.</p>
+          {audioPermissionSetupError && <p className="admin-settings-error" role="alert">{audioPermissionSetupError}</p>}
           {filteredUsers.length === 0 ? (
             <div className="admin-empty"><Users size={26} /><h2>Pengguna tidak ditemukan.</h2><p>Coba kata kunci lain.</p></div>
           ) : (
             <div className="request-table-wrap">
               <table className="request-table admin-user-table">
-                <thead><tr><th>Pengguna</th><th>Bergabung</th><th>Peran</th><th>Kelola peran</th><th>Paket reader</th></tr></thead>
+                <thead><tr><th>Pengguna</th><th>Bergabung</th><th>Peran</th><th>Kelola peran</th><th>Akses kreator audio</th><th>Paket reader</th></tr></thead>
                 <tbody>{filteredUsers.map((user) => (
                   <tr key={user.id}>
                     <td><strong>{user.display_name || "Tanpa nama"}</strong><code>{user.id.slice(0, 12)}...</code></td>
@@ -842,6 +876,17 @@ export default function AdminPage() {
                         ? <span className="reviewed-label">Akun yang sedang digunakan</span>
                         : <select className="admin-role-select" aria-label={`Ubah peran ${user.display_name}`} value={user.role} onChange={(event) => updateUserRole(user, event.target.value as "reader" | "creator")} disabled={actionId === user.id}><option value="reader">Pembaca</option><option value="creator">Kreator</option></select>}
                     </td>
+                    <td>{user.role === "creator"
+                      ? <label className="admin-switch" aria-label={`Akses kreator audio ${user.display_name}`}>
+                        <input
+                          type="checkbox"
+                          checked={user.canUploadAudio}
+                          onChange={(event) => void updateCreatorAudioAccess(user, event.target.checked)}
+                          disabled={actionId === user.id || Boolean(audioPermissionSetupError)}
+                        />
+                        <span />
+                      </label>
+                      : <span className="reviewed-label">Khusus kreator</span>}</td>
                     <td><select className="admin-role-select" aria-label={`Ubah paket reader ${user.display_name}`} value={user.membershipTier} onChange={(event) => {
                       const selectedTier = READER_MEMBERSHIP_TIERS.find((tier) => tier.value === event.target.value)?.value;
                       if (selectedTier) void updateReaderMembership(user, selectedTier);

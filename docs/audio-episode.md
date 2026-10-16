@@ -1,6 +1,6 @@
 # Audio dan Subtitle Episode
 
-Kreator dapat menambahkan satu audio MP3 untuk setiap episode. File audio maksimal 50 MB, diunggah langsung ke Cloudflare R2 melalui URL PUT bertanda tangan yang berlaku lima menit. Subtitle disimpan sebagai SRT (maksimal 1 MB); audio tidak diputar otomatis.
+Kreator khusus dapat menambahkan satu audio MP3 untuk setiap episode. Admin memberikan atau mencabut status kreator audio di `/admin/users`; kreator biasa tidak melihat opsi audio dan API menolak permintaan unggah mereka. File audio maksimal 50 MB, diunggah langsung ke Cloudflare R2 melalui URL PUT bertanda tangan yang berlaku lima menit. Subtitle disimpan sebagai SRT (maksimal 1 MB); audio tidak diputar otomatis.
 
 ## Menyiapkan berkas
 
@@ -42,4 +42,4 @@ Gunakan tombol **Salin template pemetaan halaman** di editor sebagai titik awal.
 
 ## Migrasi dan deployment
 
-Pada database yang sudah ada, jalankan `supabase/chapter-audio.sql` sekali sebelum deploy fitur. Untuk CORS R2, pastikan origin aplikasi diizinkan untuk metode `PUT`, `GET`, dan `HEAD`; konfigurasi repo `r2-cors.json` sudah memuat metode tersebut.
+Pada database yang sudah ada, jalankan `supabase/chapter-audio.sql` dan `supabase/chapter-audio-permissions.sql` sekali sebelum deploy fitur. Migrasi izin membutuhkan `supabase/creator-request.sql` dan `supabase/admin-management.sql` agar admin dapat mengelola akses. Semua kreator mulai tanpa izin audio; admin memilih kreator yang diberi akses di `/admin/users`. Untuk CORS R2, pastikan origin aplikasi diizinkan untuk metode `PUT`, `GET`, dan `HEAD`; konfigurasi repo `r2-cors.json` sudah memuat metode tersebut.
