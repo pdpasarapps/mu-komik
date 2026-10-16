@@ -1,15 +1,30 @@
 import "server-only";
 
-import { createHmac, pbkdf2, randomBytes, timingSafeEqual } from "node:crypto";
-import { promisify } from "node:util";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
-const pbkdf2Async = promisify(pbkdf2);
 export const KIDS_MODE_COOKIE_NAME = "mu-komik-kids-state";
 export const KIDS_MODE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const PIN_HASH_ITERATIONS = 310_000;
 const PIN_HASH_BYTES = 32;
 const MAX_FAILED_ATTEMPTS = 5;
 const PIN_LOCKOUT_MS = 5 * 60 * 1000;
+
+async function derivePinHash(pin: string, saltHex: string) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(pin),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const salt = new Uint8Array(Buffer.from(saltHex, "hex"));
+  const hash = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, iterations: PIN_HASH_ITERATIONS, hash: "SHA-256" },
+    key,
+    PIN_HASH_BYTES * 8,
+  );
+  return Buffer.from(hash);
+}
 
 export type KidsModeState = {
   enabled: boolean;
@@ -72,7 +87,7 @@ export function signKidsModeState(state: KidsModeState) {
 
 export async function createKidsModeState(pin: string): Promise<KidsModeState> {
   const pinSalt = randomBytes(16).toString("hex");
-  const pinHash = await pbkdf2Async(pin, pinSalt, PIN_HASH_ITERATIONS, PIN_HASH_BYTES, "sha256");
+  const pinHash = await derivePinHash(pin, pinSalt);
   return {
     enabled: true,
     pinSalt,
@@ -83,7 +98,7 @@ export async function createKidsModeState(pin: string): Promise<KidsModeState> {
 }
 
 export async function checkKidsModePin(pin: string, state: KidsModeState) {
-  const candidate = await pbkdf2Async(pin, state.pinSalt, PIN_HASH_ITERATIONS, PIN_HASH_BYTES, "sha256");
+  const candidate = await derivePinHash(pin, state.pinSalt);
   const expected = Buffer.from(state.pinHash, "hex");
   return candidate.length === expected.length && timingSafeEqual(candidate, expected);
 }
