@@ -7,6 +7,7 @@ Pekerjaan berikut sengaja ditunda. Kids Mode saat ini menggunakan cookie bertand
 - Atur `KIDS_MODE_COOKIE_SECRET` sebagai secret server-side dengan nilai acak minimal 32 karakter.
 - Gunakan nilai yang sama pada semua instance aplikasi dan pertahankan nilainya saat restart maupun deployment.
 - Jangan masukkan secret ke repository, log, atau variabel `NEXT_PUBLIC_*`.
+- Pada Cloudflare Workers, tambahkan `KIDS_MODE_COOKIE_SECRET` sebagai encrypted secret di Settings > Variables and Secrets, lalu deploy ulang Worker. Buat nilainya secara acak dan pastikan panjangnya minimal 32 karakter.
 - Rotasi secret akan membuat cookie Kids Mode yang sudah ditandatangani tidak lagi valid; rencanakan dampaknya sebelum rotasi.
 
 Saat secret khusus belum diatur, implementasi dapat menggunakan `SUPABASE_SERVICE_ROLE_KEY` sebagai fallback. Fallback ini bukan pengganti secret khusus yang stabil untuk deployment.
