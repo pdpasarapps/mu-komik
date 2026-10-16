@@ -62,7 +62,7 @@ export async function DELETE(request: NextRequest) {
 
     const { data: chapter } = await supabase
       .from("chapters")
-      .select("id")
+      .select("id, audio_object_key")
       .eq("id", body.chapterId)
       .eq("comic_id", comic.id)
       .maybeSingle();
@@ -82,6 +82,9 @@ export async function DELETE(request: NextRequest) {
     if (pages?.some((page) => !page.object_key.startsWith(objectPrefix))) {
       return NextResponse.json({ error: "Chapter contains an invalid storage key" }, { status: 500 });
     }
+    if (chapter.audio_object_key && !chapter.audio_object_key.startsWith(`${objectPrefix}audio/`)) {
+      return NextResponse.json({ error: "Chapter contains an invalid audio storage key" }, { status: 500 });
+    }
 
     const { data: deletedChapter, error: deleteError } = await supabase
       .from("chapters")
@@ -94,7 +97,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: deleteError?.message || "Chapter could not be deleted" }, { status: 500 });
     }
 
-    if (!pages?.length) {
+    const objectKeys = [...(pages ?? []).map((page) => page.object_key), ...(chapter.audio_object_key ? [chapter.audio_object_key] : [])];
+    if (!objectKeys.length) {
       return NextResponse.json({ deleted: true, storageCleanupPending: false });
     }
 
@@ -108,11 +112,11 @@ export async function DELETE(request: NextRequest) {
         },
       });
 
-      for (let index = 0; index < pages.length; index += 1000) {
-        const batch = pages.slice(index, index + 1000);
+      for (let index = 0; index < objectKeys.length; index += 1000) {
+        const batch = objectKeys.slice(index, index + 1000);
         const result = await storage.send(new DeleteObjectsCommand({
           Bucket: process.env.R2_BUCKET_NAME!,
-          Delete: { Objects: batch.map((page) => ({ Key: page.object_key })), Quiet: true },
+          Delete: { Objects: batch.map((key) => ({ Key: key })), Quiet: true },
         }));
         if (result.Errors?.length) {
           return NextResponse.json({ deleted: true, storageCleanupPending: true });

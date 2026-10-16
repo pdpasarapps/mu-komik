@@ -12,6 +12,7 @@ import { createComicSharePreview } from "@/lib/comic-share-preview";
 import { usePlatformSettings } from "../../../platform-runtime";
 import ImageCropDialog from "@/components/image-crop-dialog";
 import CreatorKidsCuration from "@/components/creator-kids-curation";
+import ChapterAudioManager from "@/components/chapter-audio-manager";
 
 type ComicContributor = { role: string; name: string };
 type Comic = {
@@ -47,7 +48,15 @@ type ComicForm = {
   originType: string;
   sourceInfo: string;
 };
-type Chapter = { id: string; title: string; chapter_number: number; published_at: string | null };
+type Chapter = {
+  id: string;
+  title: string;
+  chapter_number: number;
+  published_at: string | null;
+  audio_object_key: string | null;
+  subtitles_srt: string | null;
+  subtitle_page_map: Record<string, string> | null;
+};
 type ChapterPage = { id: string; chapter_id: string; page_number: number; object_key: string };
 
 const supabase = createClient();
@@ -182,7 +191,7 @@ export default function CreatorComicPage() {
       if (new URLSearchParams(window.location.search).get("edit") === "comic") {
         setActiveTab("comic");
       }
-      const { data: chapterData } = await supabase.from("chapters").select("id, title, chapter_number, published_at").eq("comic_id", comicId).order("chapter_number", { ascending: true });
+      const { data: chapterData } = await supabase.from("chapters").select("id, title, chapter_number, published_at, audio_object_key, subtitles_srt, subtitle_page_map").eq("comic_id", comicId).order("chapter_number", { ascending: true });
       const loadedChapters = chapterData ?? [];
       setChapters(loadedChapters);
       const storageKey = `mu-komik:expanded-chapters:${comicData.id}`;
@@ -247,7 +256,7 @@ export default function CreatorComicPage() {
         .update({ title: form.title.trim(), chapter_number: chapterNumber, published_at: publishedAt })
         .eq("id", editingChapterId)
         .eq("comic_id", comic.id)
-        .select("id, title, chapter_number, published_at")
+        .select("id, title, chapter_number, published_at, audio_object_key, subtitles_srt, subtitle_page_map")
         .single();
       if (error) {
         console.error("Unable to update chapter:", error);
@@ -263,7 +272,7 @@ export default function CreatorComicPage() {
       const { data, error } = await supabase
         .from("chapters")
         .insert({ comic_id: comic.id, title: form.title.trim(), chapter_number: chapterNumber, published_at: publishedAt })
-        .select("id, title, chapter_number, published_at")
+        .select("id, title, chapter_number, published_at, audio_object_key, subtitles_srt, subtitle_page_map")
         .single();
       if (error) {
         console.error("Unable to create chapter:", error);
@@ -899,6 +908,13 @@ export default function CreatorComicPage() {
                     <progress value={uploadProgress.percent} max={100} aria-label={`Progres unggah halaman ke ${chapter.title}`} />
                   </div>
                 )}
+                <ChapterAudioManager
+                  comicId={comic.id}
+                  chapterId={chapter.id}
+                  pages={(pagesByChapter[chapter.id] ?? []).map((page) => ({ id: page.id, page_number: page.page_number }))}
+                  audio={chapter}
+                  onSaved={(audio) => setChapters((current) => current.map((item) => item.id === chapter.id ? { ...item, ...audio } : item))}
+                />
                 <div className="chapter-page-list" aria-label={`Halaman dalam ${chapter.title}`}>
                   {(pagesByChapter[chapter.id] ?? []).map((page, pageIndex) => (
                     <div className="chapter-page-position" key={page.id}>

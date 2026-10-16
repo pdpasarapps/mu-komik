@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Clock3, List, LoaderCircle, LockKeyhole, Maximize2, Minimize2 } from "lucide-react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
+import { ArrowLeft, ArrowRight, AudioLines, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Clock3, List, LoaderCircle, LockKeyhole, Maximize2, Minimize2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -12,6 +12,7 @@ import { useCurrentDevice } from "@/components/use-current-device";
 import { COMIC_TARGET_DEVICES, isComicAvailableOnDevice, type ComicTargetDevice } from "@/lib/comic-target-device";
 import { useReaderMembership } from "@/app/membership-runtime";
 import { KidsModeToggle, useKidsMode } from "@/app/platform-runtime";
+import { parseChapterSubtitles, type ChapterSubtitleCue } from "@/lib/chapter-subtitles";
 
 const supabase = createClient();
 const TRANSITION_AD_LOAD_TIMEOUT_MS = 2000;
@@ -19,7 +20,15 @@ const READER_LOAD_TIMEOUT_MS = 8000;
 const BOOK_TURN_SPREAD_COMMIT_DELAY_MS = 340;
 
 type Page = { id: string; page_number: number; object_key: string };
-type Chapter = { id: string; title: string; chapter_number: number; comic_id: string };
+type Chapter = {
+  id: string;
+  title: string;
+  chapter_number: number;
+  comic_id: string;
+  audio_object_key?: string | null;
+  subtitles_srt?: string | null;
+  subtitle_page_map?: Record<string, string> | null;
+};
 type Comic = { id: string; title: string; slug: string; target_device: ComicTargetDevice; kids_mode_approved: boolean; kids_age_range: "4_6" | "7_9" | "10_12" | null };
 type BookLeaf = { kind: "page"; page: Page; pageIndex: number } | { kind: "ad"; afterPageIndex: number } | { kind: "blank" } | { kind: "end" };
 type BookTurn = { from: number; to: number; direction: "next" | "previous" };
@@ -51,6 +60,9 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const [pages, setPages] = useState<Page[]>([]);
   const [readPageIds, setReadPageIds] = useState<Set<string>>(() => new Set());
   const [currentPage, setCurrentPage] = useState(0);
+  const [activeSubtitle, setActiveSubtitle] = useState("");
+  const [activeSubtitlePageId, setActiveSubtitlePageId] = useState<string | null>(null);
+  const [audioError, setAudioError] = useState("");
   const [bookSpreadIndex, setBookSpreadIndex] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
   const [watermarkName, setWatermarkName] = useState("Pembaca");
@@ -69,10 +81,25 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const bookTurnInProgressRef = useRef(false);
   const bookTurnSpreadCommitTimeoutRef = useRef<number | null>(null);
   const pagesContainerRef = useRef<HTMLElement>(null);
+  const audioElementRef = useRef<HTMLAudioElement>(null);
+  const previousAudioPageRef = useRef<number | null>(null);
+  const audioNavigationTargetRef = useRef<number | null>(null);
   const watermarkLabel = `MU-KOMIK.COM · ${watermarkName}`;
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
   const desktopBookMode = currentDevice === "desktop"
     && (comic?.target_device ?? seed.comic.target_device) === "desktop";
+  const subtitleTrack = useMemo(() => {
+    if (!chapter?.subtitles_srt || !chapter.subtitle_page_map) {
+      return { cues: [], error: chapter?.audio_object_key ? "Subtitle atau pemetaan halaman episode tidak tersedia." : "" };
+    }
+    try {
+      return { cues: parseChapterSubtitles(chapter.subtitles_srt, chapter.subtitle_page_map), error: "" };
+    } catch (error) {
+      console.error("Unable to parse episode subtitles:", error);
+      return { cues: [], error: "Subtitle episode belum dapat dibaca. Hubungi kreator untuk memperbaikinya." };
+    }
+  }, [chapter]);
+  const subtitleCues = subtitleTrack.cues;
   const bookLeaves = useMemo(
     () => getDesktopBookLeaves(pages, !kidsMode && membership.ready && membership.tier === "free"),
     [kidsMode, membership.ready, membership.tier, pages],
@@ -120,20 +147,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       bookTurnInProgressRef.current = false;
       setHistoryReady(false);
       setReadPageIds(new Set());
-      const { data: chapterData, error: chapterError } = await supabase
-        .from("chapters")
-        .select("id, title, chapter_number, comic_id")
-        .eq("id", chapterId)
-        .abortSignal(requestController.signal)
-        .maybeSingle();
-      if (chapterError || !chapterData) {
-        if (chapterError) console.error("Unable to load reader episode:", chapterError);
-        if (active) {
-          setErrorMessage(chapterError ? "Episode belum dapat dimuat. Periksa koneksi lalu coba lagi." : "Episode tidak ditemukan.");
-          setLoading(false);
-        }
-        return;
-      }
+      const chapterData = seed.chapter;
       const { data: comicDataResult, error: initialComicError } = await supabase
         .from("comics")
         .select("id, title, slug, target_device")
@@ -355,7 +369,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         bookTurnSpreadCommitTimeoutRef.current = null;
       }
     };
-  }, [chapterId, currentDevice, kidsMode, membership.ready, membership.tier, router, seed.comic.kids_age_range, seed.comic.kids_mode_approved, seed.comic.target_device, slug]);
+  }, [chapterId, currentDevice, kidsMode, membership.ready, membership.tier, router, seed.chapter, seed.comic.kids_age_range, seed.comic.kids_mode_approved, seed.comic.target_device, slug]);
 
   useEffect(() => {
     if (loading || !chapter || !pages.length) return;
@@ -417,6 +431,27 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   }, [currentPage, desktopBookMode, loading, pages]);
 
   useEffect(() => {
+    if (previousAudioPageRef.current === null) {
+      previousAudioPageRef.current = currentPage;
+      return;
+    }
+    if (previousAudioPageRef.current === currentPage) return;
+    previousAudioPageRef.current = currentPage;
+    if (audioNavigationTargetRef.current !== null) {
+      if (audioNavigationTargetRef.current === currentPage) audioNavigationTargetRef.current = null;
+      return;
+    }
+    const audio = audioElementRef.current;
+    if (!audio || !subtitleCues.length) return;
+    audio.pause();
+    const pageId = pages[currentPage]?.id;
+    const firstCue = subtitleCues.find((cue) => cue.pageId === pageId);
+    if (firstCue) {
+      audio.currentTime = firstCue.startMs / 1000;
+    }
+  }, [currentPage, pages, subtitleCues]);
+
+  useEffect(() => {
     if (!chapter || readPageIds.size === 0) return;
     try {
       localStorage.setItem(`mu-komik:read-pages:${chapter.id}`, JSON.stringify([...readPageIds]));
@@ -425,7 +460,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     }
   }, [chapter, readPageIds]);
 
-  const scrollToPage = useCallback((index: number) => {
+  const scrollToPage = useCallback((index: number, behavior: ScrollBehavior = "smooth") => {
     const requestedIndex = Math.max(0, Math.min(pages.length - 1, index));
     if (desktopBookMode) {
       const spreadCount = Math.ceil(bookLeaves.length / 2);
@@ -458,8 +493,42 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     const targetIndex = requestedIndex;
     setCurrentPage(targetIndex);
     const scrollBlock = currentDevice === "mobile" && !controlsVisible ? "center" : "start";
-    document.querySelector(`[data-reader-page="${targetIndex}"]`)?.scrollIntoView({ behavior: "smooth", block: scrollBlock });
+    document.querySelector(`[data-reader-page="${targetIndex}"]`)?.scrollIntoView({ behavior, block: scrollBlock });
   }, [bookLeaves.length, bookSpreadIndex, controlsVisible, currentDevice, currentPage, desktopBookMode, pages.length]);
+
+  const updateAudioSubtitle = useCallback((event: SyntheticEvent<HTMLAudioElement>) => {
+    const audio = event.currentTarget;
+    const timeMs = audio.currentTime * 1000;
+    let activeCue: ChapterSubtitleCue | undefined;
+    for (const cue of subtitleCues) {
+      if (timeMs >= cue.startMs && timeMs < cue.endMs) activeCue = cue;
+    }
+    setActiveSubtitle(activeCue?.text ?? "");
+    setActiveSubtitlePageId(activeCue?.pageId ?? null);
+    if (!activeCue || (audio.paused && event.type !== "seeked")) return;
+    const targetPageIndex = pages.findIndex((page) => page.id === activeCue.pageId);
+    if (targetPageIndex < 0 || targetPageIndex === currentPage) return;
+    audioNavigationTargetRef.current = targetPageIndex;
+    if (!desktopBookMode) {
+      scrollToPage(targetPageIndex, "auto");
+      return;
+    }
+    const targetLeafIndex = bookLeaves.findIndex((leaf) => leaf.kind === "page" && leaf.pageIndex === targetPageIndex);
+    if (targetLeafIndex < 0) {
+      audioNavigationTargetRef.current = null;
+      return;
+    }
+    const targetSpread = Math.floor(targetLeafIndex / 2);
+    if (bookTurnSpreadCommitTimeoutRef.current !== null) {
+      window.clearTimeout(bookTurnSpreadCommitTimeoutRef.current);
+      bookTurnSpreadCommitTimeoutRef.current = null;
+    }
+    bookTurnInProgressRef.current = false;
+    setBookTurn(null);
+    setBookSpreadIndex(targetSpread);
+    setBookTurnSpreadChanging(true);
+    setCurrentPage(targetPageIndex);
+  }, [bookLeaves, currentPage, desktopBookMode, pages, scrollToPage, subtitleCues]);
 
   const finishBookTurn = useCallback(() => {
     if (!bookTurn) return;
@@ -711,6 +780,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   );
   const nextChapter = nextChapterUnlocked ? nextChapterCandidate : null;
   const pageUrl = (page: Page) => publicUrl ? `${publicUrl.replace(/\/$/, "")}/${page.object_key}` : null;
+  const audioUrl = chapter.audio_object_key && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${chapter.audio_object_key}` : null;
   const activeBookLeaves = bookLeaves.slice(bookSpreadIndex * 2, bookSpreadIndex * 2 + 2);
   const turningFromLeaf = bookTurn
     ? bookLeaves[bookTurn.direction === "next" ? bookTurn.from * 2 + 1 : bookTurn.from * 2]
@@ -786,6 +856,30 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         </details>
       </header>
       <h1 className="reader-sr-only">{comic.title} Episode {chapter.chapter_number}: {chapter.title}</h1>
+
+      {audioUrl && (
+        <section className="reader-audio-player" aria-label="Audio dan subtitle episode">
+          <div className="reader-audio-player-heading"><AudioLines size={18} /><strong>Dengarkan episode</strong></div>
+          <audio
+            ref={audioElementRef}
+            controls
+            preload="metadata"
+            src={audioUrl}
+            onTimeUpdate={updateAudioSubtitle}
+            onSeeked={updateAudioSubtitle}
+            onEnded={() => { setActiveSubtitle(""); setActiveSubtitlePageId(null); }}
+            onError={() => {
+              console.error("Unable to load episode audio:", { chapterId: chapter.id });
+              setAudioError("Audio episode belum dapat dimuat. Periksa koneksi lalu coba lagi.");
+            }}
+            onCanPlay={() => setAudioError("")}
+          >
+            Browser kamu tidak mendukung pemutar audio.
+          </audio>
+          <p className="reader-audio-subtitle" aria-live="polite">{audioError || subtitleTrack.error || (activeSubtitlePageId === pages[currentPage]?.id && activeSubtitle ? activeSubtitle : "Subtitle akan tampil di sini saat audio diputar.")}</p>
+        </section>
+      )}
+      {chapter.audio_object_key && !publicUrl && <p className="reader-audio-error" role="alert">Audio episode belum dapat dimuat saat ini.</p>}
 
       <div className="reader-progress-track" role="progressbar" aria-label="Progres membaca" aria-valuemin={0} aria-valuemax={pages.length} aria-valuenow={pages.length ? displayedPageEnd : 0}>
         <span style={{ width: pages.length ? `${(progressPage / pages.length) * 100}%` : "0%" }} />

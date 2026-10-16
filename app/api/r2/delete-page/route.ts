@@ -62,12 +62,19 @@ export async function DELETE(request: NextRequest) {
 
     const { data: chapter } = await supabase
       .from("chapters")
-      .select("id")
+      .select("id, subtitle_page_map")
       .eq("id", body.chapterId)
       .eq("comic_id", comic.id)
       .maybeSingle();
     if (!chapter) {
       return NextResponse.json({ error: "Chapter not found" }, { status: 404 });
+    }
+    if (chapter.subtitle_page_map && typeof chapter.subtitle_page_map === "object"
+      && !Array.isArray(chapter.subtitle_page_map)
+      && Object.values(chapter.subtitle_page_map as Record<string, unknown>).includes(body.pageId)) {
+      return NextResponse.json({
+        error: "Halaman ini dipakai subtitle audio. Perbarui audio, SRT, dan sidecar sebelum menghapus halaman.",
+      }, { status: 409 });
     }
 
     const { data: page } = await supabase

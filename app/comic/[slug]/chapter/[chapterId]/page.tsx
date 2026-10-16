@@ -20,7 +20,7 @@ export default async function ChapterPage({
 
   let { data, error } = await supabase
     .from("chapters")
-    .select("id, title, chapter_number, comic_id, comics!inner(title, slug, status, target_device)")
+    .select("id, title, chapter_number, comic_id, audio_object_key, subtitles_srt, subtitle_page_map, comics!inner(title, slug, status, target_device)")
     .eq("id", chapterId)
     .eq("comics.slug", slug)
     .eq("comics.status", "published")
@@ -67,6 +67,9 @@ export default async function ChapterPage({
       title: data.title,
       chapter_number: data.chapter_number,
       comic_id: data.comic_id,
+      audio_object_key: "audio_object_key" in data ? data.audio_object_key : null,
+      subtitles_srt: "subtitles_srt" in data ? data.subtitles_srt : null,
+      subtitle_page_map: "subtitle_page_map" in data ? data.subtitle_page_map as Record<string, string> | null : null,
     },
     comic: {
       id: data.comic_id,
