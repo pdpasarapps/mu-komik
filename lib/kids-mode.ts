@@ -4,7 +4,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 export const KIDS_MODE_COOKIE_NAME = "mu-komik-kids-state";
 export const KIDS_MODE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
-const PIN_HASH_ITERATIONS = 310_000;
+const PIN_HASH_ITERATIONS = 100_000;
 const PIN_HASH_BYTES = 32;
 const MAX_FAILED_ATTEMPTS = 5;
 const PIN_LOCKOUT_MS = 5 * 60 * 1000;
