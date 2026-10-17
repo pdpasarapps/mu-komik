@@ -33,6 +33,36 @@ Contoh sidecar:
 
 Gunakan tombol **Salin template pemetaan halaman** di editor sebagai titik awal. Setiap UUID harus berasal dari halaman dalam episode tersebut. Satu halaman boleh dipakai oleh beberapa cue. ID halaman bersifat stabil saat halaman diurutkan ulang; jika halaman dihapus dan dibuat ulang, sidecar perlu diperbarui.
 
+### Membuat sidecar otomatis dari penanda halaman SRT
+
+Repository menyediakan generator sidecar yang membaca penanda seperti `Halaman 1`, `Halaman 2`, dan seterusnya di teks SRT. Generator membutuhkan file MP3 episode, SRT, dan JSON berisi ID halaman episode. JSON ID dapat berupa:
+
+- daftar UUID halaman dalam urutan halaman; atau
+- template pemetaan dari editor, yang memetakan nomor cue ke UUID halaman. Cue-cue berturut-turut yang menunjuk halaman sama akan dikelompokkan.
+
+Langkah-langkah:
+
+1. Di editor komik, buka episode yang akan diperbarui dan klik **Salin template pemetaan halaman**.
+2. Tempel hasilnya ke file JSON, misalnya `episode.page-ids.json`. Pastikan ID berasal dari episode yang sama dan urutannya mengikuti halaman.
+3. Pastikan SRT memiliki penanda untuk setiap halaman dengan format `Halaman N`. Penanda yang berdiri sendiri atau diikuti teks menandai cue halaman tersebut. Jika penanda berada di akhir cue setelah teks (contoh: `Narasi terakhir halaman ini. Halaman 2`), cue itu tetap dipetakan ke halaman sebelumnya dan cue berikutnya mulai dipetakan ke halaman 2.
+4. Dari terminal PowerShell di root repository, jalankan:
+
+   ```powershell
+   npm.cmd run subtitle:page-map -- --audio "cergam\episode.mp3" --srt "cergam\episode.srt" --page-ids "cergam\episode.page-ids.json"
+   ```
+
+   Ganti nama dan lokasi file sesuai episode. Tanda kutip diperlukan jika nama atau lokasi file mengandung spasi. Opsi `--audio` memeriksa bahwa MP3 yang dipilih tersedia dan memenuhi batas ukuran; isi audio tidak dianalisis.
+5. Secara default, generator menulis `episode.pages.json` di folder SRT. Untuk menentukan lokasi lain, tambahkan `--out "folder\hasil.pages.json"`.
+6. Unggah MP3, SRT, dan file `.pages.json` hasil generator pada bagian **Audio episode** di editor, lalu klik **Simpan audio episode**.
+
+Contoh untuk berkas Putri Aurora:
+
+```powershell
+npm.cmd run subtitle:page-map -- --audio "cergam\princes aurora.mp3" --srt "cergam\princes aurora.srt" --page-ids "cergam\princes aurora.pages.json"
+```
+
+Jika file `.pages.json` yang sudah ada dipakai sebagai input template dan output default, generator akan menulis ulang file tersebut. Periksa nama/path input dan output sebelum menjalankan perintah. Generator memvalidasi format SRT, urutan cue dan penanda halaman, UUID, serta batas ukuran berkas. Untuk melihat bantuan opsi, jalankan `node scripts/generate-subtitle-page-map.mjs --help`.
+
 ## Perilaku pembaca
 
 - Player menyediakan kontrol audio standar dan tidak autoplay.
