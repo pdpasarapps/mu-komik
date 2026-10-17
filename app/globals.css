@@ -1160,10 +1160,18 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .reader-episode-menu-popover { position: absolute; top: 48px; right: 0; width: min(320px, 85vw); max-height: 65vh; overflow: auto; padding: 10px; border: 1px solid #4a514d; border-radius: 9px; background: #292f2c; box-shadow: 0 15px 40px rgba(0,0,0,.35); }
 .reader-episode-menu-popover p { margin: 7px 8px 10px; color: #b9c0bb; font-size: .7rem; font-weight: 800; }.reader-episode-menu-popover a, .reader-episode-menu-popover .reader-menu-locked { display: flex; align-items: center; gap: 7px; padding: 10px 8px; border-radius: 6px; color: #e5e7e3; font-size: .74rem; }.reader-episode-menu-popover a:hover, .reader-episode-menu-popover .reader-menu-current { background: #3a433e; color: #f6a78d; }.reader-episode-menu-popover .reader-menu-locked { color: #929b95; cursor: not-allowed; }
 .reader-progress-track { position: fixed; z-index: 21; top: var(--reader-header-height); left: 0; right: 0; height: 3px; background: #414844; transition: top .2s ease; }.reader-controls-hidden .reader-progress-track { top: 0; }.reader-progress-track span { display: block; height: 100%; background: var(--reader-accent); transition: width .15s ease; }
-.reader-audio-player { width: min(960px, calc(100% - 32px)); box-sizing: border-box; display: grid; gap: 10px; margin: 8px auto 18px; padding: 14px 16px; border: 1px solid #3e4742; border-radius: 10px; background: #252b28; }
-.reader-audio-player-heading { display: flex; align-items: center; gap: 8px; color: #dce6df; font-size: .78rem; }
-.reader-audio-player-heading svg { color: #8dd1b1; }
-.reader-audio-player audio { width: 100%; height: 38px; }
+.reader-audio-player { position: relative; width: min(960px, calc(100% - 32px)); box-sizing: border-box; display: flex; align-items: center; margin: 8px auto 18px; padding: 10px 12px; border: 1px solid rgba(255,255,255,.1); border-radius: 13px; background: rgba(37,43,40,.96); box-shadow: 0 8px 24px rgba(0,0,0,.16); backdrop-filter: blur(16px); }
+.reader-audio-element { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; clip-path: inset(50%); }
+.reader-audio-controls { width: 100%; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.reader-audio-player-icon { width: 38px; height: 38px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid rgba(141,209,177,.18); border-radius: 10px; background: rgba(141,209,177,.1); color: #9ce0bd; }
+.reader-audio-play-button { width: 40px; height: 40px; flex: 0 0 auto; display: grid; place-items: center; border: 0; border-radius: 50%; background: #9ce0bd; color: #17221b; cursor: pointer; transition: transform .15s ease, background .15s ease; }
+.reader-audio-play-button:hover { transform: scale(1.05); background: #b2f0ce; }
+.reader-audio-play-button:focus-visible, .reader-audio-progress input:focus-visible { outline: 2px solid #f2a188; outline-offset: 3px; }
+.reader-audio-progress { min-width: 0; flex: 1; display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px; align-items: center; gap: 9px; color: #aeb8b1; font-size: .65rem; font-variant-numeric: tabular-nums; }
+.reader-audio-progress > span:last-child { text-align: right; }
+.reader-audio-progress input { width: 100%; height: 4px; appearance: none; border: 0; border-radius: 999px; background: linear-gradient(to right, #9ce0bd var(--audio-progress, 0%), #4d5751 var(--audio-progress, 0%)); cursor: pointer; }
+.reader-audio-progress input::-webkit-slider-thumb { width: 12px; height: 12px; appearance: none; border: 2px solid #252b28; border-radius: 50%; background: #b2f0ce; box-shadow: 0 0 0 1px #9ce0bd; }
+.reader-audio-progress input::-moz-range-thumb { width: 9px; height: 9px; border: 2px solid #252b28; border-radius: 50%; background: #b2f0ce; box-shadow: 0 0 0 1px #9ce0bd; }
 .reader-audio-error { width: min(960px, calc(100% - 32px)); box-sizing: border-box; margin: 8px auto 18px; color: #e7aaa2; font-size: .78rem; }
 .reader-vertical-pages { width: min(100%, 960px); display: grid; gap: 0; margin: 0 auto; touch-action: pan-x pinch-zoom; }
 .reader-book-mode { width: 100%; max-width: none; }
@@ -1190,7 +1198,7 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .reader-book-paper-right .reader-book-page-number { right: 50%; transform: translateX(50%); }
 .reader-book-page-art { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .reader-book-page-art > img { width: 100%; height: 100%; min-height: 0; max-width: 100%; max-height: 100%; display: block; object-fit: contain; user-select: none; }
-.reader-page-subtitle { position: absolute; z-index: 5; bottom: 3%; left: 50%; width: min(90%, 680px); box-sizing: border-box; transform: translateX(-50%); margin: 0; padding: 5px 10px; border-radius: 5px; background: rgba(255,255,255,.88); box-shadow: 0 1px 5px rgba(45,39,31,.12); color: #292d2a; font-size: clamp(.78rem, 1.15vw, 1rem); font-weight: 600; line-height: 1.35; text-align: center; white-space: pre-wrap; pointer-events: none; }
+.reader-page-subtitle { position: absolute; z-index: 5; bottom: 3%; left: 50%; width: min(90%, 680px); box-sizing: border-box; transform: translateX(-50%); margin: 0; padding: 7px 12px; border-radius: 5px; background: rgba(255,255,255,.9); box-shadow: 0 1px 5px rgba(45,39,31,.12); color: #292d2a; font-size: clamp(1rem, 1.4vw, 1.15rem); font-weight: 600; line-height: 1.4; text-align: center; white-space: pre-wrap; pointer-events: none; }
 .reader-book-page-subtitle { bottom: 7%; width: min(90%, 520px); }
 .reader-book-spine { position: absolute; top: 50%; left: 50%; width: 1px; height: min(100cqh, 75cqw); transform: translateY(-50%); background: rgba(255,255,255,.12); box-shadow: 0 0 12px 4px rgba(0,0,0,.11); pointer-events: none; }
 .reader-book-turn { position: absolute; top: calc(50% - min(50cqh, 37.5cqw)); left: 50%; width: min(50cqw, 66.666cqh); height: min(100cqh, 75cqw); transform-style: preserve-3d; pointer-events: none; }
@@ -1374,7 +1382,14 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 }
 @media (max-width: 640px) {
   .reader-home { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
-  .reader-audio-player { position: sticky; z-index: 19; top: calc(var(--reader-header-height) + 8px); width: calc(100% - 16px); }
+  .reader-audio-player { position: fixed; z-index: 22; right: 8px; bottom: calc(63px + env(safe-area-inset-bottom)); left: 8px; width: auto; margin: 0; padding: 8px 10px; }
+  .reader-audio-controls { gap: 8px; }
+  .reader-audio-player-icon { width: 32px; height: 32px; }
+  .reader-audio-play-button { width: 36px; height: 36px; }
+  .reader-audio-progress { grid-template-columns: 30px minmax(0, 1fr) 30px; gap: 6px; font-size: .62rem; }
+  .reader-experience .reader-controls-toggle { bottom: calc(63px + 54px + 10px + env(safe-area-inset-bottom)); }
+  main.reader-experience.reader-controls-hidden .reader-controls-toggle { bottom: calc(63px + 54px + 10px + env(safe-area-inset-bottom)); }
+  .reader-page-subtitle { width: min(92%, 680px); padding: 8px 12px; font-size: clamp(1rem, 4.4vw, 1.2rem); }
   .reader-vertical-pages:not(.reader-book-mode) .reader-page-frame { width: 100%; min-width: 0; min-height: 0; box-sizing: border-box; aspect-ratio: 9 / 16; }
   .reader-vertical-pages:not(.reader-book-mode) .reader-page-frame > img { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; object-position: center center; }
   .reader-controls-hidden .reader-progress-track { visibility: hidden; }

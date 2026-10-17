@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
-import { ArrowLeft, ArrowRight, AudioLines, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Clock3, List, LoaderCircle, LockKeyhole, Maximize2, Minimize2 } from "lucide-react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type SyntheticEvent } from "react";
+import { ArrowLeft, ArrowRight, AudioLines, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Clock3, List, LoaderCircle, LockKeyhole, Maximize2, Minimize2, Pause, Play } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -46,6 +46,13 @@ function getDesktopBookLeaves(pages: Page[], includeAds: boolean): BookLeaf[] {
   return leaves;
 }
 
+function formatAudioTime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.floor(seconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${remainingSeconds}`;
+}
+
 export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed }) {
   const { slug, chapterId } = useParams<{ slug: string; chapterId: string }>();
   const router = useRouter();
@@ -64,6 +71,9 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const [activeSubtitle, setActiveSubtitle] = useState("");
   const [activeSubtitlePageId, setActiveSubtitlePageId] = useState<string | null>(null);
   const [audioError, setAudioError] = useState("");
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [audioPlaying, setAudioPlaying] = useState(false);
   const [bookSpreadIndex, setBookSpreadIndex] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
   const [watermarkName, setWatermarkName] = useState("Pembaca");
@@ -477,6 +487,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const updateAudioSubtitle = useCallback((event: SyntheticEvent<HTMLAudioElement>) => {
     const audio = event.currentTarget;
     const timeMs = audio.currentTime * 1000;
+    setAudioCurrentTime(audio.currentTime);
     let activeCue: ChapterSubtitleCue | undefined;
     for (const cue of subtitleCues) {
       if (timeMs >= cue.startMs && timeMs < cue.endMs) activeCue = cue;
@@ -833,23 +844,66 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
 
       {audioUrl && (
         <section className="reader-audio-player" aria-label="Audio dan subtitle episode">
-          <div className="reader-audio-player-heading"><AudioLines size={18} /><strong>Dengarkan episode</strong></div>
           <audio
             ref={audioElementRef}
-            controls
+            className="reader-audio-element"
             preload="metadata"
             src={audioUrl}
             onTimeUpdate={updateAudioSubtitle}
             onSeeked={updateAudioSubtitle}
-            onEnded={() => { setActiveSubtitle(""); setActiveSubtitlePageId(null); }}
+            onLoadedMetadata={(event) => setAudioDuration(event.currentTarget.duration)}
+            onPlay={() => setAudioPlaying(true)}
+            onPause={() => setAudioPlaying(false)}
+            onEnded={() => { setAudioPlaying(false); setActiveSubtitle(""); setActiveSubtitlePageId(null); }}
             onError={() => {
               console.error("Unable to load episode audio:", { chapterId: chapter.id });
               setAudioError("Audio episode belum dapat dimuat. Periksa koneksi lalu coba lagi.");
             }}
             onCanPlay={() => setAudioError("")}
-          >
-            Browser kamu tidak mendukung pemutar audio.
-          </audio>
+          />
+          <div className="reader-audio-controls">
+            <span className="reader-audio-player-icon"><AudioLines size={18} /></span>
+            <button
+              className="reader-audio-play-button"
+              type="button"
+              aria-label={audioPlaying ? "Jeda audio" : "Putar audio"}
+              onClick={() => {
+                const audio = audioElementRef.current;
+                if (!audio) return;
+                if (audio.paused) {
+                  void audio.play().catch((error: unknown) => {
+                    console.error("Unable to start episode audio:", { chapterId: chapter.id, error });
+                    setAudioError("Audio episode belum dapat diputar. Coba lagi.");
+                  });
+                } else {
+                  audio.pause();
+                }
+              }}
+            >
+              {audioPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+            </button>
+            <div className="reader-audio-progress">
+              <span>{formatAudioTime(audioCurrentTime)}</span>
+              <input
+                type="range"
+                min={0}
+                max={audioDuration || 0}
+                step={1}
+                value={Math.min(audioCurrentTime, audioDuration || 0)}
+                aria-label="Posisi audio episode"
+                aria-valuetext={`${formatAudioTime(audioCurrentTime)} dari ${formatAudioTime(audioDuration)}`}
+                style={{ "--audio-progress": `${audioDuration ? (audioCurrentTime / audioDuration) * 100 : 0}%` } as CSSProperties & { "--audio-progress": string }}
+                onChange={(event) => {
+                  const audio = audioElementRef.current;
+                  if (!audio || !audioDuration) return;
+                  const nextTime = Number(event.currentTarget.value);
+                  audio.currentTime = nextTime;
+                  setAudioCurrentTime(nextTime);
+                }}
+              />
+              <span>{formatAudioTime(audioDuration)}</span>
+            </div>
+          </div>
           {(audioError || subtitleTrack.error) && <p className="reader-audio-error" role="alert">{audioError || subtitleTrack.error}</p>}
         </section>
       )}
