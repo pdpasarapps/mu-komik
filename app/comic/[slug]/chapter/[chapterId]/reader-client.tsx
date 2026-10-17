@@ -204,9 +204,16 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         supabase.from("chapters").select("id, title, chapter_number, comic_id").eq("comic_id", chapterData.comic_id).not("published_at", "is", null).order("chapter_number").abortSignal(requestController.signal),
         supabase.auth.getSession(),
       ]);
-      if (chaptersError) console.error("Unable to load comic episode navigation:", chaptersError);
-      if (sessionError) console.error("Unable to check the current auth session:", sessionError);
       if (!active) return;
+      if (chaptersError && !requestController.signal.aborted) {
+        console.error("Unable to load comic episode navigation:", {
+          message: chaptersError.message ?? "Unknown query error",
+          code: chaptersError.code ?? null,
+          details: chaptersError.details ?? null,
+          hint: chaptersError.hint ?? null,
+        });
+      }
+      if (sessionError && !requestController.signal.aborted) console.error("Unable to check the current auth session:", sessionError);
       if (sessionError) {
         setComic(comicData);
         setErrorMessage("Urutan episode belum dapat diverifikasi. Periksa koneksi lalu coba lagi.");
@@ -821,7 +828,6 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       <header className="reader-experience-header">
         <Link className="reader-experience-back" href={`/comic/${comic.slug}`} aria-label="Kembali ke detail komik"><ArrowLeft size={19} /><span>{comic.title}</span></Link>
         <div className="reader-experience-chapter"><span>Episode {chapter.chapter_number}</span><strong>{chapter.title}</strong></div>
-        <KidsModeToggle />
         <details className="reader-episode-menu">
           <summary aria-label="Daftar episode"><List size={19} /><ChevronDown size={14} /></summary>
           <div className="reader-episode-menu-popover">
