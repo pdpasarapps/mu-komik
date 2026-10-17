@@ -764,7 +764,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const latestChapterNumber = Math.max(0, ...chapters.map((chapter) => chapter.chapter_number));
 
   return (
-    <main className="reader-detail-page">
+    <main className="reader-detail-page reader-comic-detail-page">
       <nav className="reader-subnav">
         <BrandLogo className="wordmark reader-wordmark" showName />
         <KidsModeToggle />
