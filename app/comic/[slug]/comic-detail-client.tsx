@@ -837,7 +837,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
         </div>
       )}
       <SponsoredAd slotKey="comic_detail_sponsor" placement="comic" comicId={comic.id} />
-      <section className="reader-episodes">
+      {(chapterListLoading || chapters.length !== 1) && <section className="reader-episodes">
         <div className="reader-section-heading"><div><p className="reader-section-kicker">LANJUTKAN CERITA</p><h2>Episode</h2></div><span className="reader-result-count">{chapters.length} episode</span></div>
         {!kidsMode && membership.ready && membership.verified && (membership.tier === "premium" || membership.tier === "vip") && (
           <div className="reader-offline-settings">
@@ -956,7 +956,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
             </section>
           </div>
         )}
-      </section>
+      </section>}
       {!kidsMode && <section className="reader-about-comic" aria-labelledby="reader-about-title">
         <div className="reader-section-heading"><div><p className="reader-section-kicker">INFORMASI CERITA</p><h2 id="reader-about-title">Tentang komik</h2></div></div>
         <dl className="reader-comic-metadata">
