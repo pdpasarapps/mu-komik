@@ -58,6 +58,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const [firstIncompleteChapterIndex, setFirstIncompleteChapterIndex] = useState(-1);
   const [allChaptersRead, setAllChaptersRead] = useState(false);
   const [pages, setPages] = useState<Page[]>([]);
+  const [pageAspectRatios, setPageAspectRatios] = useState<Record<string, number>>({});
   const [readPageIds, setReadPageIds] = useState<Set<string>>(() => new Set());
   const [currentPage, setCurrentPage] = useState(0);
   const [activeSubtitle, setActiveSubtitle] = useState("");
@@ -82,8 +83,6 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const bookTurnSpreadCommitTimeoutRef = useRef<number | null>(null);
   const pagesContainerRef = useRef<HTMLElement>(null);
   const audioElementRef = useRef<HTMLAudioElement>(null);
-  const previousAudioPageRef = useRef<number | null>(null);
-  const audioNavigationTargetRef = useRef<number | null>(null);
   const watermarkLabel = `MU-KOMIK.COM · ${watermarkName}`;
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
   const desktopBookMode = currentDevice === "desktop"
@@ -431,27 +430,6 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   }, [currentPage, desktopBookMode, loading, pages]);
 
   useEffect(() => {
-    if (previousAudioPageRef.current === null) {
-      previousAudioPageRef.current = currentPage;
-      return;
-    }
-    if (previousAudioPageRef.current === currentPage) return;
-    previousAudioPageRef.current = currentPage;
-    if (audioNavigationTargetRef.current !== null) {
-      if (audioNavigationTargetRef.current === currentPage) audioNavigationTargetRef.current = null;
-      return;
-    }
-    const audio = audioElementRef.current;
-    if (!audio || !subtitleCues.length) return;
-    audio.pause();
-    const pageId = pages[currentPage]?.id;
-    const firstCue = subtitleCues.find((cue) => cue.pageId === pageId);
-    if (firstCue) {
-      audio.currentTime = firstCue.startMs / 1000;
-    }
-  }, [currentPage, pages, subtitleCues]);
-
-  useEffect(() => {
     if (!chapter || readPageIds.size === 0) return;
     try {
       localStorage.setItem(`mu-komik:read-pages:${chapter.id}`, JSON.stringify([...readPageIds]));
@@ -508,16 +486,12 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     if (!activeCue || (audio.paused && event.type !== "seeked")) return;
     const targetPageIndex = pages.findIndex((page) => page.id === activeCue.pageId);
     if (targetPageIndex < 0 || targetPageIndex === currentPage) return;
-    audioNavigationTargetRef.current = targetPageIndex;
     if (!desktopBookMode) {
       scrollToPage(targetPageIndex, "auto");
       return;
     }
     const targetLeafIndex = bookLeaves.findIndex((leaf) => leaf.kind === "page" && leaf.pageIndex === targetPageIndex);
-    if (targetLeafIndex < 0) {
-      audioNavigationTargetRef.current = null;
-      return;
-    }
+    if (targetLeafIndex < 0) return;
     const targetSpread = Math.floor(targetLeafIndex / 2);
     if (bookTurnSpreadCommitTimeoutRef.current !== null) {
       window.clearTimeout(bookTurnSpreadCommitTimeoutRef.current);
@@ -876,7 +850,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
           >
             Browser kamu tidak mendukung pemutar audio.
           </audio>
-          <p className="reader-audio-subtitle" aria-live="polite">{audioError || subtitleTrack.error || (activeSubtitlePageId === pages[currentPage]?.id && activeSubtitle ? activeSubtitle : "Subtitle akan tampil di sini saat audio diputar.")}</p>
+          {(audioError || subtitleTrack.error) && <p className="reader-audio-error" role="alert">{audioError || subtitleTrack.error}</p>}
         </section>
       )}
       {chapter.audio_object_key && !publicUrl && <p className="reader-audio-error" role="alert">Audio episode belum dapat dimuat saat ini.</p>}
@@ -946,11 +920,16 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                         ) : leaf.kind === "end" ? (
                           currentChapterRead && <div data-reader-stop="episode-end">{episodeEndContent}</div>
                         ) : page && src ? (
-                          <img
-                            src={src}
-                            alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`}
-                            draggable={false}
-                          />
+                          <div className="reader-book-page-art">
+                            <img
+                              src={src}
+                              alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`}
+                              draggable={false}
+                            />
+                            {activeSubtitlePageId === page.id && activeSubtitle && (
+                              <p className="reader-page-subtitle reader-book-page-subtitle" aria-live="polite">{activeSubtitle}</p>
+                            )}
+                          </div>
                         ) : page ? <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div> : null}
                         {leaf.kind === "page" && <span className="reader-book-page-number">{leaf.page.page_number}</span>}
                       </div>
@@ -998,7 +977,29 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                         <span>{pageIsRead ? "Dibaca" : "Belum dibaca"}</span>
                       </span>
                       {src
-                        ? <img src={src} alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`} loading={index < 2 ? "eager" : "lazy"} draggable={false} onClick={() => { if (currentDevice === "desktop") setControlsVisible(true); }} />
+                        ? (
+                          <div className="reader-page-art" style={{ aspectRatio: pageAspectRatios[page.id] ?? "3 / 4" }}>
+                            <img
+                              src={src}
+                              alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`}
+                              loading={index < 2 ? "eager" : "lazy"}
+                              draggable={false}
+                              onClick={() => { if (currentDevice === "desktop") setControlsVisible(true); }}
+                              onLoad={(event) => {
+                                const image = event.currentTarget;
+                                const aspectRatio = image.naturalWidth / image.naturalHeight;
+                                if (Number.isFinite(aspectRatio) && aspectRatio > 0) {
+                                  setPageAspectRatios((current) => current[page.id] === aspectRatio
+                                    ? current
+                                    : { ...current, [page.id]: aspectRatio });
+                                }
+                              }}
+                            />
+                            {activeSubtitlePageId === page.id && activeSubtitle && (
+                              <p className="reader-page-subtitle" aria-live="polite">{activeSubtitle}</p>
+                            )}
+                          </div>
+                        )
                         : <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div>}
                       {src && <div className="reader-watermark-overlay reader-page-watermark" aria-hidden="true">{Array.from({ length: 6 }, (_, watermarkIndex) => <span key={watermarkIndex}>{watermarkLabel}</span>)}</div>}
                     </div>
