@@ -1,14 +1,17 @@
 # Audio dan Subtitle Episode
 
-Kreator khusus dapat menambahkan satu audio MP3 untuk setiap episode. Admin memberikan atau mencabut status kreator audio di `/admin/users`; kreator biasa tidak melihat opsi audio dan API menolak permintaan unggah mereka. File audio maksimal 50 MB, diunggah langsung ke Cloudflare R2 melalui URL PUT bertanda tangan yang berlaku lima menit. Subtitle disimpan sebagai SRT (maksimal 1 MB); audio tidak diputar otomatis.
+Kreator khusus dapat mengelola audio MP3 dan subtitle setiap episode secara terpisah. Admin memberikan atau mencabut status kreator audio di `/admin/users`; kreator biasa tidak melihat opsi audio dan API menolak permintaan unggah mereka. File audio maksimal 50 MB, diunggah langsung ke Cloudflare R2 melalui URL PUT bertanda tangan yang berlaku lima menit. Subtitle disimpan sebagai SRT (maksimal 1 MB); audio tidak diputar otomatis.
 
 ## Menyiapkan berkas
 
-Di editor komik, buka episode dan unggah tiga berkas:
+Di editor komik, buka episode dan pilih aset yang ingin diperbarui:
 
-1. Audio `.mp3`.
-2. Subtitle `.srt` standar dengan nomor cue berurutan/unik, timestamp, dan teks.
-3. Sidecar `.json` yang memetakan setiap nomor cue ke UUID halaman episode.
+1. Audio `.mp3` saja untuk mengganti audio tanpa mengubah subtitle.
+2. Subtitle `.srt` saja untuk mengganti subtitle. Penanda `Halaman N` pada SRT dipakai untuk membuat pemetaan halaman otomatis.
+3. Audio dan SRT sekaligus.
+4. Sidecar `.json` dapat diunggah bersama SRT untuk menggunakan pemetaan manual, atau sendiri untuk memperbarui pemetaan SRT yang sudah tersimpan.
+
+Setelah memilih satu atau lebih berkas, klik **Simpan pilihan**. Aset yang tidak dipilih tetap tidak berubah. SRT tanpa penanda halaman lengkap memerlukan sidecar JSON yang cocok; setiap cue harus dipetakan ke UUID halaman episode.
 
 Contoh SRT:
 
@@ -53,7 +56,7 @@ Langkah-langkah:
 
    Ganti nama dan lokasi file sesuai episode. Tanda kutip diperlukan jika nama atau lokasi file mengandung spasi. Opsi `--audio` memeriksa bahwa MP3 yang dipilih tersedia dan memenuhi batas ukuran; isi audio tidak dianalisis.
 5. Secara default, generator menulis `episode.pages.json` di folder SRT. Untuk menentukan lokasi lain, tambahkan `--out "folder\hasil.pages.json"`.
-6. Unggah MP3, SRT, dan file `.pages.json` hasil generator pada bagian **Audio episode** di editor, lalu klik **Simpan audio episode**.
+6. Untuk pemetaan manual, unggah SRT dan file `.pages.json` hasil generator di bagian audio dan subtitle editor. Jika SRT memiliki penanda halaman lengkap, unggah SRT saja dan editor akan membuat pemetaan otomatis.
 
 Contoh untuk berkas Putri Aurora:
 
@@ -68,8 +71,8 @@ Jika file `.pages.json` yang sudah ada dipakai sebagai input template dan output
 - Player menyediakan kontrol audio standar dan tidak autoplay.
 - Teks subtitle mengikuti waktu audio; ketika cue aktif berubah halaman, reader berpindah ke halaman yang dipetakan.
 - Ketika pembaca mengganti halaman secara manual, audio dijeda dan diarahkan ke cue pertama pada halaman itu jika tersedia.
-- Menghapus episode juga menghapus metadata audio dan meminta penghapusan objek MP3 dari R2.
+- Menghapus audio dari editor hanya menghapus MP3; SRT dan pemetaan halaman tetap tersimpan. Menghapus episode juga menghapus seluruh metadata dan meminta penghapusan objek MP3 dari R2.
 
 ## Migrasi dan deployment
 
-Pada database yang sudah ada, jalankan `supabase/chapter-audio.sql` dan `supabase/chapter-audio-permissions.sql` sekali sebelum deploy fitur. Migrasi izin membutuhkan `supabase/creator-request.sql` dan `supabase/admin-management.sql` agar admin dapat mengelola akses. Semua kreator mulai tanpa izin audio; admin memilih kreator yang diberi akses di `/admin/users`. Untuk CORS R2, pastikan origin aplikasi diizinkan untuk metode `PUT`, `GET`, dan `HEAD`; konfigurasi repo `r2-cors.json` sudah memuat metode tersebut.
+Pada database yang sudah ada, jalankan ulang `supabase/chapter-audio.sql` untuk mengizinkan audio dan pasangan SRT/pemetaan diperbarui secara terpisah, lalu jalankan `supabase/chapter-audio-permissions.sql` jika belum pernah diterapkan. Migrasi izin membutuhkan `supabase/creator-request.sql` dan `supabase/admin-management.sql` agar admin dapat mengelola akses. Semua kreator mulai tanpa izin audio; admin memilih kreator yang diberi akses di `/admin/users`. Untuk CORS R2, pastikan origin aplikasi diizinkan untuk metode `PUT`, `GET`, dan `HEAD`; konfigurasi repo `r2-cors.json` sudah memuat metode tersebut.

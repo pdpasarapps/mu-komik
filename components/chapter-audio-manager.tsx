@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AudioLines, LoaderCircle, Trash2, Upload } from "lucide-react";
+import { createSubtitlePageMap } from "@/lib/chapter-subtitles";
 import { createClient } from "@/lib/supabase/client";
 
 type AudioPage = { id: string; page_number: number };
@@ -55,22 +56,22 @@ export default function ChapterAudioManager({
   };
 
   const saveAudio = async () => {
-    if (!audioFile || !srtFile || !sidecarFile) {
+    if (!audioFile && !srtFile && !sidecarFile) {
       setIsError(true);
-      setMessage("Pilih berkas MP3, SRT, dan JSON sidecar terlebih dahulu.");
+      setMessage("Pilih setidaknya satu berkas yang ingin diperbarui.");
       return;
     }
-    if (!audioFile.name.toLowerCase().endsWith(".mp3") || audioFile.size === 0 || audioFile.size > 50 * 1024 * 1024) {
+    if (audioFile && (!audioFile.name.toLowerCase().endsWith(".mp3") || audioFile.size === 0 || audioFile.size > 50 * 1024 * 1024)) {
       setIsError(true);
       setMessage("Audio harus berupa MP3 dengan ukuran maksimal 50 MB.");
       return;
     }
-    if (!srtFile.name.toLowerCase().endsWith(".srt") || srtFile.size === 0 || srtFile.size > 1024 * 1024) {
+    if (srtFile && (!srtFile.name.toLowerCase().endsWith(".srt") || srtFile.size === 0 || srtFile.size > 1024 * 1024)) {
       setIsError(true);
       setMessage("Subtitle harus berupa file SRT dengan ukuran maksimal 1 MB.");
       return;
     }
-    if (!sidecarFile.name.toLowerCase().endsWith(".json") || sidecarFile.size === 0 || sidecarFile.size > 256 * 1024) {
+    if (sidecarFile && (!sidecarFile.name.toLowerCase().endsWith(".json") || sidecarFile.size === 0 || sidecarFile.size > 256 * 1024)) {
       setIsError(true);
       setMessage("Sidecar harus berupa file JSON dengan ukuran maksimal 256 KB.");
       return;
@@ -78,64 +79,86 @@ export default function ChapterAudioManager({
 
     setBusy(true);
     setIsError(false);
-    setMessage("Memeriksa subtitle dan pemetaan halaman...");
+    setMessage("Menyiapkan pembaruan episode...");
     let uploadedObjectKey: string | null = null;
     try {
-      const subtitlesSrt = await srtFile.text();
-      const pageMap: unknown = JSON.parse(await sidecarFile.text());
-      if (!isPageMap(pageMap)) throw new Error("Sidecar JSON harus berisi pemetaan nomor cue ke ID halaman.");
-      const prepared = await request({
-        action: "prepare",
-        comicId,
-        chapterId,
-        audioName: audioFile.name,
-        audioSize: audioFile.size,
-        subtitlesSrt,
-        pageMap,
-      });
-      if (typeof prepared.uploadUrl !== "string" || typeof prepared.objectKey !== "string") {
-        throw new Error("Server tidak memberikan URL unggah audio yang valid.");
+      const updatesSubtitles = Boolean(srtFile || sidecarFile);
+      const subtitlesSrt = srtFile ? await srtFile.text() : audio.subtitles_srt;
+      let pageMap: unknown = audio.subtitle_page_map;
+      if (sidecarFile) {
+        pageMap = JSON.parse(await sidecarFile.text());
+        if (!isPageMap(pageMap)) throw new Error("Sidecar JSON harus berisi pemetaan nomor cue ke ID halaman.");
+      } else if (srtFile) {
+        pageMap = createSubtitlePageMap(
+          subtitlesSrt ?? "",
+          [...pages].sort((left, right) => left.page_number - right.page_number).map((page) => page.id),
+        );
       }
-      const uploadUrl = prepared.uploadUrl;
-      uploadedObjectKey = prepared.objectKey;
-      await new Promise<void>((resolve, reject) => {
-        const upload = new XMLHttpRequest();
-        upload.open("PUT", uploadUrl);
-        upload.setRequestHeader("Content-Type", "audio/mpeg");
-        upload.upload.onprogress = (progressEvent) => {
-          if (progressEvent.lengthComputable) {
-            setMessage(`Mengunggah audio MP3 (${Math.floor((progressEvent.loaded / progressEvent.total) * 100)}%)...`);
-          }
-        };
-        upload.onload = () => {
-          if (upload.status >= 200 && upload.status < 300) resolve();
-          else reject(new Error("Audio gagal diunggah ke penyimpanan. Coba lagi."));
-        };
-        upload.onerror = () => reject(new Error("Koneksi gagal saat mengunggah audio."));
-        upload.onabort = () => reject(new Error("Unggah audio dibatalkan."));
-        upload.send(audioFile);
-      });
-      setMessage("Menyimpan subtitle dan pemetaan halaman...");
+      if (sidecarFile && !subtitlesSrt) throw new Error("Unggah file SRT terlebih dahulu sebelum mengganti pemetaan halaman.");
+      if (updatesSubtitles && (!subtitlesSrt || !pageMap)) {
+        throw new Error("Pembaruan subtitle membutuhkan SRT dan pemetaan halaman yang valid.");
+      }
+
+      const subtitleUpdate = updatesSubtitles ? { subtitlesSrt, pageMap } : {};
+      if (audioFile) {
+        setMessage(updatesSubtitles ? "Memeriksa subtitle dan menyiapkan audio..." : "Menyiapkan audio...");
+        const prepared = await request({
+          action: "prepare",
+          comicId,
+          chapterId,
+          audioName: audioFile.name,
+          audioSize: audioFile.size,
+          ...subtitleUpdate,
+        });
+        if (typeof prepared.uploadUrl !== "string" || typeof prepared.objectKey !== "string") {
+          throw new Error("Server tidak memberikan URL unggah audio yang valid.");
+        }
+        const uploadUrl = prepared.uploadUrl;
+        uploadedObjectKey = prepared.objectKey;
+        await new Promise<void>((resolve, reject) => {
+          const upload = new XMLHttpRequest();
+          upload.open("PUT", uploadUrl);
+          upload.setRequestHeader("Content-Type", "audio/mpeg");
+          upload.upload.onprogress = (progressEvent) => {
+            if (progressEvent.lengthComputable) {
+              setMessage(`Mengunggah audio MP3 (${Math.floor((progressEvent.loaded / progressEvent.total) * 100)}%)...`);
+            }
+          };
+          upload.onload = () => {
+            if (upload.status >= 200 && upload.status < 300) resolve();
+            else reject(new Error("Audio gagal diunggah ke penyimpanan. Coba lagi."));
+          };
+          upload.onerror = () => reject(new Error("Koneksi gagal saat mengunggah audio."));
+          upload.onabort = () => reject(new Error("Unggah audio dibatalkan."));
+          upload.send(audioFile);
+        });
+      }
+
+      setMessage("Menyimpan perubahan episode...");
       const saved = await request({
         action: "save",
         comicId,
         chapterId,
-        objectKey: uploadedObjectKey,
-        subtitlesSrt,
-        pageMap,
+        ...(uploadedObjectKey ? { objectKey: uploadedObjectKey } : {}),
+        ...subtitleUpdate,
       });
       if (saved.saved !== true) throw new Error("Server tidak mengonfirmasi penyimpanan audio.");
       onSaved({
-        audio_object_key: uploadedObjectKey,
-        subtitles_srt: subtitlesSrt,
-        subtitle_page_map: pageMap,
+        audio_object_key: typeof saved.audio_object_key === "string" ? saved.audio_object_key : null,
+        subtitles_srt: typeof saved.subtitles_srt === "string" ? saved.subtitles_srt : null,
+        subtitle_page_map: isPageMap(saved.subtitle_page_map) ? saved.subtitle_page_map : null,
       });
       setAudioFile(null);
       setSrtFile(null);
       setSidecarFile(null);
+      const updatedAssets: string[] = [];
+      if (audioFile) updatedAssets.push("audio");
+      if (srtFile) updatedAssets.push("subtitle dan pemetaan halaman");
+      else if (sidecarFile) updatedAssets.push("pemetaan halaman");
+      const updatedAssetLabel = updatedAssets.join(", ");
       setMessage(saved.storageCleanupPending === true
-        ? "Audio tersimpan, tetapi audio versi lama belum dapat dibersihkan dari penyimpanan."
-        : "Audio, subtitle, dan pemetaan halaman berhasil disimpan.");
+        ? `${updatedAssetLabel} tersimpan, tetapi audio versi lama belum dapat dibersihkan dari penyimpanan.`
+        : `${updatedAssetLabel.charAt(0).toUpperCase()}${updatedAssetLabel.slice(1)} berhasil disimpan.`);
     } catch (error) {
       console.error("Unable to save chapter audio:", error);
       if (uploadedObjectKey) {
@@ -146,7 +169,7 @@ export default function ChapterAudioManager({
         }
       }
       setIsError(true);
-      setMessage(error instanceof Error ? error.message : "Audio episode gagal disimpan.");
+      setMessage(error instanceof Error ? error.message : "Perubahan episode gagal disimpan.");
     } finally {
       setBusy(false);
     }
@@ -158,10 +181,14 @@ export default function ChapterAudioManager({
     setMessage("");
     try {
       const result = await request({ action: "delete", comicId, chapterId });
-      onSaved({ audio_object_key: null, subtitles_srt: null, subtitle_page_map: null });
+      onSaved({
+        audio_object_key: null,
+        subtitles_srt: typeof result.subtitles_srt === "string" ? result.subtitles_srt : null,
+        subtitle_page_map: isPageMap(result.subtitle_page_map) ? result.subtitle_page_map : null,
+      });
       setMessage(result.storageCleanupPending === true
-        ? "Audio dihapus dari episode, tetapi berkas lama belum dapat dibersihkan dari penyimpanan."
-        : "Audio episode berhasil dihapus.");
+        ? "Audio dihapus, tetapi berkas lama belum dapat dibersihkan dari penyimpanan."
+        : "Audio episode dihapus. Subtitle dan pemetaan halaman tetap tersimpan.");
     } catch (error) {
       console.error("Unable to delete chapter audio:", error);
       setIsError(true);
@@ -187,10 +214,10 @@ export default function ChapterAudioManager({
   return (
     <section className="chapter-audio-manager" aria-label="Audio dan subtitle episode">
       <div className="chapter-audio-manager-heading">
-        <div><AudioLines size={18} /><div><strong>Audio episode</strong><span>{audio.audio_object_key ? "MP3 dan subtitle tersedia" : "Belum ada audio"}</span></div></div>
+        <div><AudioLines size={18} /><div><strong>Audio dan subtitle episode</strong><span>{audio.audio_object_key && audio.subtitles_srt ? "Audio dan subtitle tersedia" : audio.audio_object_key ? "Audio tersedia" : audio.subtitles_srt ? "Subtitle tersedia" : "Belum ada audio atau subtitle"}</span></div></div>
         {audio.audio_object_key && <button type="button" className="chapter-audio-delete" onClick={() => void removeAudio()} disabled={busy}><Trash2 size={15} /> Hapus audio</button>}
       </div>
-      <p>Unggah MP3 maksimal 50 MB, file SRT, dan sidecar JSON. Audio tidak diputar otomatis; pemetaan subtitle menggunakan ID halaman agar tetap benar saat urutan halaman berubah.</p>
+      <p>Perbarui audio MP3, SRT, atau keduanya secara terpisah. Penanda “Halaman N” pada SRT digunakan untuk membuat pemetaan otomatis; unggah sidecar JSON bersama SRT jika pemetaan perlu diatur manual. Audio maksimal 50 MB.</p>
       <div className="chapter-audio-fields">
         <label>Audio MP3<input type="file" accept=".mp3,audio/mpeg" onChange={(event) => setAudioFile(event.target.files?.[0] ?? null)} disabled={busy} /></label>
         <label>Subtitle SRT<input type="file" accept=".srt,application/x-subrip,text/plain" onChange={(event) => setSrtFile(event.target.files?.[0] ?? null)} disabled={busy} /></label>
@@ -202,8 +229,8 @@ export default function ChapterAudioManager({
         {pages.length > 0 && <details><summary>Lihat ID halaman episode</summary><ol>{pages.map((page) => <li key={page.id}>Halaman {page.page_number}: <code>{page.id}</code></li>)}</ol></details>}
       </div>
       <div className="chapter-audio-actions">
-        <button type="button" onClick={() => void saveAudio()} disabled={busy || !audioFile || !srtFile || !sidecarFile}>
-          {busy ? <><LoaderCircle className="spin" size={15} /> {message.startsWith("Mengunggah") ? "Mengunggah..." : "Memproses..."}</> : <><Upload size={15} /> Simpan audio episode</>}
+        <button type="button" onClick={() => void saveAudio()} disabled={busy || (!audioFile && !srtFile && !sidecarFile)}>
+          {busy ? <><LoaderCircle className="spin" size={15} /> {message.startsWith("Mengunggah") ? "Mengunggah..." : "Memproses..."}</> : <><Upload size={15} /> Simpan pilihan</>}
         </button>
         {busy && <span role="status">{message}</span>}
       </div>

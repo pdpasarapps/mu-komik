@@ -6,6 +6,71 @@ export type ChapterSubtitleCue = {
   pageId: string;
 };
 
+export function createSubtitlePageMap(srt: string, pageIds: string[]): Record<string, string> {
+  if (typeof srt !== "string" || !srt.trim()) throw new Error("File SRT tidak boleh kosong.");
+  if (!pageIds.length) throw new Error("Episode belum memiliki halaman untuk pemetaan subtitle.");
+
+  const blocks = srt.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").trim().split(/\n\s*\n/);
+  if (blocks.length > 2000) throw new Error("Satu episode maksimal memiliki 2.000 cue subtitle.");
+
+  const pageMap: Record<string, string> = {};
+  const markedPages = new Set<number>();
+  const seenCues = new Set<number>();
+  let currentPage = 1;
+
+  for (const block of blocks) {
+    const lines = block.split("\n");
+    if (lines.length < 3 || !/^\d+$/.test(lines[0].trim())) {
+      throw new Error("Format SRT tidak valid. Setiap cue harus memiliki nomor, waktu, dan teks.");
+    }
+
+    const cueNumber = Number(lines[0].trim());
+    if (!Number.isSafeInteger(cueNumber) || cueNumber < 1 || seenCues.has(cueNumber)) {
+      throw new Error("Nomor cue SRT harus unik dan berupa bilangan positif.");
+    }
+    seenCues.add(cueNumber);
+
+    const text = lines.slice(2).join("\n").trim();
+    const markers = [...text.matchAll(/\bHalaman\s+(\d+)\b/giu)];
+    if (markers.length > 1) throw new Error(`Cue ${cueNumber} memiliki lebih dari satu penanda halaman.`);
+    if (markers.length === 0) {
+      pageMap[String(cueNumber)] = pageIds[currentPage - 1];
+      continue;
+    }
+
+    const marker = markers[0];
+    const pageNumber = Number(marker[1]);
+    if (!Number.isSafeInteger(pageNumber) || pageNumber < 1 || pageNumber > pageIds.length) {
+      throw new Error(`Penanda halaman pada cue ${cueNumber} tidak sesuai jumlah halaman (${pageIds.length}).`);
+    }
+
+    const before = text.slice(0, marker.index).trim();
+    const after = text.slice(marker.index + marker[0].length).trim();
+    if (before && !after) {
+      if (pageNumber !== currentPage + 1) {
+        throw new Error(`Penanda "Halaman ${pageNumber}" di akhir cue ${cueNumber} harus menandai halaman berikutnya.`);
+      }
+      pageMap[String(cueNumber)] = pageIds[currentPage - 1];
+      currentPage = pageNumber;
+    } else {
+      if (pageNumber < currentPage || pageNumber > currentPage + 1) {
+        throw new Error(`Urutan penanda halaman pada cue ${cueNumber} tidak berurutan.`);
+      }
+      currentPage = pageNumber;
+      pageMap[String(cueNumber)] = pageIds[currentPage - 1];
+    }
+    markedPages.add(pageNumber);
+  }
+
+  for (let pageNumber = 1; pageNumber <= pageIds.length; pageNumber += 1) {
+    if (!markedPages.has(pageNumber)) {
+      throw new Error(`SRT belum memiliki penanda "Halaman ${pageNumber}". Unggah sidecar JSON untuk pemetaan manual.`);
+    }
+  }
+
+  return pageMap;
+}
+
 function parseTimestamp(value: string) {
   const match = /^(\d{2,}):([0-5]\d):([0-5]\d),(\d{3})$/.exec(value);
   if (!match) throw new Error(`Format waktu subtitle tidak valid: ${value}`);

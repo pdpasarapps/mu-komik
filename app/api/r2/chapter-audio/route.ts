@@ -33,10 +33,15 @@ function readRequest(value: unknown): AudioRequest | null {
   if (body.action === "prepare" && (
     !Number.isSafeInteger(body.audioSize)
     || typeof body.audioName !== "string"
-    || typeof body.subtitlesSrt !== "string"
-    || !body.pageMap
+    || (body.subtitlesSrt !== undefined && (typeof body.subtitlesSrt !== "string" || !body.pageMap))
+    || (body.pageMap !== undefined && typeof body.subtitlesSrt !== "string")
   )) return null;
-  if (body.action === "save" && (typeof body.objectKey !== "string" || typeof body.subtitlesSrt !== "string" || !body.pageMap)) return null;
+  if (body.action === "save" && (
+    (body.objectKey === undefined && body.subtitlesSrt === undefined && body.pageMap === undefined)
+    || (body.objectKey !== undefined && typeof body.objectKey !== "string")
+    || (body.subtitlesSrt !== undefined && (typeof body.subtitlesSrt !== "string" || !body.pageMap))
+    || (body.pageMap !== undefined && typeof body.subtitlesSrt !== "string")
+  )) return null;
   return body as AudioRequest;
 }
 
@@ -106,7 +111,7 @@ export async function POST(request: NextRequest) {
     if (!comic) return errorResponse("Comic not found", 404);
     const { data: chapter, error: chapterError } = await supabase
       .from("chapters")
-      .select("id, audio_object_key")
+      .select("id, audio_object_key, subtitles_srt, subtitle_page_map")
       .eq("id", body.chapterId)
       .eq("comic_id", comic.id)
       .maybeSingle();
@@ -120,16 +125,18 @@ export async function POST(request: NextRequest) {
         return errorResponse("File MP3 harus berukuran antara 1 byte dan 50 MB.", 413);
       }
       if (body.audioName!.length > 255 || !body.audioName!.toLocaleLowerCase("id-ID").endsWith(".mp3")) return errorResponse("Pilih file MP3 dengan nama berkas yang valid.", 415);
-      let cues;
-      try {
-        cues = parseChapterSubtitles(body.subtitlesSrt!, body.pageMap);
-      } catch (error) {
-        return errorResponse(error instanceof Error ? error.message : "Subtitle tidak valid.", 400);
+      if (body.subtitlesSrt !== undefined && body.pageMap !== undefined) {
+        let cues;
+        try {
+          cues = parseChapterSubtitles(body.subtitlesSrt, body.pageMap);
+        } catch (error) {
+          return errorResponse(error instanceof Error ? error.message : "Subtitle tidak valid.", 400);
+        }
+        const { data: pages, error: pagesError } = await supabase.from("pages").select("id").eq("chapter_id", chapter.id);
+        if (pagesError) return errorResponse("Could not verify episode pages", 500);
+        const pageIds = new Set((pages ?? []).map((page) => page.id));
+        if (cues.some((cue) => !pageIds.has(cue.pageId))) return errorResponse("Sidecar memetakan cue ke halaman yang bukan bagian dari episode ini.", 400);
       }
-      const { data: pages, error: pagesError } = await supabase.from("pages").select("id").eq("chapter_id", chapter.id);
-      if (pagesError) return errorResponse("Could not verify episode pages", 500);
-      const pageIds = new Set((pages ?? []).map((page) => page.id));
-      if (cues.some((cue) => !pageIds.has(cue.pageId))) return errorResponse("Sidecar memetakan cue ke halaman yang bukan bagian dari episode ini.", 400);
       const objectKey = `${objectPrefix}${crypto.randomUUID()}.mp3`;
       const command = new PutObjectCommand({
         Bucket: process.env.R2_BUCKET_NAME!,
@@ -154,53 +161,85 @@ export async function POST(request: NextRequest) {
     if (body.action === "delete") {
       const previousKey = chapter.audio_object_key;
       const { error: updateError } = await supabase.from("chapters")
-        .update({ audio_object_key: null, subtitles_srt: null, subtitle_page_map: null })
+        .update({ audio_object_key: null })
         .eq("id", chapter.id)
         .eq("comic_id", comic.id);
       if (updateError) return errorResponse("Audio episode tidak dapat dihapus.", 500);
-      if (!previousKey) return NextResponse.json({ deleted: true, storageCleanupPending: false });
+      if (!previousKey) return NextResponse.json({
+        deleted: true,
+        audio_object_key: null,
+        subtitles_srt: chapter.subtitles_srt,
+        subtitle_page_map: chapter.subtitle_page_map,
+        storageCleanupPending: false,
+      });
       if (!previousKey.startsWith(objectPrefix)) {
         console.error("Chapter audio has an invalid R2 key:", { chapterId: chapter.id });
-        return NextResponse.json({ deleted: true, storageCleanupPending: true });
+        return NextResponse.json({
+          deleted: true,
+          audio_object_key: null,
+          subtitles_srt: chapter.subtitles_srt,
+          subtitle_page_map: chapter.subtitle_page_map,
+          storageCleanupPending: true,
+        });
       }
       try {
         await storage.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET_NAME!, Key: previousKey }));
-        return NextResponse.json({ deleted: true, storageCleanupPending: false });
+        return NextResponse.json({
+          deleted: true,
+          audio_object_key: null,
+          subtitles_srt: chapter.subtitles_srt,
+          subtitle_page_map: chapter.subtitle_page_map,
+          storageCleanupPending: false,
+        });
       } catch (error) {
         console.error("Could not remove chapter audio from R2:", error);
-        return NextResponse.json({ deleted: true, storageCleanupPending: true });
+        return NextResponse.json({
+          deleted: true,
+          audio_object_key: null,
+          subtitles_srt: chapter.subtitles_srt,
+          subtitle_page_map: chapter.subtitle_page_map,
+          storageCleanupPending: true,
+        });
       }
     }
 
-    if (!body.objectKey!.startsWith(objectPrefix) || !/^[a-f0-9-]{36}\.mp3$/i.test(body.objectKey!.slice(objectPrefix.length))) {
+    if (body.objectKey !== undefined && (!body.objectKey.startsWith(objectPrefix) || !/^[a-f0-9-]{36}\.mp3$/i.test(body.objectKey.slice(objectPrefix.length)))) {
       return errorResponse("Invalid audio storage key", 400);
     }
-    let cues;
-    try {
-      cues = parseChapterSubtitles(body.subtitlesSrt!, body.pageMap);
-    } catch (error) {
-      return errorResponse(error instanceof Error ? error.message : "Subtitle tidak valid.", 400);
-    }
-    const { data: pages, error: pagesError } = await supabase.from("pages").select("id").eq("chapter_id", chapter.id);
-    if (pagesError) return errorResponse("Could not verify episode pages", 500);
-    const pageIds = new Set((pages ?? []).map((page) => page.id));
-    if (cues.some((cue) => !pageIds.has(cue.pageId))) return errorResponse("Sidecar memetakan cue ke halaman yang bukan bagian dari episode ini.", 400);
-
-    const { ContentLength, ContentType } = await storage.send(new HeadObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME!,
-      Key: body.objectKey,
-    }));
-    if (!Number.isSafeInteger(ContentLength) || ContentLength! <= 0 || ContentLength! > MAX_AUDIO_BYTES || ContentType !== "audio/mpeg") {
-      return errorResponse("File audio di R2 tidak valid atau melebihi batas 50 MB.", 415);
+    if (body.objectKey !== undefined) {
+      const { ContentLength, ContentType } = await storage.send(new HeadObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME!,
+        Key: body.objectKey,
+      }));
+      if (!Number.isSafeInteger(ContentLength) || ContentLength! <= 0 || ContentLength! > MAX_AUDIO_BYTES || ContentType !== "audio/mpeg") {
+        return errorResponse("File audio di R2 tidak valid atau melebihi batas 50 MB.", 415);
+      }
     }
 
-    const { error: updateError } = await supabase.from("chapters").update({
-      audio_object_key: body.objectKey,
-      subtitles_srt: body.subtitlesSrt,
-      subtitle_page_map: body.pageMap,
-    }).eq("id", chapter.id).eq("comic_id", comic.id);
+    const updates: {
+      audio_object_key?: string | null;
+      subtitles_srt?: string;
+      subtitle_page_map?: unknown;
+    } = {};
+    if (body.objectKey !== undefined) updates.audio_object_key = body.objectKey;
+    if (body.subtitlesSrt !== undefined && body.pageMap !== undefined) {
+      let cues;
+      try {
+        cues = parseChapterSubtitles(body.subtitlesSrt, body.pageMap);
+      } catch (error) {
+        return errorResponse(error instanceof Error ? error.message : "Subtitle tidak valid.", 400);
+      }
+      const { data: pages, error: pagesError } = await supabase.from("pages").select("id").eq("chapter_id", chapter.id);
+      if (pagesError) return errorResponse("Could not verify episode pages", 500);
+      const pageIds = new Set((pages ?? []).map((page) => page.id));
+      if (cues.some((cue) => !pageIds.has(cue.pageId))) return errorResponse("Sidecar memetakan cue ke halaman yang bukan bagian dari episode ini.", 400);
+      updates.subtitles_srt = body.subtitlesSrt;
+      updates.subtitle_page_map = body.pageMap;
+    }
+
+    const { error: updateError } = await supabase.from("chapters").update(updates).eq("id", chapter.id).eq("comic_id", comic.id);
     if (updateError) {
-      if (body.objectKey !== chapter.audio_object_key) {
+      if (body.objectKey && body.objectKey !== chapter.audio_object_key) {
         try {
           await storage.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET_NAME!, Key: body.objectKey }));
         } catch (cleanupError) {
@@ -212,7 +251,7 @@ export async function POST(request: NextRequest) {
 
     const previousKey = chapter.audio_object_key;
     let storageCleanupPending = false;
-    if (previousKey && previousKey !== body.objectKey) {
+    if (previousKey && body.objectKey !== undefined && previousKey !== body.objectKey) {
       if (!previousKey.startsWith(objectPrefix)) {
         storageCleanupPending = true;
         console.error("Replaced chapter audio has an invalid R2 key:", { chapterId: chapter.id });
@@ -225,7 +264,13 @@ export async function POST(request: NextRequest) {
         }
       }
     }
-    return NextResponse.json({ saved: true, objectKey: body.objectKey, cueCount: cues.length, storageCleanupPending });
+    return NextResponse.json({
+      saved: true,
+      audio_object_key: body.objectKey ?? chapter.audio_object_key,
+      subtitles_srt: body.subtitlesSrt ?? chapter.subtitles_srt,
+      subtitle_page_map: body.pageMap ?? chapter.subtitle_page_map,
+      storageCleanupPending,
+    });
   } catch (error) {
     console.error("Chapter audio request failed:", error);
     return errorResponse(error instanceof Error ? error.message : "Chapter audio request failed.", 500);

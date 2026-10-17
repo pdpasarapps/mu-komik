@@ -70,10 +70,9 @@ create table if not exists public.chapters (
   subtitle_page_map jsonb,
   created_at timestamptz not null default now(),
   constraint chapters_audio_metadata_complete check (
-    (audio_object_key is null and subtitles_srt is null and subtitle_page_map is null)
+    (subtitles_srt is null and subtitle_page_map is null)
     or (
-      audio_object_key is not null
-      and subtitles_srt is not null
+      subtitles_srt is not null
       and subtitle_page_map is not null
       and jsonb_typeof(subtitle_page_map) = 'object'
     )
@@ -91,10 +90,9 @@ alter table public.chapters
 
 alter table public.chapters
   add constraint chapters_audio_metadata_complete check (
-    (audio_object_key is null and subtitles_srt is null and subtitle_page_map is null)
+    (subtitles_srt is null and subtitle_page_map is null)
     or (
-      audio_object_key is not null
-      and subtitles_srt is not null
+      subtitles_srt is not null
       and subtitle_page_map is not null
       and jsonb_typeof(subtitle_page_map) = 'object'
     )
