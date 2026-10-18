@@ -162,16 +162,21 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const primaryReadRef = useRef<HTMLAnchorElement>(null);
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
   const kidsEpisodeGrid = kidsMode && chapters.length > 1;
-  const kidsTabletLandscape = kidsEpisodeGrid && currentDevice === "tablet" && tabletLandscape;
+  const kidsTabletLandscape = kidsEpisodeGrid && tabletLandscape;
 
   useEffect(() => {
     const orientationQuery = window.matchMedia("(orientation: landscape)");
-    const updateOrientation = () => setTabletLandscape(orientationQuery.matches);
+    const updateOrientation = () => {
+      const isTouchTablet = navigator.maxTouchPoints > 0 && window.innerWidth <= 1366;
+      setTabletLandscape(orientationQuery.matches && isTouchTablet);
+    };
     const initialOrientationFrame = window.requestAnimationFrame(updateOrientation);
     orientationQuery.addEventListener("change", updateOrientation);
+    window.addEventListener("resize", updateOrientation);
     return () => {
       window.cancelAnimationFrame(initialOrientationFrame);
       orientationQuery.removeEventListener("change", updateOrientation);
+      window.removeEventListener("resize", updateOrientation);
     };
   }, []);
 

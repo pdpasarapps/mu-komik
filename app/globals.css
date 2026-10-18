@@ -1676,7 +1676,7 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .reader-detail-creator { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px; font-size: .81rem; }
 .reader-detail-creator strong { font-size: .95rem; }
 .reader-detail-synopsis { font-weight: 450; }
-@media (min-width: 761px) and (max-width: 1050px) and (orientation: landscape) {
+@media (min-width: 761px) and (max-width: 1366px) and (orientation: landscape) {
   .reader-comic-detail-kids-landscape {
     display: grid;
     grid-template-columns: minmax(220px, min(30vw, 320px)) minmax(0, 1fr);
