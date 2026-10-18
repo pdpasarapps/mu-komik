@@ -1237,8 +1237,9 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .reader-vertical-pages { width: min(100%, 960px); display: grid; gap: 0; margin: 0 auto; touch-action: pan-x pinch-zoom; }
 .reader-book-mode { width: 100%; max-width: none; }
 .reader-book-stage { position: relative; width: min(1180px, calc(100vw - 48px)); height: calc(100dvh - var(--reader-header-height) - 58px - 6px); min-height: 0; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; overflow: hidden; container-type: size; margin: 0 auto; padding: 0; perspective: 2200px; border: 0; border-radius: 0; background: radial-gradient(ellipse at center, #414944 0, #292f2c 68%, #222724 100%); box-shadow: none; cursor: pointer; }
+.reader-experience:has(.reader-book-mode) { --reader-book-inset: 24px; }
 .reader-controls-hidden .reader-book-mode { margin-top: calc(-1 * var(--reader-header-height) - 6px); }
-.reader-controls-hidden .reader-book-stage { width: 100vw; height: 100vh; height: 100dvh; min-height: 100vh; min-height: 100dvh; margin: 0; }
+.reader-controls-hidden .reader-book-stage { width: calc(100vw - 2 * var(--reader-book-inset, 0px)); height: calc(100vh - 2 * var(--reader-book-inset, 0px)); height: calc(100dvh - 2 * var(--reader-book-inset, 0px)); min-height: calc(100vh - 2 * var(--reader-book-inset, 0px)); min-height: calc(100dvh - 2 * var(--reader-book-inset, 0px)); margin: var(--reader-book-inset, 0px) auto; }
 .reader-book-spread { width: min(100cqw, 133.333cqh); height: min(100cqh, 75cqw); min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); aspect-ratio: 4 / 3; }
 .reader-book-spread-fade-in { animation: reader-book-spread-crossfade-in .28s ease-out both; }
 .reader-book-spread-fade-out { z-index: 1; pointer-events: none; animation: reader-book-spread-crossfade-out .28s ease-in both; }
@@ -1275,6 +1276,11 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 @keyframes reader-book-turn-previous { from { transform: translateX(-100%) rotateY(0); } to { transform: translateX(-100%) rotateY(180deg); } }
 .reader-book-paper-ad { padding: 12px 20px 12px 0; background: #fff; }
 .reader-book-paper-end { padding: 0; background: #272d2a; }
+@media (min-width: 641px) and (max-width: 1050px) and (orientation: landscape) {
+  .reader-book-paper { padding-top: 8px; padding-bottom: 8px; }
+  .reader-book-turn-face { padding-top: 8px; padding-bottom: 8px; }
+  .reader-book-paper-ad { padding-top: 8px; padding-bottom: 8px; }
+}
 .reader-book-paper-end > div { width: 100%; height: 100%; min-height: 0; display: grid; place-items: center; }
 .reader-book-paper-end .reader-episode-end { width: 100%; height: 100%; min-height: 0; align-content: center; box-sizing: border-box; margin: 0; border: 0; border-radius: 0; }
 .reader-book-paper-ad .reader-sponsored-ad-reader { width: 100%; height: 100%; min-height: 0; display: flex; flex-direction: column; margin: 0; border: 0; border-radius: 0; background: #fff; }

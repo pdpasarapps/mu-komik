@@ -526,7 +526,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       ));
       if (targetSpread === bookSpreadIndex || bookTurnInProgressRef.current) return;
       bookTurnInProgressRef.current = true;
-      setControlsVisible(true);
+      if (currentDevice !== "tablet" || !tabletLandscape) setControlsVisible(true);
       setBookTurnSpreadChanging(false);
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         setBookSpreadIndex(targetSpread);
@@ -549,7 +549,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     setCurrentPage(targetIndex);
     const scrollBlock = currentDevice === "mobile" && !controlsVisible ? "center" : "start";
     document.querySelector(`[data-reader-page="${targetIndex}"]`)?.scrollIntoView({ behavior, block: scrollBlock });
-  }, [bookLeaves.length, bookSpreadIndex, controlsVisible, currentDevice, currentPage, desktopBookMode, pages.length]);
+  }, [bookLeaves.length, bookSpreadIndex, controlsVisible, currentDevice, currentPage, desktopBookMode, pages.length, tabletLandscape]);
 
   const updateAudioSubtitle = useCallback((event: SyntheticEvent<HTMLAudioElement>) => {
     const audio = event.currentTarget;
@@ -624,7 +624,10 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
 
   useEffect(() => {
     if (loading || !pages.length) return;
-    if (currentDevice !== "desktop") return;
+    const isTouchTablet = navigator.maxTouchPoints > 0
+      && window.matchMedia("(any-pointer: coarse)").matches
+      && window.innerWidth <= 1366;
+    if (currentDevice !== "desktop" || isTouchTablet) return;
     lastScrollY.current = window.scrollY;
     let animationFrame = 0;
     const handleScroll = () => {
