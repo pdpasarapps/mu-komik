@@ -154,6 +154,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const [synopsisExpanded, setSynopsisExpanded] = useState(false);
   const [stickyReadVisible, setStickyReadVisible] = useState(false);
   const [stickyReadDismissed, setStickyReadDismissed] = useState(false);
+  const [tabletLandscape, setTabletLandscape] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const shareUrlRef = useRef<HTMLTextAreaElement>(null);
   const kidsDescriptionTriggerRef = useRef<HTMLButtonElement>(null);
@@ -161,6 +162,18 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const primaryReadRef = useRef<HTMLAnchorElement>(null);
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
   const kidsEpisodeGrid = kidsMode && chapters.length > 1;
+  const kidsTabletLandscape = kidsEpisodeGrid && currentDevice === "tablet" && tabletLandscape;
+
+  useEffect(() => {
+    const orientationQuery = window.matchMedia("(orientation: landscape)");
+    const updateOrientation = () => setTabletLandscape(orientationQuery.matches);
+    const initialOrientationFrame = window.requestAnimationFrame(updateOrientation);
+    orientationQuery.addEventListener("change", updateOrientation);
+    return () => {
+      window.cancelAnimationFrame(initialOrientationFrame);
+      orientationQuery.removeEventListener("change", updateOrientation);
+    };
+  }, []);
 
   useEffect(() => {
     if (!kidsEpisodeGrid || !kidsDescriptionOpen) return;
@@ -776,7 +789,9 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const credits = Array.isArray(comic.contributors) ? comic.contributors.filter((item) => item.name?.trim()) : [];
   const writerCredit = credits.find((credit) => /^(penulis|writer)$/i.test(credit.role.trim()));
   const byline = writerCredit?.name || contributor.replace(/^penulis(?:\s+atau\s+kontributor)?\s*:\s*/i, "") || "Kreator independen";
-  const displayedCoverKey = kidsEpisodeGrid ? comic.kids_series_cover_key || comic.cover_key : comic.cover_key;
+  const displayedCoverKey = kidsEpisodeGrid && !kidsTabletLandscape
+    ? comic.kids_series_cover_key || comic.cover_key
+    : comic.cover_key;
   const coverUrl = displayedCoverKey && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${displayedCoverKey}` : null;
   const firstIncompleteIndex = chapters.findIndex((chapter) => chapterReadStatuses[chapter.id] !== "read");
   const allChaptersRead = chapters.length > 0 && firstIncompleteIndex === -1;
@@ -794,7 +809,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const latestChapterNumber = Math.max(0, ...chapters.map((chapter) => chapter.chapter_number));
 
   return (
-    <main className={`reader-detail-page reader-comic-detail-page${kidsEpisodeGrid ? " reader-comic-detail-kids-grid" : ""}`}>
+    <main className={`reader-detail-page reader-comic-detail-page${kidsEpisodeGrid ? " reader-comic-detail-kids-grid" : ""}${kidsTabletLandscape ? " reader-comic-detail-kids-landscape" : ""}`}>
       <nav className="reader-subnav">
         <BrandLogo className="wordmark reader-wordmark" showName />
         <KidsModeToggle />

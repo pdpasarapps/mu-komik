@@ -1676,6 +1676,57 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .reader-detail-creator { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px; font-size: .81rem; }
 .reader-detail-creator strong { font-size: .95rem; }
 .reader-detail-synopsis { font-weight: 450; }
+@media (min-width: 761px) and (max-width: 1050px) and (orientation: landscape) {
+  .reader-comic-detail-kids-landscape {
+    display: grid;
+    grid-template-columns: minmax(220px, min(30vw, 320px)) minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr auto;
+    align-content: start;
+    align-items: start;
+    column-gap: clamp(24px, 4vw, 48px);
+    padding-bottom: 24px;
+  }
+  .reader-comic-detail-kids-landscape > .reader-subnav,
+  .reader-comic-detail-kids-landscape > .reader-footer { grid-column: 1 / -1; }
+  .reader-comic-detail-kids-landscape > .reader-comic-detail { display: contents; }
+  .reader-comic-detail-kids-landscape .reader-detail-cover-wrap {
+    grid-column: 1;
+    grid-row: 2 / 4;
+    align-self: start;
+    width: 100%;
+    margin-top: 24px;
+  }
+  .reader-comic-detail-kids-landscape .reader-detail-cover {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    border-radius: 10px;
+    box-shadow: 0 9px 24px rgba(32,36,34,.09);
+  }
+  .reader-comic-detail-kids-landscape .reader-detail-cover img { object-fit: contain; }
+  .reader-comic-detail-kids-landscape .reader-detail-copy {
+    grid-column: 2;
+    grid-row: 2;
+    width: 100%;
+    max-width: none;
+    margin: 24px 0 0;
+    padding: 0;
+  }
+  .reader-comic-detail-kids-landscape .reader-kids-title-row { justify-items: start; }
+  .reader-comic-detail-kids-landscape .reader-kids-title-row h1 {
+    max-width: 100%;
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    text-align: left;
+  }
+  .reader-comic-detail-kids-landscape > .reader-episodes {
+    grid-column: 2;
+    grid-row: 3;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 8px 0 28px;
+  }
+  .reader-comic-detail-kids-landscape > .reader-footer { margin-top: 24px; }
+}
 .reader-detail-synopsis-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
 .reader-detail-actions .reader-detail-action { min-height: 44px; transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease; }
 .reader-detail-actions .reader-detail-action:hover { transform: translateY(-1px); }
