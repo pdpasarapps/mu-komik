@@ -57,6 +57,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const { slug, chapterId } = useParams<{ slug: string; chapterId: string }>();
   const router = useRouter();
   const currentDevice = useCurrentDevice();
+  const [tabletLandscape, setTabletLandscape] = useState(false);
   const membership = useReaderMembership();
   const { kidsMode } = useKidsMode();
   const [chapter, setChapter] = useState<Chapter | null>(seed.chapter);
@@ -95,7 +96,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const audioElementRef = useRef<HTMLAudioElement>(null);
   const watermarkLabel = `MU-KOMIK.COM · ${watermarkName}`;
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
-  const desktopBookMode = currentDevice === "desktop";
+  const desktopBookMode = currentDevice === "desktop" || (currentDevice === "tablet" && tabletLandscape);
   const subtitleTrack = useMemo(() => {
     if (!chapter?.subtitles_srt || !chapter.subtitle_page_map) {
       return { cues: [], error: chapter?.audio_object_key ? "Subtitle atau pemetaan halaman episode tidak tersedia." : "" };
@@ -112,6 +113,66 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     () => getDesktopBookLeaves(pages, !kidsMode && membership.ready && membership.tier === "free"),
     [kidsMode, membership.ready, membership.tier, pages],
   );
+  const currentPageRef = useRef(currentPage);
+  const bookLeavesRef = useRef(bookLeaves);
+  const previousBookModeRef = useRef(desktopBookMode);
+
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+    bookLeavesRef.current = bookLeaves;
+  }, [bookLeaves, currentPage]);
+
+  useEffect(() => {
+    const landscapeQuery = window.matchMedia("(orientation: landscape)");
+    const updateOrientation = () => setTabletLandscape(landscapeQuery.matches);
+    const initialOrientationFrame = window.requestAnimationFrame(updateOrientation);
+    landscapeQuery.addEventListener("change", updateOrientation);
+    return () => {
+      window.cancelAnimationFrame(initialOrientationFrame);
+      landscapeQuery.removeEventListener("change", updateOrientation);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (loading || !pages.length) return;
+    const wasBookMode = previousBookModeRef.current;
+    previousBookModeRef.current = desktopBookMode;
+    if (wasBookMode === desktopBookMode) return;
+
+    const transitionFrame = window.requestAnimationFrame(() => {
+      if (bookTurnSpreadCommitTimeoutRef.current !== null) {
+        window.clearTimeout(bookTurnSpreadCommitTimeoutRef.current);
+        bookTurnSpreadCommitTimeoutRef.current = null;
+      }
+      setBookTurn(null);
+      setBookTurnSpreadChanging(false);
+      bookTurnInProgressRef.current = false;
+
+      if (desktopBookMode) {
+        window.scrollTo(0, 0);
+        const currentPage = currentPageRef.current;
+        const bookLeaves = bookLeavesRef.current;
+        const currentLeafIndex = bookLeaves.findIndex((leaf) => leaf.kind === "page" && leaf.pageIndex === currentPage);
+        const nextSpreadIndex = Math.max(0, Math.floor(currentLeafIndex / 2));
+        const visiblePages = bookLeaves.slice(nextSpreadIndex * 2, nextSpreadIndex * 2 + 2)
+          .flatMap((leaf) => leaf.kind === "page" ? [leaf] : []);
+        setBookSpreadIndex(nextSpreadIndex);
+        if (visiblePages.length) {
+          setCurrentPage(visiblePages[0].pageIndex);
+          setReadPageIds((current) => {
+            const next = new Set(current);
+            visiblePages.forEach((leaf) => next.add(leaf.page.id));
+            return next;
+          });
+        }
+        return;
+      }
+
+      const currentPage = currentPageRef.current;
+      document.querySelector(`[data-reader-page="${currentPage}"]`)?.scrollIntoView({ block: "start" });
+    });
+    return () => window.cancelAnimationFrame(transitionFrame);
+  }, [desktopBookMode, loading, pages.length]);
 
   useEffect(() => {
     const blockReaderShortcuts = (event: KeyboardEvent) => {
