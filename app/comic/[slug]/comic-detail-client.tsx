@@ -1,7 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, CheckCircle2, ChevronUp, CircleDot, Copy, Download, ExternalLink, Eye, Heart, LoaderCircle, Share2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, CheckCircle2, ChevronUp, CircleDot, Copy, Download, ExternalLink, Eye, Heart, LoaderCircle, Share2, Sparkles, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { KidsModeToggle, useKidsMode, usePlatformSettings } from "../../platform-runtime";
@@ -124,6 +125,8 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const { slug } = useParams<{ slug: string }>();
   const [comic, setComic] = useState<Comic | null>(initialComic);
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
+  const kidsEpisodeGrid = kidsMode && chapters.length > 1;
+  const [firstPageImageUrls, setFirstPageImageUrls] = useState<Record<string, string>>({});
   const [chapterReadStatuses, setChapterReadStatuses] = useState<Record<string, ChapterReadStatus>>({});
   const [chapterProgressReady, setChapterProgressReady] = useState(false);
   const [chapterProgressError, setChapterProgressError] = useState(false);
@@ -147,13 +150,31 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const [bookmarkMessage, setBookmarkMessage] = useState("");
   const [shareMessage, setShareMessage] = useState("");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [kidsDescriptionOpen, setKidsDescriptionOpen] = useState(false);
   const [synopsisExpanded, setSynopsisExpanded] = useState(false);
   const [stickyReadVisible, setStickyReadVisible] = useState(false);
   const [stickyReadDismissed, setStickyReadDismissed] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const shareUrlRef = useRef<HTMLTextAreaElement>(null);
+  const kidsDescriptionTriggerRef = useRef<HTMLButtonElement>(null);
+  const kidsDescriptionCloseRef = useRef<HTMLButtonElement>(null);
   const primaryReadRef = useRef<HTMLAnchorElement>(null);
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
+
+  useEffect(() => {
+    if (!kidsEpisodeGrid || !kidsDescriptionOpen) return;
+
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    kidsDescriptionCloseRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setKidsDescriptionOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [kidsDescriptionOpen, kidsEpisodeGrid]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -393,16 +414,22 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
         const chapterIds = chapterData.map((chapter) => chapter.id);
         const { data: pageData, error: pageError } = await supabase
           .from("pages")
-          .select("id, chapter_id")
-          .in("chapter_id", chapterIds);
+          .select("id, chapter_id, page_number, object_key")
+          .in("chapter_id", chapterIds)
+          .order("page_number", { ascending: true });
         if (pageError) console.error("Unable to load episode page counts:", pageError);
 
         const pageIdsByChapter = new Map<string, string[]>();
+        const firstPageImages: Record<string, string> = {};
         for (const page of pageData ?? []) {
           const pageIds = pageIdsByChapter.get(page.chapter_id) ?? [];
           pageIds.push(page.id);
           pageIdsByChapter.set(page.chapter_id, pageIds);
+          if (!firstPageImages[page.chapter_id] && publicUrl) {
+            firstPageImages[page.chapter_id] = `${publicUrl.replace(/\/$/, "")}/${page.object_key}`;
+          }
         }
+        if (active) setFirstPageImageUrls(firstPageImages);
 
         const historyByChapter = new Map<string, number>();
         if (currentUserId) {
@@ -472,7 +499,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
       }
     });
     return () => { active = false; };
-  }, [currentDevice, initialChapters, initialComic, slug]);
+  }, [currentDevice, initialChapters, initialComic, publicUrl, slug]);
 
   useEffect(() => {
     let active = true;
@@ -764,7 +791,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const latestChapterNumber = Math.max(0, ...chapters.map((chapter) => chapter.chapter_number));
 
   return (
-    <main className="reader-detail-page reader-comic-detail-page">
+    <main className={`reader-detail-page reader-comic-detail-page${kidsEpisodeGrid ? " reader-comic-detail-kids-grid" : ""}`}>
       <nav className="reader-subnav">
         <BrandLogo className="wordmark reader-wordmark" showName />
         <KidsModeToggle />
@@ -781,6 +808,19 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
           <p className="reader-detail-genre-count">{getComicGenreLabel(comic.genre)}<span aria-hidden="true">·</span>{chapters.length} episode</p>
           <h1>{comic.title}</h1>
           {kidsMode && comic.kids_mode_approved && <span className="kids-comic-age-badge">Kids Mode · {comic.kids_age_range === "4_6" ? "4–6" : comic.kids_age_range === "7_9" ? "7–9" : "10–12"} tahun</span>}
+          {kidsEpisodeGrid && (
+            <button
+              ref={kidsDescriptionTriggerRef}
+              className="reader-kids-description-trigger"
+              type="button"
+              aria-haspopup="dialog"
+              onClick={() => setKidsDescriptionOpen(true)}
+            >
+              <Sparkles size={17} aria-hidden="true" />
+              Tentang cerita ini
+              <ArrowRight size={16} aria-hidden="true" />
+            </button>
+          )}
           {!kidsMode && <p className="reader-detail-creator">Karya <strong>{byline}</strong></p>}
           {!kidsMode && creatorProfile?.public_handle && creatorProfile.public_profile && (
             <Link className="reader-creator-profile-link reader-detail-creator-profile" href={`/kreator/${encodeURIComponent(creatorProfile.public_handle)}`}>
@@ -795,16 +835,20 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
               <span title={`${engagement.shares.toLocaleString("id-ID")} kali dibagikan`}><Share2 size={15} /><strong>{formatEngagementCount(engagement.shares)}</strong><small>Dibagikan</small></span>
             </div>
           )}
-          <div className={`reader-detail-synopsis-wrap${synopsisExpanded ? " reader-detail-synopsis-expanded" : ""}`}>
-            <p className="reader-detail-synopsis">{synopsis || "Mulai membaca dan masuk ke dunia cerita ini."}</p>
-            {synopsisCanExpand && <button className="reader-detail-synopsis-toggle" type="button" aria-expanded={synopsisExpanded} onClick={() => setSynopsisExpanded((expanded) => !expanded)}>{synopsisExpanded ? <>Lebih sedikit <ChevronUp size={15} /></> : <>Baca selengkapnya <ArrowRight size={15} /></>}</button>}
-          </div>
-          <div className="reader-detail-reading-action">
-            {firstChapter
-              ? <Link ref={primaryReadRef} className="reader-primary-button reader-detail-primary-button" href={`/comic/${comic.slug}/chapter/${firstChapter.id}`}><BookOpen size={19} /> {resumeChapter ? "Lanjutkan baca" : "Mulai baca"} <ArrowRight size={18} /></Link>
-              : <span className="reader-detail-unavailable">Episode akan segera hadir</span>}
-            {resumeChapter && <p className="reader-detail-resume">Terakhir dibaca · Episode {resumeChapter.chapter_number}</p>}
-          </div>
+          {!kidsEpisodeGrid && (
+            <div className={`reader-detail-synopsis-wrap${synopsisExpanded ? " reader-detail-synopsis-expanded" : ""}`}>
+              <p className="reader-detail-synopsis">{synopsis || "Mulai membaca dan masuk ke dunia cerita ini."}</p>
+              {synopsisCanExpand && <button className="reader-detail-synopsis-toggle" type="button" aria-expanded={synopsisExpanded} onClick={() => setSynopsisExpanded((expanded) => !expanded)}>{synopsisExpanded ? <>Lebih sedikit <ChevronUp size={15} /></> : <>Baca selengkapnya <ArrowRight size={15} /></>}</button>}
+            </div>
+          )}
+          {!kidsEpisodeGrid && (
+            <div className="reader-detail-reading-action">
+              {firstChapter
+                ? <Link ref={primaryReadRef} className="reader-primary-button reader-detail-primary-button" href={`/comic/${comic.slug}/chapter/${firstChapter.id}`}><BookOpen size={19} /> {resumeChapter ? "Lanjutkan baca" : "Mulai baca"} <ArrowRight size={18} /></Link>
+                : <span className="reader-detail-unavailable">Episode akan segera hadir</span>}
+              {resumeChapter && <p className="reader-detail-resume">Terakhir dibaca · Episode {resumeChapter.chapter_number}</p>}
+            </div>
+          )}
           {!kidsMode && <div className="reader-detail-actions">
             {settings.feature_flags.favorites && (userId
               ? <button className={`reader-detail-action${isBookmarked ? " reader-detail-action-saved" : ""}`} onClick={() => void toggleBookmark()} disabled={bookmarkBusy} aria-pressed={isBookmarked} aria-label={isBookmarked ? "Hapus dari favorit" : "Simpan ke favorit"}>
@@ -818,6 +862,40 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
           {!kidsMode && shareMessage && <p className="reader-detail-action-message" role="status">{shareMessage}</p>}
         </div>
       </section>
+      {kidsEpisodeGrid && kidsDescriptionOpen && (
+        <div className="reader-kids-description-backdrop" role="presentation" onClick={() => setKidsDescriptionOpen(false)}>
+          <section
+            className="reader-kids-description-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reader-kids-description-title"
+            aria-describedby="reader-kids-description-text"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <span className="reader-kids-description-sparkle reader-kids-description-sparkle-one" aria-hidden="true">✦</span>
+            <span className="reader-kids-description-sparkle reader-kids-description-sparkle-two" aria-hidden="true">✦</span>
+            <button
+              ref={kidsDescriptionCloseRef}
+              className="reader-kids-description-close"
+              type="button"
+              aria-label="Tutup deskripsi cerita"
+              onClick={() => setKidsDescriptionOpen(false)}
+            >
+              <X size={20} />
+            </button>
+            <span className="reader-kids-description-icon" aria-hidden="true"><BookOpen size={26} /></span>
+            <p className="reader-kids-description-kicker">PETUALANGAN BARU MENANTI!</p>
+            <h2 id="reader-kids-description-title">{comic.title}</h2>
+            <p id="reader-kids-description-text" className="reader-kids-description-text">
+              {synopsis || "Yuk, pilih episode dan mulai petualangan seru di dalam cerita ini!"}
+            </p>
+            <button className="reader-kids-description-done" type="button" onClick={() => setKidsDescriptionOpen(false)}>
+              Siap berpetualang!
+              <ArrowRight size={17} aria-hidden="true" />
+            </button>
+          </section>
+        </div>
+      )}
       {!kidsMode && shareDialogOpen && (
         <div className="reader-share-backdrop" role="presentation" onClick={() => setShareDialogOpen(false)}>
           <section className="reader-share-dialog" role="dialog" aria-modal="true" aria-labelledby="reader-share-title" onClick={(event) => event.stopPropagation()}>
@@ -838,7 +916,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
       )}
       <SponsoredAd slotKey="comic_detail_sponsor" placement="comic" comicId={comic.id} />
       {(chapterListLoading || chapters.length !== 1) && <section className="reader-episodes">
-        <div className="reader-section-heading"><div><p className="reader-section-kicker">LANJUTKAN CERITA</p><h2>Episode</h2></div><span className="reader-result-count">{chapters.length} episode</span></div>
+        {!kidsEpisodeGrid && <div className="reader-section-heading"><div><p className="reader-section-kicker">LANJUTKAN CERITA</p><h2>Episode</h2></div><span className="reader-result-count">{chapters.length} episode</span></div>}
         {!kidsMode && membership.ready && membership.verified && (membership.tier === "premium" || membership.tier === "vip") && (
           <div className="reader-offline-settings">
             <p>Unduhan Premium tersimpan di perangkat ini, maksimal {OFFLINE_EPISODE_LIMIT} episode. Lisensi dibarui saat status Premium berhasil diverifikasi online dan berlaku 7 hari sejak verifikasi terakhir.</p>
@@ -854,7 +932,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
         {chapterListLoading ? (
           <div className="reader-detail-episode-skeletons" aria-label="Memuat episode">{[0, 1, 2].map((item) => <span className="reader-detail-skeleton" key={item} />)}</div>
         ) : chapters.length ? (
-          <div className="reader-episode-list">
+          <div className={`reader-episode-list${kidsEpisodeGrid ? " reader-kids-episode-grid" : ""}`}>
             {chapters.map((chapter) => {
               const index = chapters.findIndex((item) => item.id === chapter.id);
               const unlocked = isChapterUnlocked(index);
@@ -864,6 +942,13 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
               const rowClass = `reader-episode-row${chapter.id === lastReadChapterId ? " reader-episode-last-read" : ""}${unlocked ? "" : " reader-episode-row-locked"}`;
               const content = (
                 <>
+                  {kidsEpisodeGrid && (
+                    <span className="reader-kids-episode-thumbnail">
+                      {firstPageImageUrls[chapter.id]
+                        ? <Image src={firstPageImageUrls[chapter.id]} alt="" fill sizes="(max-width: 640px) 25vw, (max-width: 900px) 20vw, 180px" unoptimized />
+                        : <BookOpen size={24} aria-hidden="true" />}
+                    </span>
+                  )}
                   <span className="reader-episode-number">EPISODE {String(chapter.chapter_number).padStart(2, "0")}</span>
                   <span className="reader-episode-title">
                     <strong>{chapter.title || `Episode ${chapter.chapter_number}`}</strong>
