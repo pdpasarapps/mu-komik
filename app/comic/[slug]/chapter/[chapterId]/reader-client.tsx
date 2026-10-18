@@ -95,8 +95,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const audioElementRef = useRef<HTMLAudioElement>(null);
   const watermarkLabel = `MU-KOMIK.COM · ${watermarkName}`;
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
-  const desktopBookMode = currentDevice === "desktop"
-    && (comic?.target_device ?? seed.comic.target_device) === "desktop";
+  const desktopBookMode = currentDevice === "desktop";
   const subtitleTrack = useMemo(() => {
     if (!chapter?.subtitles_srt || !chapter.subtitle_page_map) {
       return { cues: [], error: chapter?.audio_object_key ? "Subtitle atau pemetaan halaman episode tidak tersedia." : "" };
@@ -309,7 +308,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       const resumePage = savedLastPage
         ? Math.max(0, Math.min(pageData.length - 1, savedLastPage - 1))
         : -1;
-      const useDesktopBook = currentDevice === "desktop" && comicData.target_device === "desktop";
+      const useDesktopBook = currentDevice === "desktop";
       const readerResumePage = useDesktopBook ? Math.max(0, resumePage) : resumePage;
       const initialBookLeaves = useDesktopBook
         ? getDesktopBookLeaves(pageData, !kidsMode && membership.tier === "free")
@@ -340,7 +339,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       setBookSpreadIndex(initialSpreadIndex);
       if (initialCurrentPage >= 0) {
         setCurrentPage(initialCurrentPage);
-        if (!(currentDevice === "desktop" && comicData.target_device === "desktop")) {
+        if (!useDesktopBook) {
           window.requestAnimationFrame(() => {
             document.querySelector(`[data-reader-page="${initialCurrentPage}"]`)?.scrollIntoView({ block: "start" });
           });
@@ -1044,7 +1043,6 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                               alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`}
                               loading={index < 2 ? "eager" : "lazy"}
                               draggable={false}
-                              onClick={() => { if (currentDevice === "desktop") setControlsVisible(true); }}
                               onLoad={(event) => {
                                 const image = event.currentTarget;
                                 const aspectRatio = image.naturalWidth / image.naturalHeight;
