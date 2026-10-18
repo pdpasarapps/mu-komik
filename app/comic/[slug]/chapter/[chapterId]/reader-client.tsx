@@ -53,6 +53,12 @@ function formatAudioTime(seconds: number) {
   return `${minutes}:${remainingSeconds}`;
 }
 
+function isTouchTabletLandscape() {
+  return window.matchMedia("(orientation: landscape)").matches
+    && navigator.maxTouchPoints > 0
+    && window.innerWidth <= 1366;
+}
+
 export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed }) {
   const { slug, chapterId } = useParams<{ slug: string; chapterId: string }>();
   const router = useRouter();
@@ -526,7 +532,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       ));
       if (targetSpread === bookSpreadIndex || bookTurnInProgressRef.current) return;
       bookTurnInProgressRef.current = true;
-      if (currentDevice !== "tablet" || !tabletLandscape) setControlsVisible(true);
+      if (!isTouchTabletLandscape()) setControlsVisible(true);
       setBookTurnSpreadChanging(false);
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         setBookSpreadIndex(targetSpread);
@@ -549,7 +555,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     setCurrentPage(targetIndex);
     const scrollBlock = currentDevice === "mobile" && !controlsVisible ? "center" : "start";
     document.querySelector(`[data-reader-page="${targetIndex}"]`)?.scrollIntoView({ behavior, block: scrollBlock });
-  }, [bookLeaves.length, bookSpreadIndex, controlsVisible, currentDevice, currentPage, desktopBookMode, pages.length, tabletLandscape]);
+  }, [bookLeaves.length, bookSpreadIndex, controlsVisible, currentDevice, currentPage, desktopBookMode, pages.length]);
 
   const updateAudioSubtitle = useCallback((event: SyntheticEvent<HTMLAudioElement>) => {
     const audio = event.currentTarget;
@@ -614,7 +620,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       const target = event.target;
       if (target instanceof HTMLElement && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
       event.preventDefault();
-      if (currentDevice === "desktop") setControlsVisible(true);
+      if (currentDevice === "desktop" && !isTouchTabletLandscape()) setControlsVisible(true);
       const direction = event.key === "ArrowRight" ? 1 : -1;
       scrollToPage(currentPage + direction);
     };
@@ -883,7 +889,8 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       onContextMenu={(event) => event.preventDefault()}
       onDragStart={(event) => event.preventDefault()}
       onPointerDown={(event) => {
-        if (currentDevice === "desktop" && !controlsVisible && !(event.target instanceof Element && event.target.closest("a, button, summary"))) {
+        if (currentDevice === "desktop" && !controlsVisible && !isTouchTabletLandscape()
+          && !(event.target instanceof Element && event.target.closest("a, button, summary"))) {
           setControlsVisible(true);
         }
       }}
