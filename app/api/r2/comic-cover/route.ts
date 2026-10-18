@@ -35,7 +35,7 @@ async function authorize(request: NextRequest) {
     return { response: NextResponse.json({ error: "Creator access required" }, { status: 403 }) };
   }
 
-  return { supabase, userId: userData.user.id };
+  return { supabase, userId: userData.user.id, role: profile.role };
 }
 
 function createStorageClient() {
@@ -71,18 +71,40 @@ export async function DELETE(request: NextRequest) {
     if (!body.comicId || !body.objectKey) {
       return NextResponse.json({ error: "Comic and cover key are required" }, { status: 400 });
     }
+    const isRegularCover = body.objectKey.startsWith(`comics/${body.comicId}/cover/`);
+    const isSeriesCover = body.objectKey.startsWith(`comics/${body.comicId}/series-cover/`);
+    if (!isRegularCover && !isSeriesCover) {
+      return NextResponse.json({ error: "Invalid cover key" }, { status: 400 });
+    }
 
-    const { data: comic } = await auth.supabase
+    let comicQuery = auth.supabase
       .from("comics")
       .select("id, cover_key")
-      .eq("id", body.comicId)
-      .eq("creator_id", auth.userId)
-      .maybeSingle();
+      .eq("id", body.comicId);
+    if (auth.role !== "admin") comicQuery = comicQuery.eq("creator_id", auth.userId);
+    const { data: comic, error: comicError } = await comicQuery.maybeSingle();
+    if (comicError) {
+      console.error("Could not verify comic cover cleanup ownership:", comicError);
+      return NextResponse.json({ error: "Could not verify comic cover cleanup ownership" }, { status: 500 });
+    }
     if (!comic) {
       return NextResponse.json({ error: "Comic not found" }, { status: 404 });
     }
 
-    if (!body.objectKey.startsWith(`comics/${comic.id}/cover/`) || body.objectKey === comic.cover_key) {
+    let activeCoverKey = comic.cover_key;
+    if (isSeriesCover) {
+      const { data: seriesCover, error: seriesCoverError } = await auth.supabase
+        .from("comics")
+        .select("kids_series_cover_key")
+        .eq("id", body.comicId)
+        .maybeSingle();
+      if (seriesCoverError) {
+        console.error("Could not verify active Kids Mode series cover:", seriesCoverError);
+        return NextResponse.json({ error: "Could not verify active Kids Mode series cover" }, { status: 500 });
+      }
+      activeCoverKey = seriesCover?.kids_series_cover_key ?? null;
+    }
+    if (body.objectKey === activeCoverKey) {
       return NextResponse.json({ error: "Invalid or active cover key" }, { status: 400 });
     }
 

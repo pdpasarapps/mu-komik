@@ -546,6 +546,10 @@ button, input, select { font: inherit; }
 .chapter-manager-cover-fallback span, .chapter-manager-cover-fallback strong { color: #fffdf8; }
 .chapter-manager-cover-fallback span { align-self: end; font-size: .58rem; font-weight: 800; text-transform: uppercase; }
 .chapter-manager-cover-fallback strong { font-size: 2.2rem; }
+.creator-series-cover-fieldset > p { margin: 0; color: #77827b; font-size: .75rem; line-height: 1.55; }
+.creator-series-cover-preview { position: relative; width: min(100%, 520px); aspect-ratio: 3 / 1; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #e8e3d8; }
+.creator-series-cover-preview > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.creator-series-cover-preview > .chapter-manager-cover-fallback { box-sizing: border-box; }
 .chapter-manager-title { min-width: 0; }
 .chapter-manager-title h1 { overflow-wrap: anywhere; }
 .chapter-manager-contributors { margin: -8px 0 12px; color: #b94e31; font-size: .78rem; font-weight: 800; line-height: 1.5; overflow-wrap: anywhere; }
@@ -1087,7 +1091,8 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .reader-back-link { min-height: 44px; display: inline-flex; align-items: center; gap: 7px; color: #626b64; font-size: .78rem; font-weight: 700; transition: color .18s ease; }
 .reader-back-link:hover { color: var(--reader-accent); }
 .reader-comic-detail { max-width: 1080px; display: grid; grid-template-columns: minmax(220px, 320px) minmax(0,1fr); align-items: center; gap: clamp(35px, 8vw, 100px); margin: 0 auto; padding: 52px 0 57px; }
-.reader-detail-cover-wrap { display: grid; justify-items: center; gap: 10px; }
+.reader-detail-cover-wrap { position: relative; display: grid; justify-items: center; gap: 10px; }
+.reader-detail-cover-wrap > .kids-comic-age-badge { position: absolute; z-index: 2; top: 12px; right: 12px; padding: 7px 11px; border-color: rgba(255, 255, 255, .85); background: rgba(238, 247, 239, .94); box-shadow: 0 2px 10px rgba(25, 45, 30, .16); }
 .reader-detail-cover { width: 100%; aspect-ratio: 3 / 4; display: grid; place-items: center; overflow: hidden; border-radius: 10px; background: #e8e3d8; box-shadow: 0 9px 24px rgba(32,36,34,.09); }
 .reader-detail-cover img { width: 100%; height: 100%; object-fit: contain; }
 .reader-detail-cover > span { color: #727a72; font-size: 4.5rem; font-weight: 850; letter-spacing: -.1em; }
@@ -1134,8 +1139,11 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .reader-comic-detail-kids-grid .reader-detail-access { display: none; }
 .reader-comic-detail-kids-grid .reader-detail-copy { width: 100%; max-width: 1080px; box-sizing: border-box; margin: 0 auto; padding: 0 clamp(20px, 7vw, 100px); }
 .reader-comic-detail-kids-grid .reader-detail-genre-count { display: none; }
-.reader-comic-detail-kids-grid .reader-detail-copy h1 { font-size: clamp(2rem, 4.5vw, 3rem); }
-.reader-kids-description-trigger { width: fit-content; min-height: 44px; display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 0 15px; border: 1px solid #c8d9ec; border-radius: 999px; background: #edf6ff; color: #315d86; font: inherit; font-size: .78rem; font-weight: 800; cursor: pointer; transition: transform .18s ease, background .18s ease; }
+.reader-kids-title-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; justify-items: center; }
+.reader-comic-detail-kids-grid .reader-kids-title-row h1 { min-width: 0; max-width: min(100%, calc(100vw - 40px)); grid-column: 1; font-size: clamp(2.35rem, 5vw, 3.4rem); text-align: center; }
+.reader-kids-description-trigger { width: 36px; height: 36px; display: inline-grid; place-items: center; margin: 0; padding: 0; border: 1px solid #c8d9ec; border-radius: 50%; background: #edf6ff; color: #315d86; cursor: pointer; transition: transform .18s ease, background .18s ease; }
+.reader-comic-detail-kids-grid .reader-detail-cover-wrap > .reader-kids-description-trigger { position: absolute; z-index: 3; bottom: 14px; left: 14px; border-color: rgba(255, 255, 255, .9); background: rgba(237, 246, 255, .94); box-shadow: 0 2px 9px rgba(25, 45, 60, .2); }
+.reader-kids-description-trigger svg { width: 15px; height: 15px; }
 .reader-kids-description-trigger:hover { transform: translateY(-1px); background: #e1f0ff; }
 .reader-kids-description-trigger:focus-visible, .reader-kids-description-close:focus-visible, .reader-kids-description-done:focus-visible { outline: 3px solid #f3b83f; outline-offset: 3px; }
 .reader-kids-description-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; overflow-y: auto; padding: 20px; background: rgba(21, 35, 50, .58); }
@@ -1150,8 +1158,9 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .reader-kids-description-text { max-height: min(36vh, 300px); overflow-y: auto; margin: 0; padding: 16px 18px; border: 2px dashed #c6ddec; border-radius: 18px; background: rgba(255, 255, 255, .72); color: #40566b; font-size: .92rem; line-height: 1.75; text-align: left; white-space: pre-line; }
 .reader-kids-description-done { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; margin-top: 19px; padding: 0 20px; border: 0; border-radius: 999px; background: #4888b2; color: #fff; font: inherit; font-size: .82rem; font-weight: 850; box-shadow: 0 4px 0 #326d94; cursor: pointer; }
 .reader-kids-description-done:hover { background: #397ba6; }
-.reader-kids-episode-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(8px, 1.6vw, 18px); padding-top: 16px; }
-.reader-kids-episode-grid .reader-episode-row { min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: stretch; gap: 0; overflow: hidden; padding: 0; border: 1px solid var(--reader-border); border-radius: 9px; background: var(--reader-bg); text-align: left; }
+.reader-kids-episode-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: clamp(8px, 1.6vw, 18px); padding-top: 16px; }
+.reader-kids-episode-grid .reader-episode-entry { min-width: 0; display: flex; }
+.reader-kids-episode-grid .reader-episode-row { width: 100%; height: 100%; min-width: 0; min-height: 0; box-sizing: border-box; display: flex; flex-direction: column; align-items: stretch; gap: 0; overflow: hidden; padding: 0; border: 1px solid var(--reader-border); border-radius: 9px; background: var(--reader-bg); text-align: left; }
 .reader-kids-episode-grid a.reader-episode-row { transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
 .reader-kids-episode-grid a.reader-episode-row:hover { transform: translateY(-2px); border-color: #b7c4b9; background: var(--reader-bg); box-shadow: 0 7px 18px rgba(32, 36, 34, .1); }
 .reader-kids-episode-grid .reader-episode-row-locked { opacity: .68; }
@@ -1163,15 +1172,16 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .reader-kids-episode-grid .reader-episode-title small, .reader-kids-episode-grid .reader-episode-end-meta { display: none; }
 @media (max-width: 900px) and (min-width: 641px) {
   .reader-comic-detail-kids-grid .reader-comic-detail { width: calc(100% + clamp(24px, 5vw, 54px) + clamp(24px, 5vw, 54px)); margin: 0 calc(0px - clamp(24px, 5vw, 54px)); }
+  .reader-comic-detail-kids-grid .reader-kids-title-row h1 { font-size: clamp(2.5rem, 5vw, 2.9rem); }
 }
 @media (max-width: 640px) {
   .reader-comic-detail-kids-grid .reader-comic-detail { width: calc(100% + 34px); margin: 0 -17px; gap: 12px; padding: 18px 0 22px; }
   .reader-comic-detail-kids-grid .reader-detail-copy { padding: 0 17px; }
-  .reader-comic-detail-kids-grid .reader-detail-copy h1 { font-size: clamp(1.8rem, 8vw, 2.5rem); }
+  .reader-comic-detail-kids-grid .reader-kids-title-row h1 { max-width: min(100%, calc(100vw - 40px)); font-size: clamp(1.75rem, 7.5vw, 2.1rem); }
   .reader-kids-description-backdrop { padding: 14px; }
   .reader-kids-description-dialog { padding: 29px 20px 23px; border-radius: 23px; }
   .reader-kids-description-text { max-height: 38vh; padding: 13px; font-size: .84rem; }
-  .reader-kids-episode-grid { gap: 7px; }
+  .reader-kids-episode-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
   .reader-kids-episode-grid .reader-episode-number { padding: 7px 7px 0; font-size: .52rem; }
   .reader-kids-episode-grid .reader-episode-title { padding: 4px 7px 8px; }
   .reader-kids-episode-grid .reader-episode-title strong { font-size: .68rem; }
@@ -1673,6 +1683,10 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .reader-episode-snackbar { transition: bottom .2s ease, opacity .18s ease; }
 .reader-sticky-read { display: none; }
 @media (max-width: 640px) {
+  .reader-footer-kids { display: flex; justify-content: center; gap: 9px; padding: 12px 8px; }
+  .reader-footer-kids > .reader-wordmark { flex: 0 0 auto; }
+  .reader-footer-kids > .reader-wordmark .wordmark-image { width: 30px; height: 30px; }
+  .reader-footer-kids > p { display: block; font-size: .65rem; }
   .reader-detail-cover { width: 100%; }
   .reader-detail-cover-skeleton { width: 100%; }
   .reader-detail-creator { margin: 10px 0 12px; font-size: .82rem; }

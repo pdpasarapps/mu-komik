@@ -41,6 +41,7 @@ create table if not exists public.comics (
   contributors jsonb not null default '[{"role":"Penulis","name":""}]'::jsonb
     check (jsonb_typeof(contributors) = 'array' and contributors <> '[]'::jsonb),
   cover_key text,
+  kids_series_cover_key text,
   genre text not null default 'Drama',
   production_technique text not null default 'traditional_drawing'
     check (production_technique in ('traditional_drawing', 'digital_illustration', 'mixed', 'ai_assisted', 'ai_generated')),
@@ -58,6 +59,9 @@ create table if not exists public.comics (
   updated_at timestamptz not null default now(),
   check (origin_type <> 'adaptation' or btrim(source_info) <> '')
 );
+
+alter table public.comics
+  add column if not exists kids_series_cover_key text;
 
 create table if not exists public.chapters (
   id uuid primary key default gen_random_uuid(),

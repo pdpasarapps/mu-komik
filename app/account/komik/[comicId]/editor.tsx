@@ -32,6 +32,7 @@ type Comic = {
   source_info: string;
   status: string;
   cover_key: string | null;
+  kids_series_cover_key: string | null;
   share_preview_key: string | null;
 };
 type ComicForm = {
@@ -142,6 +143,9 @@ export default function CreatorComicPage() {
   const [comicForm, setComicForm] = useState<ComicForm>(initialComicForm);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverCropFile, setCoverCropFile] = useState<File | null>(null);
+  const [seriesCoverFile, setSeriesCoverFile] = useState<File | null>(null);
+  const [seriesCoverCropFile, setSeriesCoverCropFile] = useState<File | null>(null);
+  const [removeSeriesCover, setRemoveSeriesCover] = useState(false);
   const [uploadingChapter, setUploadChapterState] = useState<Chapter | null>(null);
   const uploadChapterRef = useRef<Chapter | null>(null);
   const setUploadChapter = (chapter: Chapter | null) => {
@@ -155,7 +159,7 @@ export default function CreatorComicPage() {
     fileIndex: number;
     totalFiles: number;
   } | null>(null);
-  const startCoverCrop = (file: File | null) => {
+  const startCoverCrop = (file: File | null, isSeriesCover = false) => {
     if (!file) return;
     if (!settings.allowed_image_types.includes(file.type)) {
       setMessage(`Format sampul harus ${settings.allowed_image_types.map((type) => type.replace("image/", "").toUpperCase()).join(", ")}.`);
@@ -166,7 +170,8 @@ export default function CreatorComicPage() {
       return;
     }
     setMessage("");
-    setCoverCropFile(file);
+    if (isSeriesCover) setSeriesCoverCropFile(file);
+    else setCoverCropFile(file);
   };
 
   useEffect(() => {
@@ -202,8 +207,19 @@ export default function CreatorComicPage() {
         router.replace("/account/creator");
         return;
       }
-      setComic(comicData);
-      setComicForm(getComicForm(comicData));
+      const { data: seriesCoverData, error: seriesCoverError } = await supabase
+        .from("comics")
+        .select("kids_series_cover_key")
+        .eq("id", comicId)
+        .maybeSingle();
+      if (seriesCoverError) {
+        console.error("Unable to load Kids Mode series cover:", seriesCoverError);
+        setMessage(seriesCoverError.code === "42703"
+          ? "Jalankan supabase/kids-series-cover.sql untuk mengaktifkan cover seri Kids Mode."
+          : "Cover seri Kids Mode belum dapat dimuat. Periksa koneksi lalu coba lagi.");
+      }
+      setComic({ ...comicData, kids_series_cover_key: seriesCoverData?.kids_series_cover_key ?? null });
+      setComicForm(getComicForm({ ...comicData, kids_series_cover_key: seriesCoverData?.kids_series_cover_key ?? null }));
       if (new URLSearchParams(window.location.search).get("edit") === "comic") {
         setActiveTab("comic");
       }
@@ -401,7 +417,9 @@ export default function CreatorComicPage() {
     setSavingComic(true);
     setMessage("");
     const previousCoverKey = comic.cover_key;
+    const previousSeriesCoverKey = comic.kids_series_cover_key;
     let uploadedCoverKey: string | null = null;
+    let uploadedSeriesCoverKey: string | null = null;
     let uploadedSharePreviewKey: string | null = null;
     let comicSaved = false;
 
@@ -411,7 +429,25 @@ export default function CreatorComicPage() {
       if (!token) throw new Error("Sesi kamu telah berakhir. Silakan masuk kembali.");
 
       let coverKey = previousCoverKey;
+      let seriesCoverKey = removeSeriesCover ? null : previousSeriesCoverKey;
       let sharePreviewKey = comic.share_preview_key;
+      if (seriesCoverFile) {
+        const uploadForm = new FormData();
+        uploadForm.set("kind", "series-cover");
+        uploadForm.set("comicId", comic.id);
+        uploadForm.set("file", seriesCoverFile);
+        const uploadResponse = await fetch("/api/r2/upload-image", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: uploadForm,
+        });
+        const uploadResult = await uploadResponse.json() as { objectKey?: string; error?: string };
+        if (!uploadResponse.ok || !uploadResult.objectKey) {
+          throw new Error(uploadResult.error || "Cover seri Kids Mode tidak dapat diunggah.");
+        }
+        uploadedSeriesCoverKey = uploadResult.objectKey;
+        seriesCoverKey = uploadedSeriesCoverKey;
+      }
       if (coverFile) {
         const uploadForm = new FormData();
         uploadForm.set("kind", "cover");
@@ -463,11 +499,12 @@ export default function CreatorComicPage() {
           origin_type: comicForm.originType,
           source_info: comicForm.originType === "adaptation" ? comicForm.sourceInfo.trim() : "",
           cover_key: coverKey,
+          kids_series_cover_key: seriesCoverKey,
           share_preview_key: sharePreviewKey,
           status: comic.status === "published" ? "pending_review" : comic.status,
         })
         .eq("id", comic.id)
-        .select("id, title, slug, synopsis, contributor, contributors, genre, target_device, production_technique, story_status, target_audience, language, origin_type, source_info, status, cover_key, share_preview_key")
+        .select("id, title, slug, synopsis, contributor, contributors, genre, target_device, production_technique, story_status, target_audience, language, origin_type, source_info, status, cover_key, kids_series_cover_key, share_preview_key")
         .single();
       if (error) throw new Error(error.message);
 
@@ -475,6 +512,8 @@ export default function CreatorComicPage() {
       setComic(data);
       setComicForm(getComicForm(data));
       setCoverFile(null);
+      setSeriesCoverFile(null);
+      setRemoveSeriesCover(false);
 
       let cleanupPending = false;
       if (previousCoverKey && coverKey !== previousCoverKey) {
@@ -485,6 +524,18 @@ export default function CreatorComicPage() {
             body: JSON.stringify({ comicId: comic.id, objectKey: previousCoverKey }),
           });
           cleanupPending = !cleanupResponse.ok;
+        } catch {
+          cleanupPending = true;
+        }
+      }
+      if (previousSeriesCoverKey && seriesCoverKey !== previousSeriesCoverKey) {
+        try {
+          const cleanupResponse = await fetch("/api/r2/comic-cover", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ comicId: comic.id, objectKey: previousSeriesCoverKey }),
+          });
+          cleanupPending ||= !cleanupResponse.ok;
         } catch {
           cleanupPending = true;
         }
@@ -504,6 +555,19 @@ export default function CreatorComicPage() {
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ comicId: comic.id, objectKey: uploadedCoverKey }),
           }).catch(() => undefined);
+        }
+      }
+      if (uploadedSeriesCoverKey && !comicSaved) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (token) {
+          await fetch("/api/r2/comic-cover", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ comicId: comic.id, objectKey: uploadedSeriesCoverKey }),
+          }).catch((cleanupError: unknown) => {
+            console.error("Unable to clean up failed Kids Mode series cover upload:", cleanupError);
+          });
         }
       }
       if (uploadedSharePreviewKey && coverFile && !comicSaved) {
@@ -774,6 +838,8 @@ export default function CreatorComicPage() {
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
   const thumbnailKey = comic.cover_key || pagesByChapter[chapters[0]?.id]?.[0]?.object_key;
   const coverUrl = thumbnailKey && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${thumbnailKey}` : null;
+  const seriesCoverPreviewKey = removeSeriesCover ? comic.cover_key : comic.kids_series_cover_key || comic.cover_key;
+  const seriesCoverPreviewUrl = seriesCoverPreviewKey && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${seriesCoverPreviewKey}` : null;
   const contributorSummary = Array.isArray(comic.contributors) && comic.contributors.length
     ? comic.contributors.map((item) => `${getLocalizedContributorRole(item.role)}: ${item.name}`).join(" · ")
     : comic.contributor;
@@ -887,11 +953,37 @@ export default function CreatorComicPage() {
             <span>{coverFile ? `Sampul siap: ${coverFile.name}` : comic.cover_key ? "Sampul saat ini tetap digunakan jika kamu tidak memilih berkas baru." : "Belum ada sampul."} Rasio crop 3:4 · hasil maksimal 1200 × 1600 px dan {settings.max_upload_size_mb} MB.</span>
           </label>
           {coverFile && <button className="button button-light cover-crop-change" type="button" onClick={() => setCoverFile(null)} disabled={savingComic}>Hapus pilihan sampul</button>}
+          {chapters.length > 1 && (
+            <fieldset className="comic-contributors-fieldset creator-series-cover-fieldset">
+              <legend>Cover seri Kids Mode (opsional)</legend>
+              <p>Cover banner khusus untuk halaman komik seri di Kids Mode. Jika tidak dipilih, akan digunakan sampul komik di atas atau desain bawaan.</p>
+              <div className="creator-series-cover-preview">
+                {seriesCoverPreviewUrl
+                  ? <img src={seriesCoverPreviewUrl} alt="Pratinjau cover seri Kids Mode yang digunakan" />
+                  : <div className="chapter-manager-cover-fallback" role="img" aria-label={`Cover bawaan ${comic.title}`}><span>{getComicGenreLabel(comic.genre)}</span><strong>{comic.title.slice(0, 2).toUpperCase()}</strong></div>}
+              </div>
+              <label className="cover-upload-field">Unggah cover seri
+                <input type="file" accept={settings.allowed_image_types.join(",")} onChange={(event) => { startCoverCrop(event.target.files?.[0] ?? null, true); event.currentTarget.value = ""; }} />
+                <span>{seriesCoverFile ? `Cover seri siap: ${seriesCoverFile.name}` : removeSeriesCover ? "Setelah disimpan, sampul biasa atau desain bawaan akan digunakan." : comic.kids_series_cover_key ? "Cover seri saat ini tetap digunakan jika tidak memilih berkas baru." : "Belum ada cover seri khusus; sampul biasa atau desain bawaan akan digunakan."} Rasio crop 3:1 · hasil maksimal 1600 × 533 px dan {settings.max_upload_size_mb} MB.</span>
+              </label>
+              {seriesCoverFile && <button className="button button-light cover-crop-change" type="button" onClick={() => setSeriesCoverFile(null)} disabled={savingComic}>Batalkan pilihan cover seri</button>}
+              {!seriesCoverFile && comic.kids_series_cover_key && (
+                <button
+                  className="button button-light cover-crop-change"
+                  type="button"
+                  onClick={() => setRemoveSeriesCover((remove) => !remove)}
+                  disabled={savingComic}
+                >
+                  {removeSeriesCover ? "Pertahankan cover seri" : "Gunakan sampul biasa"}
+                </button>
+              )}
+            </fieldset>
+          )}
           <div className="comic-form-actions">
             <button className="button button-dark" type="submit" disabled={savingComic}>
               {savingComic ? <><LoaderCircle className="spin" size={16} /> Menyimpan...</> : <>Simpan perubahan <ArrowUpRight size={16} /></>}
             </button>
-            <button className="button button-light" type="button" onClick={() => { if (comic) setComicForm(getComicForm(comic)); setCoverFile(null); switchEditorTab("chapters"); }} disabled={savingComic}>Batal</button>
+            <button className="button button-light" type="button" onClick={() => { if (comic) setComicForm(getComicForm(comic)); setCoverFile(null); setSeriesCoverFile(null); setRemoveSeriesCover(false); switchEditorTab("chapters"); }} disabled={savingComic}>Batal</button>
           </div>
         </form>
         </div>
@@ -1120,6 +1212,21 @@ export default function CreatorComicPage() {
         onComplete={(file) => {
           setCoverFile(file);
           setCoverCropFile(null);
+        }}
+      />}
+      {seriesCoverCropFile && <ImageCropDialog
+        file={seriesCoverCropFile}
+        title="Crop cover seri Kids Mode"
+        aspectRatio={3}
+        outputWidth={1600}
+        outputHeight={533}
+        maxSourceBytes={25 * 1024 * 1024}
+        maxOutputBytes={settings.max_upload_size_mb * 1024 * 1024}
+        onCancel={() => setSeriesCoverCropFile(null)}
+        onComplete={(file) => {
+          setSeriesCoverFile(file);
+          setRemoveSeriesCover(false);
+          setSeriesCoverCropFile(null);
         }}
       />}
     </>

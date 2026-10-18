@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const chapterId = form.get("chapterId");
     const kind = form.get("kind");
     const file = form.get("file");
-    if (typeof comicId !== "string" || (kind !== "cover" && kind !== "page") || !(file instanceof File)) {
+    if (typeof comicId !== "string" || (kind !== "cover" && kind !== "series-cover" && kind !== "page") || !(file instanceof File)) {
       return NextResponse.json({ error: "Invalid image upload details" }, { status: 400 });
     }
     if (kind === "page" && typeof chapterId !== "string") return NextResponse.json({ error: "Chapter is required for page uploads" }, { status: 400 });
@@ -72,6 +72,15 @@ export async function POST(request: NextRequest) {
 
     let objectPrefix = `comics/${comicId}/cover/`;
     let pageNumber: number | null = null;
+    if (kind === "series-cover") {
+      const { count, error: chapterCountError } = await supabase
+        .from("chapters")
+        .select("id", { count: "exact", head: true })
+        .eq("comic_id", comicId);
+      if (chapterCountError) return NextResponse.json({ error: "Could not verify comic episode count" }, { status: 500 });
+      if ((count ?? 0) < 2) return NextResponse.json({ error: "A series cover requires a comic with at least two episodes." }, { status: 409 });
+      objectPrefix = `comics/${comicId}/series-cover/`;
+    }
     if (kind === "page") {
       const { data: chapter, error: chapterError } = await supabase.from("chapters").select("id").eq("id", chapterId).eq("comic_id", comicId).maybeSingle();
       if (chapterError) return NextResponse.json({ error: "Could not verify chapter" }, { status: 500 });
@@ -98,7 +107,7 @@ export async function POST(request: NextRequest) {
       ContentLength: file.size,
     }));
 
-    if (kind === "cover") return NextResponse.json({ objectKey });
+    if (kind !== "page") return NextResponse.json({ objectKey });
 
     const { data: page, error: insertError } = await supabase
       .from("pages")

@@ -54,8 +54,28 @@ export default async function ComicPage({
   }
   if (!data) notFound();
 
-  const comic = data as Omit<Comic, "profiles"> & { profiles: Comic["profiles"] };
   const kidsMode = readKidsModeState((await cookies()).get(KIDS_MODE_COOKIE_NAME)?.value)?.enabled ?? false;
+  let kidsSeriesCoverKey: string | null = null;
+  if (kidsMode) {
+    const { data: seriesCoverData, error: seriesCoverError } = await supabase
+      .from("comics")
+      .select("kids_series_cover_key")
+      .eq("id", data.id)
+      .abortSignal(AbortSignal.timeout(COMIC_REQUEST_TIMEOUT_MS))
+      .maybeSingle();
+    if (seriesCoverError?.code === "42703") {
+      console.warn("Kids Mode series covers are not configured. Run supabase/kids-series-cover.sql to enable them.");
+    } else if (seriesCoverError) {
+      console.error("Unable to load Kids Mode series cover:", { slug, error: seriesCoverError });
+      throw seriesCoverError;
+    } else {
+      kidsSeriesCoverKey = seriesCoverData?.kids_series_cover_key ?? null;
+    }
+  }
+  const comic = {
+    ...data,
+    kids_series_cover_key: kidsSeriesCoverKey,
+  } as Omit<Comic, "profiles"> & { profiles: Comic["profiles"] };
   const { data: kidsCuration, error: kidsCurationError } = await supabase
     .from("comic_kids_curation")
     .select("age_range")

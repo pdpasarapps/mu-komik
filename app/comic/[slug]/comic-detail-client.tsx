@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, CheckCircle2, ChevronUp, CircleDot, Copy, Download, ExternalLink, Eye, Heart, LoaderCircle, Share2, Sparkles, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, CheckCircle2, ChevronUp, CircleDot, Compass, Copy, Download, ExternalLink, Eye, Heart, LoaderCircle, Share2, Sparkles, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { KidsModeToggle, useKidsMode, usePlatformSettings } from "../../platform-runtime";
@@ -47,6 +47,7 @@ export type Comic = {
   kids_mode_approved: boolean;
   kids_age_range: "4_6" | "7_9" | "10_12" | null;
   cover_key: string | null;
+  kids_series_cover_key: string | null;
   profiles: { id?: string; public_handle?: string | null; display_name: string; public_profile?: boolean } | { id?: string; public_handle?: string | null; display_name: string; public_profile?: boolean }[] | null;
 };
 
@@ -125,7 +126,6 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const { slug } = useParams<{ slug: string }>();
   const [comic, setComic] = useState<Comic | null>(initialComic);
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
-  const kidsEpisodeGrid = kidsMode && chapters.length > 1;
   const [firstPageImageUrls, setFirstPageImageUrls] = useState<Record<string, string>>({});
   const [chapterReadStatuses, setChapterReadStatuses] = useState<Record<string, ChapterReadStatus>>({});
   const [chapterProgressReady, setChapterProgressReady] = useState(false);
@@ -160,6 +160,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const kidsDescriptionCloseRef = useRef<HTMLButtonElement>(null);
   const primaryReadRef = useRef<HTMLAnchorElement>(null);
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
+  const kidsEpisodeGrid = kidsMode && chapters.length > 1;
 
   useEffect(() => {
     if (!kidsEpisodeGrid || !kidsDescriptionOpen) return;
@@ -335,6 +336,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
         target_audience: "target_audience" in data ? data.target_audience : "all_ages",
         kids_mode_approved: initialComic?.kids_mode_approved ?? false,
         kids_age_range: initialComic?.kids_age_range ?? null,
+        kids_series_cover_key: initialComic?.kids_series_cover_key ?? null,
         language: "language" in data ? data.language : "id",
         origin_type: "origin_type" in data ? data.origin_type : "original",
         source_info: "source_info" in data ? data.source_info : "",
@@ -774,7 +776,8 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const credits = Array.isArray(comic.contributors) ? comic.contributors.filter((item) => item.name?.trim()) : [];
   const writerCredit = credits.find((credit) => /^(penulis|writer)$/i.test(credit.role.trim()));
   const byline = writerCredit?.name || contributor.replace(/^penulis(?:\s+atau\s+kontributor)?\s*:\s*/i, "") || "Kreator independen";
-  const coverUrl = comic.cover_key && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${comic.cover_key}` : null;
+  const displayedCoverKey = kidsEpisodeGrid ? comic.kids_series_cover_key || comic.cover_key : comic.cover_key;
+  const coverUrl = displayedCoverKey && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${displayedCoverKey}` : null;
   const firstIncompleteIndex = chapters.findIndex((chapter) => chapterReadStatuses[chapter.id] !== "read");
   const allChaptersRead = chapters.length > 0 && firstIncompleteIndex === -1;
   const isChapterUnlocked = (chapterIndex: number) => {
@@ -795,18 +798,13 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
       <nav className="reader-subnav">
         <BrandLogo className="wordmark reader-wordmark" showName />
         <KidsModeToggle />
-        <Link className="reader-back-link" href="/"><ArrowLeft size={17} /> Jelajahi</Link>
+        <Link className="reader-back-link" href="/"><Compass size={17} /> Jelajahi</Link>
       </nav>
       <section className="reader-comic-detail">
         <div className="reader-detail-cover-wrap">
           <div className="reader-detail-cover">
             {coverUrl ? <img src={coverUrl} alt={`Sampul ${comic.title}`} fetchPriority="high" /> : <span>{comic.title.slice(0, 2).toUpperCase()}</span>}
           </div>
-          <span className="reader-detail-access"><Check size={15} strokeWidth={2.5} /> Gratis dibaca</span>
-        </div>
-        <div className="reader-detail-copy">
-          <p className="reader-detail-genre-count">{getComicGenreLabel(comic.genre)}<span aria-hidden="true">·</span>{chapters.length} episode</p>
-          <h1>{comic.title}</h1>
           {kidsMode && comic.kids_mode_approved && <span className="kids-comic-age-badge">Kids Mode · {comic.kids_age_range === "4_6" ? "4–6" : comic.kids_age_range === "7_9" ? "7–9" : "10–12"} tahun</span>}
           {kidsEpisodeGrid && (
             <button
@@ -814,12 +812,23 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
               className="reader-kids-description-trigger"
               type="button"
               aria-haspopup="dialog"
+              aria-label="Tentang cerita ini"
+              title="Tentang cerita ini"
               onClick={() => setKidsDescriptionOpen(true)}
             >
               <Sparkles size={17} aria-hidden="true" />
-              Tentang cerita ini
-              <ArrowRight size={16} aria-hidden="true" />
             </button>
+          )}
+          <span className="reader-detail-access"><Check size={15} strokeWidth={2.5} /> Gratis dibaca</span>
+        </div>
+        <div className="reader-detail-copy">
+          <p className="reader-detail-genre-count">{getComicGenreLabel(comic.genre)}<span aria-hidden="true">·</span>{chapters.length} episode</p>
+          {kidsEpisodeGrid ? (
+            <div className="reader-kids-title-row">
+              <h1>{comic.title}</h1>
+            </div>
+          ) : (
+            <h1>{comic.title}</h1>
           )}
           {!kidsMode && <p className="reader-detail-creator">Karya <strong>{byline}</strong></p>}
           {!kidsMode && creatorProfile?.public_handle && creatorProfile.public_profile && (
@@ -1054,12 +1063,14 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
           {credits.map((credit, index) => <div key={`${credit.role}-${index}`}><dt>{credit.role}</dt><dd>{credit.name}</dd></div>)}
         </dl>
       </section>}
-      <footer className="reader-footer">
+      <footer className={`reader-footer${kidsMode ? " reader-footer-kids" : ""}`}>
         <BrandLogo className="wordmark reader-wordmark" />
         <p>Tempat cerita Indonesia menemukan pembacanya.</p>
         {!kidsMode && <PlatformLinks />}
-        <Link href="/">Jelajahi komik <ArrowRight size={15} /></Link>
-        <Link href="/syarat-ketentuan">Syarat layanan</Link>
+        {!kidsMode && <>
+          <Link href="/">Jelajahi komik <ArrowRight size={15} /></Link>
+          <Link href="/syarat-ketentuan">Syarat layanan</Link>
+        </>}
       </footer>
       {stickyReadVisible && firstChapter && (
         <aside className="reader-sticky-read" aria-label="Lanjutkan membaca">
