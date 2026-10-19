@@ -559,7 +559,7 @@ export default function HomePageClient({
           <BrandLogo className="wordmark reader-wordmark" />
           {!kidsMode && <PlatformLinks />}
           <div className="reader-footer-utility-links">
-            <nav className="reader-footer-links" aria-label="Tautan footer"><a href="#jelajah">Jelajah</a><a href="#genre">Genre</a>{!kidsMode && <><a href="#creator">Kreator</a><Link href="/artikel">Artikel</Link><Link href="/push-ads">Pasang iklan</Link><Link href="/manifesto">Manifesto AI</Link><Link href="/syarat-ketentuan">Syarat layanan</Link></>}</nav>
+            <nav className="reader-footer-links" aria-label="Tautan footer"><a href="#jelajah">Jelajah</a><a href="#genre">Genre</a>{!kidsMode && <><a href="#creator">Kreator</a><Link href="/artikel">Artikel</Link><Link href="/push-ads">Pasang iklan</Link><Link href="/manifesto">Manifesto AI</Link><Link href="/syarat-ketentuan">Syarat layanan</Link></>}<Link href="/faq">FAQ &amp; Glosarium</Link></nav>
           </div>
         </div>
         <p>Tempat cerita Indonesia menemukan pembacanya.</p>
