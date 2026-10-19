@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
-import { ArrowLeft, LoaderCircle, MessageSquareText, Plus, Save, Trash2, Type } from "lucide-react";
+import { ArrowLeft, Bold, Italic, LoaderCircle, MessageSquareText, Plus, Save, Smile, Trash2, Type, Underline } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
@@ -19,6 +19,17 @@ import {
 
 const supabase = createClient();
 const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
+const pageTextEmojiGroups = [
+  { label: "Ekspresi", emojis: ["😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "🙃", "😉", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗", "☺️", "😚", "😙", "🥲", "😋", "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🫢", "🫣", "🤫", "🤔", "🫡", "🤐"] },
+  { label: "Perasaan", emojis: ["🤨", "😐", "😑", "😶", "🫥", "😏", "😒", "🙄", "😬", "😮‍💨", "🤥", "😌", "😔", "😪", "🤤", "😴", "😷", "🤒", "🤕", "🤢", "🤮", "🤧", "🥵", "🥶", "🥴", "😵", "🤯", "🥳", "🥸", "😎", "🤓", "🧐"] },
+  { label: "Kaget & takut", emojis: ["😕", "🫤", "😟", "🙁", "☹️", "😮", "😯", "😲", "😳", "🥺", "🥹", "😦", "😧", "😨", "😰", "😥", "😢", "😭", "😱", "😖", "😣", "😞", "😓", "😩", "😫", "😤"] },
+  { label: "Marah & jahil", emojis: ["😡", "😠", "🤬", "😈", "👿", "💀", "☠️", "👻", "👽", "🤖", "💩", "🤡", "👹", "👺", "😼", "😾", "🙀", "💢", "💥", "👊", "💣", "🗯️"] },
+  { label: "Tangan & gestur", emojis: ["👋", "🤚", "🖐️", "✋", "🖖", "🫱", "🫲", "🫳", "🫴", "👌", "🤌", "🤏", "✌️", "🤞", "🫰", "🤟", "🤘", "🤙", "👈", "👉", "👆", "👇", "☝️", "👍", "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🤝", "🙏", "✍️", "💪"] },
+  { label: "Hati & kasih sayang", emojis: ["❤️", "🩷", "🧡", "💛", "💚", "🩵", "💙", "💜", "🤎", "🖤", "🩶", "🤍", "💔", "❤️‍🔥", "❤️‍🩹", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "♥️", "😍", "🥰", "😘", "💋", "💌"] },
+  { label: "Efek komik", emojis: ["💥", "💢", "💫", "💦", "💨", "🕳️", "💤", "✨", "⭐", "🌟", "⚡", "🔥", "☄️", "🎉", "🎊", "❗", "❓", "⁉️", "‼️", "〰️", "➰", "➿", "🔔", "🔕", "📢", "📣", "🗨️", "💬", "🗯️", "👁️", "👀"] },
+  { label: "Hewan & alam", emojis: ["🐱", "🐈", "🐶", "🐕", "🐻", "🐼", "🐸", "🐵", "🙈", "🙉", "🙊", "🦊", "🐰", "🐯", "🦁", "🐷", "🐮", "🐔", "🐧", "🦉", "🐉", "🐲", "🦋", "🐝", "🌸", "🌹", "🌻", "🍀", "🌈", "☀️", "🌙", "⛈️", "❄️"] },
+  { label: "Makanan & benda", emojis: ["🍎", "🍊", "🍋", "🍉", "🍇", "🍓", "🍒", "🍑", "🥑", "🍕", "🍜", "🍙", "🍡", "🍰", "🍩", "☕", "🧋", "⚔️", "🗡️", "🛡️", "🏹", "🔮", "💎", "📜", "📖", "🎭", "🎵", "🎶", "🏆", "🚀", "🧨", "🎁"] },
+];
 
 type PageRecord = { id: string; chapter_id: string; page_number: number; object_key: string; text_overlays: unknown };
 type ChapterRecord = { id: string; title: string; comic_id: string };
@@ -37,6 +48,9 @@ export default function PageTextEditor() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [savedOverlays, setSavedOverlays] = useState("");
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const textSelectionRef = useRef({ start: 0, end: 0 });
   const dragRef = useRef<{ id: string; pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
   const selectedOverlay = overlays.find((overlay) => overlay.id === selectedId) ?? null;
   const imageUrl = page && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${page.object_key}` : null;
@@ -142,6 +156,26 @@ export default function PageTextEditor() {
     setMessage("");
   }
 
+  function updateTextSelection(textarea: HTMLTextAreaElement) {
+    textSelectionRef.current = { start: textarea.selectionStart, end: textarea.selectionEnd };
+  }
+
+  function insertEmoji(emoji: string) {
+    if (!selectedOverlay) return;
+    const { start, end } = textSelectionRef.current;
+    const availableLength = 500 - selectedOverlay.text.length + (end - start);
+    if (emoji.length > availableLength) return;
+
+    const text = `${selectedOverlay.text.slice(0, start)}${emoji}${selectedOverlay.text.slice(end)}`;
+    const cursor = start + emoji.length;
+    updateOverlay(selectedOverlay.id, { text });
+    window.requestAnimationFrame(() => {
+      textAreaRef.current?.focus();
+      textAreaRef.current?.setSelectionRange(cursor, cursor);
+      if (textAreaRef.current) updateTextSelection(textAreaRef.current);
+    });
+  }
+
   function startDragging(event: PointerEvent<HTMLDivElement>, overlay: PageTextOverlay) {
     event.preventDefault();
     event.stopPropagation();
@@ -232,12 +266,13 @@ export default function PageTextEditor() {
               {overlays.map((overlay) => (
                 <div
                   key={overlay.id}
-                  className={`page-text-overlay page-text-overlay-${overlay.type}${overlay.type === "balloon" ? ` page-text-balloon-${overlay.shape} page-text-tail-${overlay.tailDirection}` : ""}${selectedId === overlay.id ? " is-selected" : ""}`}
+                  className={`page-text-overlay page-text-overlay-${overlay.type} page-text-level-${overlay.textLevel}${overlay.bold ? " page-text-bold" : ""}${overlay.italic ? " page-text-italic" : ""}${overlay.underline ? " page-text-underline" : ""}${overlay.type === "balloon" ? ` page-text-balloon-${overlay.shape} page-text-tail-${overlay.tailDirection}` : ""}${selectedId === overlay.id ? " is-selected" : ""}`}
                   style={{
                     left: `${overlay.x}%`,
                     top: `${overlay.y}%`,
                     width: `${overlay.width}%`,
                     "--page-text-font-size": `${overlay.fontSize}cqw`,
+                    "--page-text-color": overlay.textColor,
                   } as CSSProperties}
                   role="button"
                   tabIndex={0}
@@ -295,13 +330,57 @@ export default function PageTextEditor() {
               <label>
                 Isi teks
                 <textarea
+                  ref={textAreaRef}
                   rows={5}
                   maxLength={500}
                   value={selectedOverlay.text}
-                  onChange={(event) => updateOverlay(selectedOverlay.id, { text: event.target.value })}
+                  onChange={(event) => {
+                    updateTextSelection(event.currentTarget);
+                    updateOverlay(selectedOverlay.id, { text: event.target.value });
+                  }}
+                  onSelect={(event) => updateTextSelection(event.currentTarget)}
+                  onKeyUp={(event) => updateTextSelection(event.currentTarget)}
+                  onClick={(event) => updateTextSelection(event.currentTarget)}
+                  onBlur={(event) => updateTextSelection(event.currentTarget)}
                   placeholder="Tulis dialog atau narasi..."
                 />
               </label>
+              <div className="page-text-emoji-tools">
+                <button
+                  className="page-text-emoji-toggle"
+                  type="button"
+                  aria-expanded={emojiPickerOpen}
+                  aria-controls="page-text-emoji-picker"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => setEmojiPickerOpen((open) => !open)}
+                >
+                  <Smile size={16} /> Tambah emoji
+                </button>
+                {emojiPickerOpen && (
+                  <div className="page-text-emoji-picker" id="page-text-emoji-picker" aria-label="Pilih emoji">
+                    {pageTextEmojiGroups.map((group) => (
+                      <section className="page-text-emoji-group" key={group.label} aria-label={group.label}>
+                        <h4>{group.label}</h4>
+                        <div>
+                          {group.emojis.map((emoji, index) => (
+                            <button
+                              key={`${emoji}-${index}`}
+                              type="button"
+                              aria-label={`Sisipkan emoji ${emoji}`}
+                              title={`Sisipkan ${emoji}`}
+                              disabled={selectedOverlay.text.length + emoji.length > 500}
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => insertEmoji(emoji)}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                )}
+              </div>
               {selectedOverlay.type === "balloon" && (
                 <>
                   <label>
@@ -313,7 +392,7 @@ export default function PageTextEditor() {
                       {PAGE_TEXT_BALLOON_SHAPES.map((shape) => <option key={shape.value} value={shape.value}>{shape.label}</option>)}
                     </select>
                   </label>
-                  {selectedOverlay.shape !== "inner" && (
+                  {selectedOverlay.shape !== "inner" && selectedOverlay.shape !== "none" && (
                     <label>
                       {selectedOverlay.shape === "thought" ? "Arah gelembung pikiran" : "Arah ujung balon"}
                       <select
@@ -326,6 +405,50 @@ export default function PageTextEditor() {
                   )}
                 </>
               )}
+              <label>
+                Warna teks
+                <span className="page-text-color-control">
+                  <input
+                    type="color"
+                    aria-label="Warna teks"
+                    value={selectedOverlay.textColor}
+                    onChange={(event) => updateOverlay(selectedOverlay.id, { textColor: event.target.value })}
+                  />
+                  <code>{selectedOverlay.textColor.toUpperCase()}</code>
+                </span>
+              </label>
+              <label>
+                Jenis teks
+                <select
+                  value={selectedOverlay.textLevel}
+                  onChange={(event) => updateOverlay(selectedOverlay.id, { textLevel: event.target.value as PageTextOverlay["textLevel"] })}
+                >
+                  <option value="body">Teks biasa</option>
+                  <option value="h1">H1 — Judul besar</option>
+                  <option value="h2">H2 — Judul sedang</option>
+                  <option value="h3">H3 — Judul kecil</option>
+                </select>
+              </label>
+              <div className="page-text-inline-format" role="group" aria-label="Format teks">
+                <button
+                  type="button"
+                  aria-label="Tebal"
+                  aria-pressed={selectedOverlay.bold}
+                  onClick={() => updateOverlay(selectedOverlay.id, { bold: !selectedOverlay.bold })}
+                ><Bold size={17} /></button>
+                <button
+                  type="button"
+                  aria-label="Miring"
+                  aria-pressed={selectedOverlay.italic}
+                  onClick={() => updateOverlay(selectedOverlay.id, { italic: !selectedOverlay.italic })}
+                ><Italic size={17} /></button>
+                <button
+                  type="button"
+                  aria-label="Garis bawah"
+                  aria-pressed={selectedOverlay.underline}
+                  onClick={() => updateOverlay(selectedOverlay.id, { underline: !selectedOverlay.underline })}
+                ><Underline size={17} /></button>
+              </div>
               <label>
                 Lebar
                 <input type="range" min="12" max="80" step="1" value={selectedOverlay.width} onChange={(event) => updateOverlay(selectedOverlay.id, { width: Number(event.target.value) })} />

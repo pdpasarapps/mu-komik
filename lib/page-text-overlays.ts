@@ -1,5 +1,6 @@
 export type PageTextOverlayType = "balloon" | "narration";
-export type PageTextBalloonShape = "speech" | "thought" | "inner";
+export type PageTextBalloonShape = "speech" | "thought" | "inner" | "none";
+export type PageTextLevel = "body" | "h1" | "h2" | "h3";
 export type PageTextBalloonTailDirection =
   | "bottom-left"
   | "bottom"
@@ -14,6 +15,7 @@ export const PAGE_TEXT_BALLOON_SHAPES: Array<{ value: PageTextBalloonShape; labe
   { value: "speech", label: "Berbicara" },
   { value: "thought", label: "Berpikir" },
   { value: "inner", label: "Dalam hati" },
+  { value: "none", label: "Tanpa balon (persegi)" },
 ];
 
 export const PAGE_TEXT_BALLOON_TAIL_DIRECTIONS: Array<{ value: PageTextBalloonTailDirection; label: string }> = [
@@ -59,6 +61,11 @@ export type PageTextOverlay = {
   y: number;
   width: number;
   fontSize: number;
+  textColor: string;
+  textLevel: PageTextLevel;
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
 };
 
 export function parsePageTextOverlays(value: unknown): PageTextOverlay[] {
@@ -71,7 +78,8 @@ export function parsePageTextOverlays(value: unknown): PageTextOverlay[] {
       || typeof item !== "object"
       || !("id" in item) || typeof item.id !== "string"
       || !("type" in item) || (item.type !== "balloon" && item.type !== "narration")
-      || "shape" in item && item.shape !== undefined && item.shape !== "speech" && item.shape !== "thought" && item.shape !== "inner"
+      || "shape" in item && item.shape !== undefined
+        && item.shape !== "speech" && item.shape !== "thought" && item.shape !== "inner" && item.shape !== "none"
       || "tailDirection" in item && item.tailDirection !== undefined
         && (typeof item.tailDirection !== "string"
           || !PAGE_TEXT_BALLOON_TAIL_DIRECTIONS.some((direction) => direction.value === item.tailDirection))
@@ -80,6 +88,13 @@ export function parsePageTextOverlays(value: unknown): PageTextOverlay[] {
       || !("y" in item) || typeof item.y !== "number" || !Number.isFinite(item.y)
       || !("width" in item) || typeof item.width !== "number" || !Number.isFinite(item.width)
       || !("fontSize" in item) || typeof item.fontSize !== "number" || !Number.isFinite(item.fontSize)
+      || "textColor" in item && item.textColor !== undefined
+        && (typeof item.textColor !== "string" || !/^#[\da-f]{6}$/i.test(item.textColor))
+      || "textLevel" in item && item.textLevel !== undefined
+        && item.textLevel !== "body" && item.textLevel !== "h1" && item.textLevel !== "h2" && item.textLevel !== "h3"
+      || "bold" in item && item.bold !== undefined && typeof item.bold !== "boolean"
+      || "italic" in item && item.italic !== undefined && typeof item.italic !== "boolean"
+      || "underline" in item && item.underline !== undefined && typeof item.underline !== "boolean"
     ) {
       throw new Error(`Format teks halaman ke-${index + 1} tidak valid.`);
     }
@@ -99,6 +114,17 @@ export function parsePageTextOverlays(value: unknown): PageTextOverlay[] {
       y: Math.min(100, Math.max(0, item.y)),
       width,
       fontSize: Math.min(8, Math.max(1.5, item.fontSize)),
+      textColor: "textColor" in item && typeof item.textColor === "string"
+        ? item.textColor
+        : item.type === "balloon" && "shape" in item && item.shape === "inner" ? "#312a47" : "#191b19",
+      textLevel: "textLevel" in item && item.textLevel
+        ? item.textLevel as PageTextLevel
+        : "body",
+      bold: "bold" in item && typeof item.bold === "boolean" ? item.bold : true,
+      italic: "italic" in item && typeof item.italic === "boolean"
+        ? item.italic
+        : item.type === "balloon" && "shape" in item && item.shape === "inner",
+      underline: "underline" in item && typeof item.underline === "boolean" ? item.underline : false,
     };
   });
 }
@@ -114,5 +140,10 @@ export function createPageTextOverlay(type: PageTextOverlayType): PageTextOverla
     y: 50,
     width: type === "balloon" ? 32 : 38,
     fontSize: 3,
+    textColor: "#191b19",
+    textLevel: "body",
+    bold: true,
+    italic: false,
+    underline: false,
   };
 }
