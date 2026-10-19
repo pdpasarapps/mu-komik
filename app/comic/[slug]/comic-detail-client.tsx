@@ -71,6 +71,35 @@ function formatEngagementCount(count: number) {
   return new Intl.NumberFormat("id-ID", { notation: "compact", maximumFractionDigits: 1 }).format(count);
 }
 
+function KidsEpisodeThumbnail({ src, chapterId }: { src?: string; chapterId: string }) {
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const imageLoaded = Boolean(src && loadedSrc === src);
+
+  return (
+    <span className="reader-kids-episode-thumbnail">
+      {src && failedSrc !== src
+        ? <>
+            {!imageLoaded && <span className="reader-kids-thumbnail-skeleton" aria-hidden="true" />}
+            <Image
+              className={imageLoaded ? "reader-kids-thumbnail-image-loaded" : ""}
+              src={src}
+              alt=""
+              fill
+              sizes="(max-width: 640px) 25vw, (max-width: 900px) 20vw, 180px"
+              unoptimized
+              onLoad={() => setLoadedSrc(src)}
+              onError={() => {
+                console.error("Unable to load Kids Mode episode thumbnail:", { chapterId });
+                setFailedSrc(src);
+              }}
+            />
+          </>
+        : <BookOpen size={24} aria-hidden="true" />}
+    </span>
+  );
+}
+
 function getErrorMessage(value: unknown): string | undefined {
   if (typeof value === "string") return value;
   if (value instanceof Error) return value.message;
@@ -974,11 +1003,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
               const content = (
                 <>
                   {kidsEpisodeGrid && (
-                    <span className="reader-kids-episode-thumbnail">
-                      {firstPageImageUrls[chapter.id]
-                        ? <Image src={firstPageImageUrls[chapter.id]} alt="" fill sizes="(max-width: 640px) 25vw, (max-width: 900px) 20vw, 180px" unoptimized />
-                        : <BookOpen size={24} aria-hidden="true" />}
-                    </span>
+                    <KidsEpisodeThumbnail src={firstPageImageUrls[chapter.id]} chapterId={chapter.id} />
                   )}
                   <span className="reader-episode-number">{kidsEpisodeGrid ? String(chapter.chapter_number).padStart(2, "0") : `EPISODE ${String(chapter.chapter_number).padStart(2, "0")}`}</span>
                   <span className="reader-episode-title">
