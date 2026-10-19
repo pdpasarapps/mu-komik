@@ -802,6 +802,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const allChaptersRead = chapters.length > 0 && firstIncompleteIndex === -1;
   const isChapterUnlocked = (chapterIndex: number) => {
     if (chapterIndex < 0) return false;
+    if (kidsMode) return true;
     if (membership.tier === "vip") return true;
     if (!chapterProgressReady) return chapterIndex === 0;
     if (chapterProgressError) return chapterIndex === 0;
@@ -957,7 +958,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
             }} /> Ingat bahwa saya memakai Wi-Fi/LAN saat browser tidak dapat mengenali jenis koneksi</label>
           </div>
         )}
-        {chapterProgressError && <p className="reader-episode-progress-error" role="status">Progres episode belum dapat diverifikasi. Muat ulang halaman untuk mencoba lagi; episode berikutnya dikunci sementara.</p>}
+        {chapterProgressError && <p className="reader-episode-progress-error" role="status">{kidsMode ? "Progres episode belum dapat diverifikasi. Penanda telah dibaca mungkin belum muncul; muat ulang halaman untuk mencoba lagi." : "Progres episode belum dapat diverifikasi. Muat ulang halaman untuk mencoba lagi; episode berikutnya dikunci sementara."}</p>}
         {chapterListLoading ? (
           <div className="reader-detail-episode-skeletons" aria-label="Memuat episode">{[0, 1, 2].map((item) => <span className="reader-detail-skeleton" key={item} />)}</div>
         ) : chapters.length ? (
@@ -978,7 +979,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
                         : <BookOpen size={24} aria-hidden="true" />}
                     </span>
                   )}
-                  <span className="reader-episode-number">EPISODE {String(chapter.chapter_number).padStart(2, "0")}</span>
+                  <span className="reader-episode-number">{kidsEpisodeGrid ? String(chapter.chapter_number).padStart(2, "0") : `EPISODE ${String(chapter.chapter_number).padStart(2, "0")}`}</span>
                   <span className="reader-episode-title">
                     <strong>{chapter.title || `Episode ${chapter.chapter_number}`}</strong>
                     {chapter.id === lastReadChapterId && <small>Terakhir dibaca</small>}

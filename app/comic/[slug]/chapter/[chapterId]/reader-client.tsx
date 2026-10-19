@@ -363,7 +363,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         return chapterPages.length === 0 || (savedPagesByChapter.get(item.id)?.size ?? 0) < chapterPages.length;
       });
       const completedEveryChapter = firstIncompleteIndex < 0;
-      if (membership.tier !== "vip" && !completedEveryChapter && targetChapterIndex > firstIncompleteIndex) {
+      if (!kidsMode && membership.tier !== "vip" && !completedEveryChapter && targetChapterIndex > firstIncompleteIndex) {
         const firstIncompleteChapter = chapters[firstIncompleteIndex];
         router.replace(`/comic/${comicData.slug}/chapter/${firstIncompleteChapter.id}`);
         return;
@@ -834,7 +834,8 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const currentChapterRead = pages.length > 0 && readPageIds.size >= pages.length;
   const nextChapterUnlocked = Boolean(
     nextChapterCandidate &&
-    (membership.tier === "vip" ||
+    (kidsMode ||
+      membership.tier === "vip" ||
       allChaptersRead ||
       chapterIndex + 1 <= firstIncompleteChapterIndex ||
       (chapterIndex === firstIncompleteChapterIndex && currentChapterRead)),
@@ -903,7 +904,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
           <div className="reader-episode-menu-popover">
             <p>Daftar episode</p>
             {chapterList.map((item, index) => {
-              const unlocked = membership.tier === "vip" || allChaptersRead || index <= firstIncompleteChapterIndex || (index === firstIncompleteChapterIndex + 1 && chapterIndex === firstIncompleteChapterIndex && currentChapterRead);
+              const unlocked = kidsMode || membership.tier === "vip" || allChaptersRead || index <= firstIncompleteChapterIndex || (index === firstIncompleteChapterIndex + 1 && chapterIndex === firstIncompleteChapterIndex && currentChapterRead);
               return unlocked
                 ? <Link className={item.id === chapter.id ? "reader-menu-current" : ""} key={item.id} href={`/comic/${comic.slug}/chapter/${item.id}`} onClick={(event) => {
                     if (item.id !== chapter.id) {
