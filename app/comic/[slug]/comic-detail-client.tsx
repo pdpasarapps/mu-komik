@@ -10,6 +10,7 @@ import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import PlatformLinks from "@/components/platform-links";
 import { getComicGenreLabel } from "@/lib/comic-genres";
+import { getKidsAgeLabel } from "@/lib/kids-curation";
 import SponsoredAd from "@/components/sponsored-ad";
 import { ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES, getMetadataLabel } from "@/lib/comic-metadata";
 import DeviceUnavailableNotice from "@/components/device-unavailable-notice";
@@ -826,7 +827,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
           <div className="reader-detail-cover">
             {coverUrl ? <img src={coverUrl} alt={`Sampul ${comic.title}`} fetchPriority="high" /> : <span>{comic.title.slice(0, 2).toUpperCase()}</span>}
           </div>
-          {kidsMode && comic.kids_mode_approved && <span className="kids-comic-age-badge">Kids Mode · {comic.kids_age_range === "4_6" ? "4–6" : comic.kids_age_range === "7_9" ? "7–9" : "10–12"} tahun</span>}
+          {kidsMode && comic.kids_mode_approved && getKidsAgeLabel(comic.kids_age_range) && <span className="kids-comic-age-badge">{getKidsAgeLabel(comic.kids_age_range)}</span>}
           {kidsEpisodeGrid && (
             <button
               ref={kidsDescriptionTriggerRef}
@@ -843,7 +844,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
           <span className="reader-detail-access"><Check size={15} strokeWidth={2.5} /> Gratis dibaca</span>
         </div>
         <div className="reader-detail-copy">
-          <p className="reader-detail-genre-count">{getComicGenreLabel(comic.genre)}<span aria-hidden="true">·</span>{chapters.length} episode</p>
+          <p className="reader-detail-genre-count">{getComicGenreLabel(comic.genre)}<span aria-hidden="true">·</span>{chapters.length} {kidsMode ? "cerita" : "episode"}</p>
           {kidsEpisodeGrid ? (
             <div className="reader-kids-title-row">
               <h1>{comic.title}</h1>
@@ -875,8 +876,8 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
             <div className="reader-detail-reading-action">
               {firstChapter
                 ? <Link ref={primaryReadRef} className="reader-primary-button reader-detail-primary-button" href={`/comic/${comic.slug}/chapter/${firstChapter.id}`}><BookOpen size={19} /> {resumeChapter ? "Lanjutkan baca" : "Mulai baca"} <ArrowRight size={18} /></Link>
-                : <span className="reader-detail-unavailable">Episode akan segera hadir</span>}
-              {resumeChapter && <p className="reader-detail-resume">Terakhir dibaca · Episode {resumeChapter.chapter_number}</p>}
+                : <span className="reader-detail-unavailable">{kidsMode ? "Cerita akan segera hadir" : "Episode akan segera hadir"}</span>}
+              {resumeChapter && <p className="reader-detail-resume">Terakhir dibaca · {kidsMode ? "Cerita" : "Episode"} {resumeChapter.chapter_number}</p>}
             </div>
           )}
           {!kidsMode && <div className="reader-detail-actions">
@@ -917,7 +918,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
             <p className="reader-kids-description-kicker">PETUALANGAN BARU MENANTI!</p>
             <h2 id="reader-kids-description-title">{comic.title}</h2>
             <p id="reader-kids-description-text" className="reader-kids-description-text">
-              {synopsis || "Yuk, pilih episode dan mulai petualangan seru di dalam cerita ini!"}
+              {synopsis || "Yuk, pilih cerita dan mulai petualangan seru di dalam cerita ini!"}
             </p>
             <button className="reader-kids-description-done" type="button" onClick={() => setKidsDescriptionOpen(false)}>
               Siap berpetualang!
