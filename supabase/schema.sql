@@ -107,9 +107,20 @@ create table if not exists public.pages (
   chapter_id uuid not null references public.chapters(id) on delete cascade,
   page_number integer not null check (page_number > 0),
   object_key text not null,
+  text_overlays jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   unique (chapter_id, page_number)
 );
+
+alter table public.pages
+  add column if not exists text_overlays jsonb not null default '[]'::jsonb;
+
+alter table public.pages
+  drop constraint if exists pages_text_overlays_is_array;
+
+alter table public.pages
+  add constraint pages_text_overlays_is_array
+  check (jsonb_typeof(text_overlays) = 'array');
 
 create table if not exists public.comic_kids_curation (
   comic_id uuid primary key references public.comics(id) on delete cascade,

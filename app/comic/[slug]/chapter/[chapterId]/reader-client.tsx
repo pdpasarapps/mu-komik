@@ -13,13 +13,15 @@ import { COMIC_TARGET_DEVICES, isComicAvailableOnDevice, type ComicTargetDevice 
 import { useReaderMembership } from "@/app/membership-runtime";
 import { KidsModeToggle, useKidsMode } from "@/app/platform-runtime";
 import { parseChapterSubtitles, type ChapterSubtitleCue } from "@/lib/chapter-subtitles";
+import PageTextOverlayLayer from "@/components/page-text-overlay-layer";
+import { parsePageTextOverlays, type PageTextOverlay } from "@/lib/page-text-overlays";
 
 const supabase = createClient();
 const TRANSITION_AD_LOAD_TIMEOUT_MS = 2000;
 const READER_LOAD_TIMEOUT_MS = 8000;
 const BOOK_TURN_SPREAD_COMMIT_DELAY_MS = 340;
 
-type Page = { id: string; page_number: number; object_key: string };
+type Page = { id: string; page_number: number; object_key: string; text_overlays: PageTextOverlay[] };
 type Chapter = {
   id: string;
   title: string;
@@ -310,7 +312,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       const chapterIds = chapters.map((item) => item.id);
       const currentUserId = sessionData.session?.user.id ?? null;
       const [{ data: allPageData, error: allPagesError }, { data: history, error: historyError }, { data: profile, error: profileError }] = await Promise.all([
-        supabase.from("pages").select("id, chapter_id, page_number, object_key").in("chapter_id", chapterIds).order("page_number").abortSignal(requestController.signal),
+        supabase.from("pages").select("id, chapter_id, page_number, object_key, text_overlays").in("chapter_id", chapterIds).order("page_number").abortSignal(requestController.signal),
         currentUserId
           ? supabase.from("reading_history").select("chapter_id, last_page").eq("user_id", currentUserId).in("chapter_id", chapterIds).abortSignal(requestController.signal)
           : Promise.resolve({ data: [], error: null }),
@@ -325,16 +327,33 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       setWatermarkName(profile?.display_name?.trim().slice(0, 32) || "Pembaca");
       if (allPagesError || historyError) {
         setComic(comicData);
-        setErrorMessage("Urutan episode belum dapat diverifikasi. Periksa koneksi lalu coba lagi.");
+        setErrorMessage(allPagesError?.code === "42703" || allPagesError?.code === "PGRST204"
+          ? "Teks halaman belum dikonfigurasi. Jalankan supabase/page-text-overlays.sql untuk melanjutkan."
+          : "Urutan episode belum dapat diverifikasi. Periksa koneksi lalu coba lagi.");
         setLoading(false);
         return;
       }
 
       const pagesByChapter = new Map<string, Page[]>();
-      for (const page of allPageData ?? []) {
-        const chapterPages = pagesByChapter.get(page.chapter_id) ?? [];
-        chapterPages.push({ id: page.id, page_number: page.page_number, object_key: page.object_key });
-        pagesByChapter.set(page.chapter_id, chapterPages);
+      try {
+        for (const page of allPageData ?? []) {
+          const chapterPages = pagesByChapter.get(page.chapter_id) ?? [];
+          chapterPages.push({
+            id: page.id,
+            page_number: page.page_number,
+            object_key: page.object_key,
+            text_overlays: parsePageTextOverlays(page.text_overlays),
+          });
+          pagesByChapter.set(page.chapter_id, chapterPages);
+        }
+      } catch (overlayError) {
+        console.error("Unable to load page text overlays:", overlayError);
+        if (active) {
+          setComic(comicData);
+          setErrorMessage("Teks halaman belum dapat dibaca. Hubungi kreator untuk memperbaikinya.");
+          setLoading(false);
+        }
+        return;
       }
       const historyByChapter = new Map<string, number>();
       for (const entry of history ?? []) historyByChapter.set(entry.chapter_id, entry.last_page);
@@ -1058,6 +1077,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                               alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`}
                               draggable={false}
                             />
+                            <PageTextOverlayLayer overlays={page.text_overlays} />
                             {activeSubtitlePageId === page.id && activeSubtitle && (
                               <p className="reader-page-subtitle reader-book-page-subtitle" aria-live="polite">{activeSubtitle}</p>
                             )}
@@ -1126,6 +1146,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                                 }
                               }}
                             />
+                            <PageTextOverlayLayer overlays={page.text_overlays} />
                             {activeSubtitlePageId === page.id && activeSubtitle && (
                               <p className="reader-page-subtitle" aria-live="polite">{activeSubtitle}</p>
                             )}
