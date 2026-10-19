@@ -1403,6 +1403,10 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
   .reader-sponsored-ad-banner:not(.reader-sponsored-ad-home) .reader-sponsored-ad-link { height: 160px; min-height: 0; }
 }
 @media (max-width: 640px) {
+  .reader-experience:has(.reader-audio-player):not(.reader-controls-hidden) .reader-page-frame { height: calc(100dvh - var(--reader-header-height) - 4px - var(--reader-audio-player-bottom) - var(--reader-audio-player-height) - 2px); aspect-ratio: auto; align-items: end; }
+  .reader-experience:has(.reader-audio-player):not(.reader-controls-hidden) .reader-page-art { max-height: 100%; }
+  .reader-experience.reader-controls-hidden:has(.reader-audio-player) .reader-page-frame { height: max(140px, calc(100dvh - 2 * (var(--reader-audio-player-bottom) + var(--reader-audio-player-height) + 2px))); aspect-ratio: auto; align-items: end; }
+  .reader-experience.reader-controls-hidden:has(.reader-audio-player) .reader-page-art { max-height: 100%; }
   .reader-sponsored-ad-home { width: 100%; box-sizing: border-box; margin: 18px auto; padding: 0; }
   .reader-sponsored-ad-home .reader-sponsored-ad-link { height: auto; min-height: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; }
   .reader-sponsored-ad-home.reader-sponsored-ad-banner .reader-sponsored-ad-link { height: auto; }
