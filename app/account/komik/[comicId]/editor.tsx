@@ -1068,7 +1068,7 @@ export default function CreatorComicPage() {
                   <ChapterAudioManager
                     comicId={comic.id}
                     chapterId={chapter.id}
-                    pages={(pagesByChapter[chapter.id] ?? []).map((page) => ({ id: page.id, page_number: page.page_number }))}
+                    pages={(pagesByChapter[chapter.id] ?? []).map((page) => ({ id: page.id, page_number: page.page_number, object_key: page.object_key }))}
                     audio={chapter}
                     onSaved={(audio) => setChapters((current) => current.map((item) => item.id === chapter.id ? { ...item, ...audio } : item))}
                   />

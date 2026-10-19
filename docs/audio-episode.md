@@ -11,7 +11,7 @@ Di editor komik, buka episode dan pilih aset yang ingin diperbarui:
 3. Audio dan SRT sekaligus.
 4. Sidecar `.json` dapat diunggah bersama SRT untuk menggunakan pemetaan manual, atau sendiri untuk memperbarui pemetaan SRT yang sudah tersimpan.
 
-Setelah memilih satu atau lebih berkas, klik **Simpan pilihan**. Aset yang tidak dipilih tetap tidak berubah. SRT tanpa penanda halaman lengkap memerlukan sidecar JSON yang cocok; setiap cue harus dipetakan ke UUID halaman episode.
+Setelah memilih SRT, editor menampilkan cue beserta waktunya. Pilih halaman untuk setiap cue dari daftar thumbnail halaman episode. Jika semua cue sudah dipetakan, klik **Unduh JSON** untuk menyimpan sidecar `.pages.json`; klik **Simpan pilihan** untuk menyimpan SRT dan pemetaannya ke episode. Audio dan aset yang tidak dipilih tetap tidak berubah. SRT dengan penanda halaman lengkap tetap dipetakan otomatis dan hasilnya dapat diperiksa atau disesuaikan di tool tersebut. Sidecar JSON yang sudah ada juga dapat diunggah sebagai alternatif.
 
 Contoh SRT:
 

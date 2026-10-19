@@ -6,6 +6,8 @@ export type ChapterSubtitleCue = {
   pageId: string;
 };
 
+export type ParsedChapterSubtitleCue = Omit<ChapterSubtitleCue, "pageId">;
+
 export function createSubtitlePageMap(srt: string, pageIds: string[]): Record<string, string> {
   if (typeof srt !== "string" || !srt.trim()) throw new Error("File SRT tidak boleh kosong.");
   if (!pageIds.length) throw new Error("Episode belum memiliki halaman untuk pemetaan subtitle.");
@@ -81,20 +83,15 @@ function parseTimestamp(value: string) {
   return ((hours * 60 + minutes) * 60 + seconds) * 1000 + milliseconds;
 }
 
-export function parseChapterSubtitles(srt: string, pageMap: unknown): ChapterSubtitleCue[] {
+export function parseChapterSubtitleCues(srt: string): ParsedChapterSubtitleCue[] {
   if (typeof srt !== "string" || !srt.trim()) throw new Error("File SRT tidak boleh kosong.");
   if (new TextEncoder().encode(srt).byteLength > 1024 * 1024) throw new Error("File SRT maksimal 1 MB.");
-  if (!pageMap || typeof pageMap !== "object" || Array.isArray(pageMap)) {
-    throw new Error("Sidecar JSON harus berupa objek dengan nomor cue dan ID halaman.");
-  }
-
-  const mapping = pageMap as Record<string, unknown>;
   const blocks = srt.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").trim().split(/\n\s*\n/);
   if (blocks.length > 2000) throw new Error("Satu episode maksimal memiliki 2.000 cue subtitle.");
 
   const seen = new Set<number>();
   let previousStartMs = -1;
-  const cues = blocks.map((block): ChapterSubtitleCue => {
+  const cues = blocks.map((block): ParsedChapterSubtitleCue => {
     const lines = block.split("\n");
     if (lines.length < 3 || !/^\d+$/.test(lines[0].trim())) {
       throw new Error("Format SRT tidak valid. Setiap cue harus memiliki nomor, waktu, dan teks.");
@@ -115,16 +112,31 @@ export function parseChapterSubtitles(srt: string, pageMap: unknown): ChapterSub
 
     const text = lines.slice(2).join("\n").trim();
     if (!text || text.length > 5000) throw new Error(`Teks cue ${number} kosong atau melebihi 5.000 karakter.`);
-    const pageId = mapping[String(number)];
-    if (typeof pageId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pageId)) {
-      throw new Error(`Sidecar belum memetakan cue ${number} ke ID halaman yang valid.`);
-    }
-    return { number, startMs, endMs, text, pageId };
+    return { number, startMs, endMs, text };
   });
 
   if (!cues.length) throw new Error("File SRT tidak berisi cue subtitle.");
+  return cues;
+}
+
+export function parseChapterSubtitles(srt: string, pageMap: unknown): ChapterSubtitleCue[] {
+  if (!pageMap || typeof pageMap !== "object" || Array.isArray(pageMap)) {
+    throw new Error("Sidecar JSON harus berupa objek dengan nomor cue dan ID halaman.");
+  }
+
+  const mapping = pageMap as Record<string, unknown>;
+  const cues = parseChapterSubtitleCues(srt);
+  const seen = new Set(cues.map((cue) => cue.number));
+  const mappedCues = cues.map((cue): ChapterSubtitleCue => {
+    const pageId = mapping[String(cue.number)];
+    if (typeof pageId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pageId)) {
+      throw new Error(`Sidecar belum memetakan cue ${cue.number} ke ID halaman yang valid.`);
+    }
+    return { ...cue, pageId };
+  });
+
   if (Object.keys(mapping).length !== cues.length || Object.keys(mapping).some((key) => !seen.has(Number(key)))) {
     throw new Error("Sidecar harus memetakan setiap cue SRT tepat satu kali.");
   }
-  return cues;
+  return mappedCues;
 }
