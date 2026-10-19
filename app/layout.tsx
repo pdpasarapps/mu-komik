@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Bangers, Caveat, Comic_Neue, Nunito, Patrick_Hand } from "next/font/google";
 import { siteUrl } from "@/lib/seo";
 import { getPlatformSettings } from "@/lib/platform-settings";
 import { cookies } from "next/headers";
@@ -10,6 +11,12 @@ import AppSplash from "@/components/app-splash";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
+
+const comicNeue = Comic_Neue({ subsets: ["latin"], weight: ["400", "700"], variable: "--font-comic-neue", display: "swap", preload: false });
+const bangers = Bangers({ subsets: ["latin"], weight: "400", variable: "--font-bangers", display: "swap", preload: false });
+const patrickHand = Patrick_Hand({ subsets: ["latin", "latin-ext"], weight: "400", variable: "--font-patrick-hand", display: "swap", preload: false });
+const nunito = Nunito({ subsets: ["latin", "latin-ext"], weight: ["400", "700"], variable: "--font-nunito", display: "swap", preload: false });
+const caveat = Caveat({ subsets: ["latin", "latin-ext"], weight: ["400", "700"], variable: "--font-caveat", display: "swap", preload: false });
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
@@ -105,7 +112,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const cookieStore = await cookies();
   const kidsModeState = readKidsModeState(cookieStore.get(KIDS_MODE_COOKIE_NAME)?.value);
   return (
-    <html lang="id" className="h-full antialiased" data-theme="light" suppressHydrationWarning>
+    <html lang="id" className={`h-full antialiased ${comicNeue.variable} ${bangers.variable} ${patrickHand.variable} ${nunito.variable} ${caveat.variable}`} data-theme="light" suppressHydrationWarning>
       <body className="min-h-full flex flex-col">
         <script
           type="application/ld+json"

@@ -12,7 +12,7 @@ export default function PageTextOverlayLayer({ overlays }: { overlays: PageTextO
     <div className="page-text-overlay-layer">
       {overlays.map((overlay) => (
         <div
-          className={`page-text-overlay page-text-overlay-${overlay.type} page-text-level-${overlay.textLevel}${overlay.bold ? " page-text-bold" : ""}${overlay.italic ? " page-text-italic" : ""}${overlay.underline ? " page-text-underline" : ""}${overlay.type === "balloon" ? ` page-text-balloon-${overlay.shape} page-text-tail-${overlay.tailDirection}` : ""}`}
+          className={`page-text-overlay page-text-overlay-${overlay.type} page-text-font-${overlay.font} page-text-level-${overlay.textLevel}${overlay.bold ? " page-text-bold" : ""}${overlay.italic ? " page-text-italic" : ""}${overlay.underline ? " page-text-underline" : ""}${overlay.type === "balloon" ? ` page-text-balloon-${overlay.shape} page-text-tail-${overlay.tailDirection}` : ""}`}
           key={overlay.id}
           style={{
             left: `${overlay.x}%`,

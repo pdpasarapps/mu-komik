@@ -1,6 +1,7 @@
 export type PageTextOverlayType = "balloon" | "narration";
 export type PageTextBalloonShape = "speech" | "thought" | "inner" | "none";
 export type PageTextLevel = "body" | "h1" | "h2" | "h3";
+export type PageTextFont = "default" | "comic-neue" | "bangers" | "patrick-hand" | "nunito" | "caveat";
 export type PageTextBalloonTailDirection =
   | "bottom-left"
   | "bottom"
@@ -16,6 +17,15 @@ export const PAGE_TEXT_BALLOON_SHAPES: Array<{ value: PageTextBalloonShape; labe
   { value: "thought", label: "Berpikir" },
   { value: "inner", label: "Dalam hati" },
   { value: "none", label: "Tanpa balon (persegi)" },
+];
+
+export const PAGE_TEXT_FONTS: Array<{ value: PageTextFont; label: string }> = [
+  { value: "default", label: "Default" },
+  { value: "comic-neue", label: "Comic Neue" },
+  { value: "bangers", label: "Bangers" },
+  { value: "patrick-hand", label: "Patrick Hand" },
+  { value: "nunito", label: "Nunito" },
+  { value: "caveat", label: "Caveat" },
 ];
 
 export const PAGE_TEXT_BALLOON_TAIL_DIRECTIONS: Array<{ value: PageTextBalloonTailDirection; label: string }> = [
@@ -61,6 +71,7 @@ export type PageTextOverlay = {
   y: number;
   width: number;
   fontSize: number;
+  font: PageTextFont;
   textColor: string;
   textLevel: PageTextLevel;
   bold: boolean;
@@ -88,6 +99,8 @@ export function parsePageTextOverlays(value: unknown): PageTextOverlay[] {
       || !("y" in item) || typeof item.y !== "number" || !Number.isFinite(item.y)
       || !("width" in item) || typeof item.width !== "number" || !Number.isFinite(item.width)
       || !("fontSize" in item) || typeof item.fontSize !== "number" || !Number.isFinite(item.fontSize)
+      || "font" in item && item.font !== undefined
+        && (typeof item.font !== "string" || !PAGE_TEXT_FONTS.some((font) => font.value === item.font))
       || "textColor" in item && item.textColor !== undefined
         && (typeof item.textColor !== "string" || !/^#[\da-f]{6}$/i.test(item.textColor))
       || "textLevel" in item && item.textLevel !== undefined
@@ -114,6 +127,9 @@ export function parsePageTextOverlays(value: unknown): PageTextOverlay[] {
       y: Math.min(100, Math.max(0, item.y)),
       width,
       fontSize: Math.min(8, Math.max(1.5, item.fontSize)),
+      font: "font" in item && typeof item.font === "string" && PAGE_TEXT_FONTS.some((font) => font.value === item.font)
+        ? item.font as PageTextFont
+        : "default",
       textColor: "textColor" in item && typeof item.textColor === "string"
         ? item.textColor
         : item.type === "balloon" && "shape" in item && item.shape === "inner" ? "#312a47" : "#191b19",
@@ -140,6 +156,7 @@ export function createPageTextOverlay(type: PageTextOverlayType): PageTextOverla
     y: 50,
     width: type === "balloon" ? 32 : 38,
     fontSize: 3,
+    font: "default",
     textColor: "#191b19",
     textLevel: "body",
     bold: true,

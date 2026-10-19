@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   createPageTextOverlay,
   PAGE_TEXT_BALLOON_SHAPES,
+  PAGE_TEXT_FONTS,
   PAGE_TEXT_BALLOON_TAIL_BASE_PATHS,
   PAGE_TEXT_BALLOON_TAIL_DIRECTIONS,
   PAGE_TEXT_BALLOON_TAIL_PATHS,
@@ -266,7 +267,7 @@ export default function PageTextEditor() {
               {overlays.map((overlay) => (
                 <div
                   key={overlay.id}
-                  className={`page-text-overlay page-text-overlay-${overlay.type} page-text-level-${overlay.textLevel}${overlay.bold ? " page-text-bold" : ""}${overlay.italic ? " page-text-italic" : ""}${overlay.underline ? " page-text-underline" : ""}${overlay.type === "balloon" ? ` page-text-balloon-${overlay.shape} page-text-tail-${overlay.tailDirection}` : ""}${selectedId === overlay.id ? " is-selected" : ""}`}
+                  className={`page-text-overlay page-text-overlay-${overlay.type} page-text-font-${overlay.font} page-text-level-${overlay.textLevel}${overlay.bold ? " page-text-bold" : ""}${overlay.italic ? " page-text-italic" : ""}${overlay.underline ? " page-text-underline" : ""}${overlay.type === "balloon" ? ` page-text-balloon-${overlay.shape} page-text-tail-${overlay.tailDirection}` : ""}${selectedId === overlay.id ? " is-selected" : ""}`}
                   style={{
                     left: `${overlay.x}%`,
                     top: `${overlay.y}%`,
@@ -405,6 +406,15 @@ export default function PageTextEditor() {
                   )}
                 </>
               )}
+              <label>
+                Jenis font
+                <select
+                  value={selectedOverlay.font}
+                  onChange={(event) => updateOverlay(selectedOverlay.id, { font: event.target.value as PageTextOverlay["font"] })}
+                >
+                  {PAGE_TEXT_FONTS.map((font) => <option key={font.value} value={font.value}>{font.label}</option>)}
+                </select>
+              </label>
               <label>
                 Warna teks
                 <span className="page-text-color-control">

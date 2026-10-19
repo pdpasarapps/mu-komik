@@ -672,6 +672,11 @@ button, input, select { font: inherit; }
 .page-text-overlay.page-text-bold { font-weight: 800; }
 .page-text-overlay.page-text-italic { font-style: italic; }
 .page-text-overlay.page-text-underline { text-decoration: underline; text-underline-offset: .12em; }
+.page-text-font-comic-neue { font-family: var(--font-comic-neue), sans-serif; }
+.page-text-font-bangers { font-family: var(--font-bangers), cursive; letter-spacing: .035em; }
+.page-text-font-patrick-hand { font-family: var(--font-patrick-hand), cursive; }
+.page-text-font-nunito { font-family: var(--font-nunito), sans-serif; }
+.page-text-font-caveat { font-family: var(--font-caveat), cursive; }
 .page-text-level-h1 { font-size: clamp(8px, calc(var(--page-text-font-size, 3cqw) * 1.6), 40px); }
 .page-text-level-h2 { font-size: clamp(8px, calc(var(--page-text-font-size, 3cqw) * 1.4), 36px); }
 .page-text-level-h3 { font-size: clamp(8px, calc(var(--page-text-font-size, 3cqw) * 1.2), 34px); }
