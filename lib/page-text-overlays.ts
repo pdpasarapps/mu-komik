@@ -1,5 +1,5 @@
 export type PageTextOverlayType = "balloon" | "narration";
-export type PageTextBalloonShape = "speech" | "thought" | "inner" | "none";
+export type PageTextBalloonShape = "speech" | "thought" | "shout" | "surprise" | "inner" | "none";
 export type PageTextLevel = "body" | "h1" | "h2" | "h3";
 export type PageTextFont = "default" | "comic-neue" | "bangers" | "patrick-hand" | "nunito" | "caveat";
 export type PageTextImageVerticalAlign = "top" | "center" | "bottom";
@@ -16,6 +16,8 @@ export type PageTextBalloonTailDirection =
 export const PAGE_TEXT_BALLOON_SHAPES: Array<{ value: PageTextBalloonShape; label: string }> = [
   { value: "speech", label: "Berbicara" },
   { value: "thought", label: "Berpikir" },
+  { value: "shout", label: "Teriak" },
+  { value: "surprise", label: "Kaget" },
   { value: "inner", label: "Dalam hati" },
   { value: "none", label: "Tanpa balon (persegi)" },
 ];
@@ -40,33 +42,17 @@ export const PAGE_TEXT_BALLOON_TAIL_DIRECTIONS: Array<{ value: PageTextBalloonTa
   { value: "top-right", label: "Kanan atas" },
 ];
 
-export const PAGE_TEXT_BALLOON_TAIL_PATHS: Record<PageTextBalloonTailDirection, string> = {
-  "bottom-left": "M 8 4 L 38 4 L 14 96 Z",
-  bottom: "M 37 4 L 63 4 L 50 96 Z",
-  "bottom-right": "M 62 4 L 92 4 L 86 96 Z",
-  left: "M 96 32 L 96 68 L 4 50 Z",
-  right: "M 4 32 L 4 68 L 96 50 Z",
-  "top-left": "M 8 96 L 38 96 L 14 4 Z",
-  top: "M 37 96 L 63 96 L 50 4 Z",
-  "top-right": "M 62 96 L 92 96 L 86 4 Z",
-};
-
-export const PAGE_TEXT_BALLOON_TAIL_BASE_PATHS: Record<PageTextBalloonTailDirection, string> = {
-  "bottom-left": "M 8 4 L 38 4",
-  bottom: "M 37 4 L 63 4",
-  "bottom-right": "M 62 4 L 92 4",
-  left: "M 96 32 L 96 68",
-  right: "M 4 32 L 4 68",
-  "top-left": "M 8 96 L 38 96",
-  top: "M 37 96 L 63 96",
-  "top-right": "M 62 96 L 92 96",
-};
-
 export type PageTextOverlay = {
   id: string;
   type: PageTextOverlayType;
   shape: PageTextBalloonShape;
   tailDirection: PageTextBalloonTailDirection;
+  tailBaseStartAngle: number;
+  tailBaseEndAngle: number;
+  tailTipX: number;
+  tailTipY: number;
+  tailControlX: number;
+  tailControlY: number;
   text: string;
   x: number;
   y: number;
@@ -84,6 +70,55 @@ export type PageTextOverlay = {
   italic: boolean;
   underline: boolean;
 };
+
+export type PageTextBalloonTailGeometry = Pick<
+  PageTextOverlay,
+  "tailBaseStartAngle" | "tailBaseEndAngle" | "tailTipX" | "tailTipY" | "tailControlX" | "tailControlY"
+>;
+
+const defaultPageTextBalloonTailGeometry: Record<PageTextBalloonTailDirection, PageTextBalloonTailGeometry> = {
+  "bottom-left": { tailBaseStartAngle: 105, tailBaseEndAngle: 150, tailTipX: 15, tailTipY: 150, tailControlX: 15, tailControlY: 120 },
+  bottom: { tailBaseStartAngle: 75, tailBaseEndAngle: 105, tailTipX: 50, tailTipY: 155, tailControlX: 50, tailControlY: 125 },
+  "bottom-right": { tailBaseStartAngle: 30, tailBaseEndAngle: 75, tailTipX: 85, tailTipY: 150, tailControlX: 85, tailControlY: 120 },
+  left: { tailBaseStartAngle: 145, tailBaseEndAngle: 215, tailTipX: -55, tailTipY: 50, tailControlX: -25, tailControlY: 50 },
+  right: { tailBaseStartAngle: 325, tailBaseEndAngle: 395, tailTipX: 155, tailTipY: 50, tailControlX: 125, tailControlY: 50 },
+  "top-left": { tailBaseStartAngle: 210, tailBaseEndAngle: 255, tailTipX: 15, tailTipY: -50, tailControlX: 15, tailControlY: -20 },
+  top: { tailBaseStartAngle: 255, tailBaseEndAngle: 285, tailTipX: 50, tailTipY: -55, tailControlX: 50, tailControlY: -25 },
+  "top-right": { tailBaseStartAngle: 285, tailBaseEndAngle: 330, tailTipX: 85, tailTipY: -50, tailControlX: 85, tailControlY: -20 },
+};
+
+export const PAGE_TEXT_BALLOON_TAIL_RADIUS_X = 48 / 1.1;
+
+function formatTailCoordinate(value: number) {
+  return Number(value.toFixed(2));
+}
+
+function getTailEllipsePoint(angle: number) {
+  const radians = (angle * Math.PI) / 180;
+  return {
+    x: formatTailCoordinate(50 + PAGE_TEXT_BALLOON_TAIL_RADIUS_X * Math.cos(radians)),
+    y: formatTailCoordinate(50 + 50 * Math.sin(radians)),
+  };
+}
+
+export function getPageTextBalloonTailGeometry(direction: PageTextBalloonTailDirection): PageTextBalloonTailGeometry {
+  return { ...defaultPageTextBalloonTailGeometry[direction] };
+}
+
+export function getPageTextBalloonTailPaths(geometry: PageTextBalloonTailGeometry) {
+  const start = getTailEllipsePoint(geometry.tailBaseStartAngle);
+  const end = getTailEllipsePoint(geometry.tailBaseEndAngle);
+  const arc = ((geometry.tailBaseEndAngle - geometry.tailBaseStartAngle) % 360 + 360) % 360;
+  const sweep = arc <= 180 ? 1 : 0;
+  return {
+    tail: `M ${start.x} ${start.y} Q ${geometry.tailControlX} ${geometry.tailControlY} ${geometry.tailTipX} ${geometry.tailTipY} Q ${geometry.tailControlX} ${geometry.tailControlY} ${end.x} ${end.y} Z`,
+    base: `M ${start.x} ${start.y} A ${formatTailCoordinate(PAGE_TEXT_BALLOON_TAIL_RADIUS_X)} 50 0 0 ${sweep} ${end.x} ${end.y}`,
+    start,
+    end,
+    tip: { x: geometry.tailTipX, y: geometry.tailTipY },
+    control: { x: geometry.tailControlX, y: geometry.tailControlY },
+  };
+}
 
 export type PageInteractiveEffect = "none" | "sparkle" | "impact" | "shake";
 
@@ -146,10 +181,23 @@ export function parsePageTextOverlays(value: unknown): PageTextOverlay[] {
       || !("id" in item) || typeof item.id !== "string"
       || !("type" in item) || (item.type !== "balloon" && item.type !== "narration")
       || "shape" in item && item.shape !== undefined
-        && item.shape !== "speech" && item.shape !== "thought" && item.shape !== "inner" && item.shape !== "none"
+        && item.shape !== "speech" && item.shape !== "thought" && item.shape !== "shout"
+        && item.shape !== "surprise" && item.shape !== "inner" && item.shape !== "none"
       || "tailDirection" in item && item.tailDirection !== undefined
         && (typeof item.tailDirection !== "string"
           || !PAGE_TEXT_BALLOON_TAIL_DIRECTIONS.some((direction) => direction.value === item.tailDirection))
+      || "tailBaseStartAngle" in item && item.tailBaseStartAngle !== undefined
+        && (typeof item.tailBaseStartAngle !== "number" || !Number.isFinite(item.tailBaseStartAngle) || item.tailBaseStartAngle < 0 || item.tailBaseStartAngle > 360)
+      || "tailBaseEndAngle" in item && item.tailBaseEndAngle !== undefined
+        && (typeof item.tailBaseEndAngle !== "number" || !Number.isFinite(item.tailBaseEndAngle) || item.tailBaseEndAngle < 0 || item.tailBaseEndAngle > 720)
+      || "tailTipX" in item && item.tailTipX !== undefined
+        && (typeof item.tailTipX !== "number" || !Number.isFinite(item.tailTipX) || item.tailTipX < -200 || item.tailTipX > 300)
+      || "tailTipY" in item && item.tailTipY !== undefined
+        && (typeof item.tailTipY !== "number" || !Number.isFinite(item.tailTipY) || item.tailTipY < -200 || item.tailTipY > 300)
+      || "tailControlX" in item && item.tailControlX !== undefined
+        && (typeof item.tailControlX !== "number" || !Number.isFinite(item.tailControlX) || item.tailControlX < -200 || item.tailControlX > 300)
+      || "tailControlY" in item && item.tailControlY !== undefined
+        && (typeof item.tailControlY !== "number" || !Number.isFinite(item.tailControlY) || item.tailControlY < -200 || item.tailControlY > 300)
       || !("text" in item) || typeof item.text !== "string"
       || !("x" in item) || typeof item.x !== "number" || !Number.isFinite(item.x)
       || !("y" in item) || typeof item.y !== "number" || !Number.isFinite(item.y)
@@ -181,15 +229,27 @@ export function parsePageTextOverlays(value: unknown): PageTextOverlay[] {
       : width;
     const mobileX = "mobileX" in item && typeof item.mobileX === "number" ? item.mobileX : item.x;
     const mobileY = "mobileY" in item && typeof item.mobileY === "number" ? item.mobileY : item.y;
+    const tailDirection = "tailDirection" in item && item.tailDirection
+      ? item.tailDirection as PageTextBalloonTailDirection
+      : "bottom-left";
+    const defaultTailGeometry = getPageTextBalloonTailGeometry(tailDirection);
     return {
       id: item.id,
       type: item.type,
       shape: item.type === "balloon" && "shape" in item && item.shape
         ? item.shape as PageTextBalloonShape
         : "speech",
-      tailDirection: "tailDirection" in item && item.tailDirection
-        ? item.tailDirection as PageTextBalloonTailDirection
-        : "bottom-left",
+      tailDirection,
+      tailBaseStartAngle: "tailBaseStartAngle" in item && typeof item.tailBaseStartAngle === "number"
+        ? item.tailBaseStartAngle
+        : defaultTailGeometry.tailBaseStartAngle,
+      tailBaseEndAngle: "tailBaseEndAngle" in item && typeof item.tailBaseEndAngle === "number"
+        ? item.tailBaseEndAngle
+        : defaultTailGeometry.tailBaseEndAngle,
+      tailTipX: "tailTipX" in item && typeof item.tailTipX === "number" ? item.tailTipX : defaultTailGeometry.tailTipX,
+      tailTipY: "tailTipY" in item && typeof item.tailTipY === "number" ? item.tailTipY : defaultTailGeometry.tailTipY,
+      tailControlX: "tailControlX" in item && typeof item.tailControlX === "number" ? item.tailControlX : defaultTailGeometry.tailControlX,
+      tailControlY: "tailControlY" in item && typeof item.tailControlY === "number" ? item.tailControlY : defaultTailGeometry.tailControlY,
       text: item.text.slice(0, 500),
       x: Math.min(100 - width / 2, Math.max(width / 2, item.x)),
       y: Math.min(100, Math.max(0, item.y)),
@@ -313,11 +373,13 @@ export function createPageInteractiveMarker(): PageInteractiveMarker {
 }
 
 export function createPageTextOverlay(type: PageTextOverlayType): PageTextOverlay {
+  const tailDirection = "bottom-left";
   return {
     id: crypto.randomUUID(),
     type,
     shape: "speech",
-    tailDirection: "bottom-left",
+    tailDirection,
+    ...getPageTextBalloonTailGeometry(tailDirection),
     text: "",
     x: 50,
     y: 50,

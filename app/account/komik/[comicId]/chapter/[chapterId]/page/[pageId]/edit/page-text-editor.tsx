@@ -10,13 +10,14 @@ import { getInteractiveSound, interactiveSounds } from "@/lib/interactive-sounds
 import {
   createPageInteractiveMarker,
   createPageTextOverlay,
+  getPageTextBalloonTailGeometry,
+  getPageTextBalloonTailPaths,
   getInteractiveEffectDuration,
   getInteractiveSparklePositions,
   PAGE_TEXT_BALLOON_SHAPES,
+  PAGE_TEXT_BALLOON_TAIL_RADIUS_X,
   PAGE_TEXT_FONTS,
-  PAGE_TEXT_BALLOON_TAIL_BASE_PATHS,
   PAGE_TEXT_BALLOON_TAIL_DIRECTIONS,
-  PAGE_TEXT_BALLOON_TAIL_PATHS,
   parsePageTextOverlayDocument,
   serializePageTextOverlayDocument,
   type PageTextImageVerticalAlign,
@@ -42,6 +43,7 @@ const pageTextEmojiGroups = [
 
 type PageRecord = { id: string; chapter_id: string; page_number: number; object_key: string; text_overlays: unknown };
 type ChapterRecord = { id: string; title: string; comic_id: string };
+type BalloonTailHandle = "baseStart" | "baseEnd" | "tip" | "control";
 
 export default function PageTextEditor() {
   const { comicId, chapterId, pageId } = useParams<{ comicId: string; chapterId: string; pageId: string }>();
@@ -69,6 +71,7 @@ export default function PageTextEditor() {
   const textSelectionRef = useRef({ start: 0, end: 0 });
   const dragRef = useRef<{ id: string; pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
   const markerDragRef = useRef<{ id: string; pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
+  const balloonTailDragRef = useRef<{ id: string; handle: BalloonTailHandle; pointerId: number } | null>(null);
   const pendingMarkerAudioKeysRef = useRef(new Set<string>());
   const soundPreviewRef = useRef<HTMLAudioElement | null>(null);
   const effectPreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -448,6 +451,40 @@ export default function PageTextEditor() {
     }
   }
 
+  function startDraggingBalloonTail(
+    event: PointerEvent<SVGCircleElement>,
+    overlay: PageTextOverlay,
+    handle: BalloonTailHandle,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedId(overlay.id);
+    setSelectedMarkerId(null);
+    balloonTailDragRef.current = { id: overlay.id, handle, pointerId: event.pointerId };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function moveBalloonTail(event: PointerEvent<SVGCircleElement>) {
+    const drag = balloonTailDragRef.current;
+    const svg = event.currentTarget.ownerSVGElement;
+    const bounds = svg?.getBoundingClientRect();
+    if (!drag || drag.pointerId !== event.pointerId || !bounds || bounds.width === 0 || bounds.height === 0) return;
+    const x = ((event.clientX - bounds.left) / bounds.width) * 100;
+    const y = ((event.clientY - bounds.top) / bounds.height) * 100;
+    if (drag.handle === "baseStart" || drag.handle === "baseEnd") {
+      const angle = (Math.atan2((y - 50) / 50, (x - 50) / PAGE_TEXT_BALLOON_TAIL_RADIUS_X) * 180 / Math.PI + 360) % 360;
+      updateOverlay(drag.id, drag.handle === "baseStart"
+        ? { tailBaseStartAngle: angle }
+        : { tailBaseEndAngle: angle });
+      return;
+    }
+    const pointX = Math.min(300, Math.max(-200, x));
+    const pointY = Math.min(300, Math.max(-200, y));
+    updateOverlay(drag.id, drag.handle === "tip"
+      ? { tailTipX: pointX, tailTipY: pointY }
+      : { tailControlX: pointX, tailControlY: pointY });
+  }
+
   async function saveOverlays() {
     if (!page || saving || !isDirty) return;
     setSaving(true);
@@ -539,7 +576,12 @@ export default function PageTextEditor() {
               }}
             />
             <div className="page-text-overlay-layer page-text-overlay-edit-layer">
-              {overlays.map((overlay) => (
+              {overlays.map((overlay) => {
+                const isSelected = selectedId === overlay.id;
+                const tailPaths = overlay.type === "balloon" && overlay.shape === "speech"
+                  ? getPageTextBalloonTailPaths(overlay)
+                  : null;
+                return (
                 <div
                   key={overlay.id}
                   className={`page-text-overlay page-text-overlay-${overlay.type}${overlay.showOnMobile ? "" : " page-text-hide-mobile"}${overlay.showOnTablet ? "" : " page-text-hide-tablet"} page-text-font-${overlay.font} page-text-level-${overlay.textLevel}${overlay.bold ? " page-text-bold" : ""}${overlay.italic ? " page-text-italic" : ""}${overlay.underline ? " page-text-underline" : ""}${overlay.type === "balloon" ? ` page-text-balloon-${overlay.shape} page-text-tail-${overlay.tailDirection}` : ""}${selectedId === overlay.id ? " is-selected" : ""}`}
@@ -577,14 +619,48 @@ export default function PageTextEditor() {
                   }}
                 >
                   {overlay.type === "balloon" && overlay.shape === "speech" && (
-                    <svg className="page-text-balloon-tail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                      <path d={PAGE_TEXT_BALLOON_TAIL_PATHS[overlay.tailDirection]} />
-                      <path className="page-text-balloon-tail-base" d={PAGE_TEXT_BALLOON_TAIL_BASE_PATHS[overlay.tailDirection]} />
+                    <svg
+                      className="page-text-balloon-tail"
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                      aria-hidden={!isSelected}
+                    >
+                      <path d={tailPaths?.tail} />
+                      <path className="page-text-balloon-tail-base" d={tailPaths?.base} />
+                      {isSelected && tailPaths && (
+                        <g className="page-text-balloon-tail-handles">
+                          <path
+                            className="page-text-balloon-tail-handle-guide"
+                            d={`M ${tailPaths.tip.x} ${tailPaths.tip.y} L ${tailPaths.control.x} ${tailPaths.control.y}`}
+                          />
+                          {([
+                            ["baseStart", tailPaths.start, "Titik pangkal ekor 1"],
+                            ["baseEnd", tailPaths.end, "Titik pangkal ekor 2"],
+                            ["tip", tailPaths.tip, "Ujung ekor dialog"],
+                            ["control", tailPaths.control, "Lengkungan ekor dialog"],
+                          ] as const).map(([handle, point, label]) => (
+                            <circle
+                              key={handle}
+                              className={`page-text-balloon-tail-handle page-text-balloon-tail-handle-${handle}`}
+                              cx={point.x}
+                              cy={point.y}
+                              r={handle === "tip" ? 3.8 : 3}
+                              aria-label={label}
+                              tabIndex={0}
+                              onPointerDown={(event) => startDraggingBalloonTail(event, overlay, handle)}
+                              onPointerMove={moveBalloonTail}
+                              onPointerUp={() => { balloonTailDragRef.current = null; }}
+                              onPointerCancel={() => { balloonTailDragRef.current = null; }}
+                            />
+                          ))}
+                        </g>
+                      )}
                     </svg>
                   )}
                   <span>{overlay.text || (overlay.type === "balloon" ? "Dialog" : "Narasi")}</span>
                 </div>
-              ))}
+                );
+              })}
               {interactiveMarkers.map((marker, index) => (
                 <button
                   key={marker.id}
@@ -921,15 +997,23 @@ export default function PageTextEditor() {
                     </select>
                   </label>
                   {selectedOverlay.shape !== "inner" && selectedOverlay.shape !== "none" && (
-                    <label>
-                      {selectedOverlay.shape === "thought" ? "Arah gelembung pikiran" : "Arah ujung balon"}
-                      <select
-                        value={selectedOverlay.tailDirection}
-                        onChange={(event) => updateOverlay(selectedOverlay.id, { tailDirection: event.target.value as PageTextOverlay["tailDirection"] })}
-                      >
-                        {PAGE_TEXT_BALLOON_TAIL_DIRECTIONS.map((direction) => <option key={direction.value} value={direction.value}>{direction.label}</option>)}
-                      </select>
-                    </label>
+                    <>
+                      <label>
+                        {selectedOverlay.shape === "thought" ? "Arah gelembung pikiran" : "Posisi pangkal ekor"}
+                        <select
+                          value={selectedOverlay.tailDirection}
+                          onChange={(event) => {
+                            const direction = event.target.value as PageTextOverlay["tailDirection"];
+                            updateOverlay(selectedOverlay.id, { tailDirection: direction, ...getPageTextBalloonTailGeometry(direction) });
+                          }}
+                        >
+                          {PAGE_TEXT_BALLOON_TAIL_DIRECTIONS.map((direction) => <option key={direction.value} value={direction.value}>{direction.label}</option>)}
+                        </select>
+                      </label>
+                      {selectedOverlay.shape === "speech" && (
+                        <p className="page-text-editor-tool-hint">Pilih posisi awal seperti kanan bawah, tengah, atau kiri atas. Setelah itu, tarik dua titik biru untuk menggeser pangkal di kurva, titik oranye untuk panjang dan arah, serta titik ungu untuk lengkungan.</p>
+                      )}
+                    </>
                   )}
                 </>
               )}

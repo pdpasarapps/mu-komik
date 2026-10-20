@@ -707,17 +707,14 @@ button, input, select { font: inherit; }
 .page-text-level-h3 { font-size: clamp(8px, calc(var(--page-text-font-size, 3cqw) * 1.2), 34px); }
 .page-text-overlay-balloon { z-index: 0; min-height: 1.8em; border: max(1px, .22cqw) solid #272a28; border-radius: 48% / 55%; background: #fff; }
 .page-text-overlay-balloon > span { position: relative; z-index: 1; }
-.page-text-balloon-tail { position: absolute; z-index: 0; display: block; overflow: visible; }
-.page-text-balloon-tail path:first-child { fill: #fff; stroke: #272a28; stroke-width: 7; stroke-linejoin: round; }
-.page-text-balloon-tail .page-text-balloon-tail-base { fill: none; stroke: #fff; stroke-width: 13; stroke-linecap: round; }
-.page-text-tail-bottom-left .page-text-balloon-tail { bottom: -30%; left: 7%; width: 28%; height: 42%; }
-.page-text-tail-bottom .page-text-balloon-tail { bottom: -30%; left: 36%; width: 28%; height: 42%; }
-.page-text-tail-bottom-right .page-text-balloon-tail { right: 7%; bottom: -30%; width: 28%; height: 42%; }
-.page-text-tail-top-left .page-text-balloon-tail { top: -30%; left: 7%; width: 28%; height: 42%; }
-.page-text-tail-top .page-text-balloon-tail { top: -30%; left: 36%; width: 28%; height: 42%; }
-.page-text-tail-top-right .page-text-balloon-tail { top: -30%; right: 7%; width: 28%; height: 42%; }
-.page-text-tail-left .page-text-balloon-tail { top: 35%; left: -30%; width: 42%; height: 30%; }
-.page-text-tail-right .page-text-balloon-tail { top: 35%; right: -30%; width: 42%; height: 30%; }
+.page-text-balloon-tail { position: absolute; z-index: 0; inset: 0; display: block; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.page-text-balloon-tail path:first-child { fill: #fff; stroke: #272a28; stroke-width: 2; stroke-linejoin: round; }
+.page-text-balloon-tail .page-text-balloon-tail-base { fill: none; stroke: #fff; stroke-width: 4; stroke-linecap: round; }
+.page-text-balloon-tail-handle-guide { fill: none; stroke: rgba(53,121,155,.7); stroke-width: 1.5; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.page-text-balloon-tail-handle { fill: #fff; stroke: #226f91; stroke-width: 2; vector-effect: non-scaling-stroke; cursor: grab; pointer-events: all; touch-action: none; }
+.page-text-balloon-tail-handle:hover, .page-text-balloon-tail-handle:focus-visible { fill: #e4f7ff; stroke: #f0805d; stroke-width: 3; outline: none; }
+.page-text-balloon-tail-handle-tip { fill: #ffcf9e; stroke: #a85624; }
+.page-text-balloon-tail-handle-control { fill: #e8e1ff; stroke: #6551a1; }
 .page-text-balloon-thought { border-radius: 48% / 55%; background: #fff; }
 .page-text-balloon-thought::before, .page-text-balloon-thought::after { position: absolute; z-index: 1; width: .45em; height: .45em; border: max(1px, .16cqw) solid #272a28; border-radius: 50%; background: #fff; content: ""; }
 .page-text-balloon-thought::before { width: .32em; height: .32em; }
@@ -738,6 +735,10 @@ button, input, select { font: inherit; }
 .page-text-tail-right.page-text-balloon-thought::before { top: 43%; right: -.5em; }
 .page-text-tail-right.page-text-balloon-thought::after { top: 38%; right: -1.05em; }
 .page-text-balloon-inner { border: max(1px, .2cqw) dashed #413b58; border-radius: 22% / 38%; background: #f6f2ff; }
+.page-text-balloon-shout, .page-text-balloon-surprise { overflow: visible; border: 0; border-radius: 0; background: transparent; padding: .8em 1em; }
+.page-text-balloon-shout::before, .page-text-balloon-surprise::before { position: absolute; z-index: 0; inset: 0; background: #fff; content: ""; filter: drop-shadow(0 0 1px #272a28) drop-shadow(0 0 1px #272a28); }
+.page-text-balloon-shout::before { clip-path: polygon(50% 0, 56% 13%, 68% 5%, 68% 19%, 83% 13%, 80% 29%, 97% 28%, 88% 43%, 100% 50%, 87% 57%, 96% 72%, 81% 72%, 84% 88%, 68% 81%, 63% 98%, 51% 86%, 41% 100%, 37% 84%, 22% 94%, 24% 78%, 7% 80%, 16% 64%, 0 58%, 13% 49%, 3% 37%, 18% 34%, 13% 18%, 29% 23%, 30% 7%, 43% 17%); }
+.page-text-balloon-surprise::before { clip-path: polygon(50% 0, 55% 12%, 63% 3%, 65% 16%, 75% 8%, 74% 21%, 86% 16%, 82% 29%, 96% 28%, 88% 39%, 100% 47%, 88% 53%, 98% 64%, 84% 66%, 91% 79%, 77% 77%, 79% 92%, 66% 84%, 60% 100%, 52% 87%, 42% 99%, 38% 85%, 26% 94%, 27% 80%, 13% 84%, 18% 70%, 3% 70%, 14% 58%, 0 50%, 14% 44%, 4% 33%, 19% 32%, 13% 18%, 27% 22%, 27% 7%, 39% 16%, 44% 1%); }
 .page-text-balloon-none { border: 0; border-radius: 0; background: transparent; }
 .page-text-overlay-narration { min-height: 1.6em; border: max(1px, .18cqw) solid #342d20; border-radius: 2px; background: #fff4d7; }
 .page-text-overlay-edit-layer { pointer-events: none; }
