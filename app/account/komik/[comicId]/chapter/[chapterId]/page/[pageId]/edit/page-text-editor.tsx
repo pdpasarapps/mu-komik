@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
-import { ArrowLeft, Bold, Eye, EyeOff, Italic, LoaderCircle, MessageSquareText, Plus, Save, Smile, Trash2, Type, Underline } from "lucide-react";
+import { ArrowLeft, Bold, Eye, EyeOff, Italic, LoaderCircle, MessageSquareText, MousePointer2, Plus, Save, Smile, Trash2, Type, Underline, Volume2 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
+  createPageInteractiveMarker,
   createPageTextOverlay,
   PAGE_TEXT_BALLOON_SHAPES,
   PAGE_TEXT_FONTS,
@@ -16,6 +17,8 @@ import {
   parsePageTextOverlayDocument,
   serializePageTextOverlayDocument,
   type PageTextImageVerticalAlign,
+  type PageInteractiveEffect,
+  type PageInteractiveMarker,
   type PageTextOverlay,
   type PageTextOverlayType,
 } from "@/lib/page-text-overlays";
@@ -44,8 +47,10 @@ export default function PageTextEditor() {
   const [chapter, setChapter] = useState<ChapterRecord | null>(null);
   const [comicTitle, setComicTitle] = useState("");
   const [overlays, setOverlays] = useState<PageTextOverlay[]>([]);
+  const [interactiveMarkers, setInteractiveMarkers] = useState<PageInteractiveMarker[]>([]);
   const [imageVerticalAlign, setImageVerticalAlign] = useState<PageTextImageVerticalAlign>("center");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [previewDevice, setPreviewDevice] = useState<"mobile" | "tablet">("mobile");
   const [pageAspectRatio, setPageAspectRatio] = useState(3 / 4);
   const [loading, setLoading] = useState(true);
@@ -54,13 +59,17 @@ export default function PageTextEditor() {
   const [message, setMessage] = useState("");
   const [savedDocument, setSavedDocument] = useState("");
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [uploadingMarkerAudio, setUploadingMarkerAudio] = useState(false);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const textSelectionRef = useRef({ start: 0, end: 0 });
   const dragRef = useRef<{ id: string; pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
+  const markerDragRef = useRef<{ id: string; pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
+  const pendingMarkerAudioKeysRef = useRef(new Set<string>());
   const selectedOverlay = overlays.find((overlay) => overlay.id === selectedId) ?? null;
+  const selectedMarker = interactiveMarkers.find((marker) => marker.id === selectedMarkerId) ?? null;
   const imageUrl = page && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${page.object_key}` : null;
   const backHref = `/account/komik/${encodeURIComponent(comicId)}`;
-  const isDirty = serializePageTextOverlayDocument({ overlays, imageVerticalAlign }) !== savedDocument;
+  const isDirty = serializePageTextOverlayDocument({ overlays, interactiveMarkers, imageVerticalAlign }) !== savedDocument;
 
   useEffect(() => {
     if (!isDirty) return;
@@ -155,6 +164,7 @@ export default function PageTextEditor() {
         setChapter(chapterData);
         setComicTitle(comicData.title);
         setOverlays(storedOverlays);
+        setInteractiveMarkers(storedDocument.interactiveMarkers);
         setImageVerticalAlign(storedDocument.imageVerticalAlign);
         setSavedDocument(serializePageTextOverlayDocument(storedDocument));
         setSelectedId(storedOverlays[0]?.id ?? null);
@@ -188,6 +198,7 @@ export default function PageTextEditor() {
   function addOverlay(type: PageTextOverlayType) {
     const overlay = createPageTextOverlay(type);
     setOverlays((current) => [...current, overlay]);
+    setSelectedMarkerId(null);
     setSelectedId(overlay.id);
     setMessage("");
   }
@@ -201,6 +212,123 @@ export default function PageTextEditor() {
     setOverlays((current) => current.filter((overlay) => overlay.id !== id));
     setSelectedId((current) => current === id ? null : current);
     setMessage("");
+  }
+
+  function updateInteractiveMarker(id: string, updates: Partial<Omit<PageInteractiveMarker, "id">>) {
+    setInteractiveMarkers((current) => current.map((marker) => {
+      if (marker.id !== id) return marker;
+      const updated = { ...marker, ...updates };
+      if (updates.width !== undefined || updates.x !== undefined) updated.x = Math.min(100 - updated.width / 2, Math.max(updated.width / 2, updated.x));
+      if (updates.height !== undefined || updates.y !== undefined) updated.y = Math.min(100 - updated.height / 2, Math.max(updated.height / 2, updated.y));
+      return updated;
+    }));
+    setMessage("");
+  }
+
+  function addInteractiveMarker() {
+    const marker = createPageInteractiveMarker();
+    setInteractiveMarkers((current) => [...current, marker]);
+    setSelectedId(null);
+    setSelectedMarkerId(marker.id);
+    setMessage("");
+  }
+
+  async function deleteUnattachedMarkerAudio(objectKey: string) {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (sessionError || !token) {
+      if (sessionError) console.error("Unable to verify session for marker audio cleanup:", sessionError);
+      return false;
+    }
+    const response = await fetch("/api/r2/page-interactive-audio", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ pageId: page?.id, objectKey }),
+    });
+    if (!response.ok) {
+      console.error("Unable to clean up unused marker audio:", await response.text());
+      return false;
+    }
+    return true;
+  }
+
+  async function removeInteractiveMarker(id: string) {
+    const marker = interactiveMarkers.find((item) => item.id === id);
+    setInteractiveMarkers((current) => current.filter((item) => item.id !== id));
+    setSelectedMarkerId((current) => current === id ? null : current);
+    setMessage("");
+    if (!marker?.soundObjectKey) return;
+    const savedKeys = new Set(parsePageTextOverlayDocument(JSON.parse(savedDocument)).interactiveMarkers.map((item) => item.soundObjectKey));
+    if (!savedKeys.has(marker.soundObjectKey)) {
+      if (!await deleteUnattachedMarkerAudio(marker.soundObjectKey)) {
+        setMessage("Area dihapus, tetapi berkas suara yang belum disimpan belum dapat dibersihkan.");
+      } else {
+        pendingMarkerAudioKeysRef.current.delete(marker.soundObjectKey);
+      }
+    }
+  }
+
+  function startDraggingMarker(event: PointerEvent<HTMLButtonElement>, marker: PageInteractiveMarker) {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedId(null);
+    setSelectedMarkerId(marker.id);
+    const bounds = event.currentTarget.parentElement?.getBoundingClientRect();
+    if (!bounds) return;
+    markerDragRef.current = {
+      id: marker.id,
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      left: marker.x,
+      top: marker.y,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function moveInteractiveMarker(event: PointerEvent<HTMLButtonElement>) {
+    const drag = markerDragRef.current;
+    const bounds = event.currentTarget.parentElement?.getBoundingClientRect();
+    if (!drag || drag.pointerId !== event.pointerId || !bounds) return;
+    const marker = interactiveMarkers.find((item) => item.id === drag.id);
+    if (!marker) return;
+    updateInteractiveMarker(marker.id, {
+      x: Math.min(100 - marker.width / 2, Math.max(marker.width / 2, drag.left + ((event.clientX - drag.x) / bounds.width) * 100)),
+      y: Math.min(100 - marker.height / 2, Math.max(marker.height / 2, drag.top + ((event.clientY - drag.y) / bounds.height) * 100)),
+    });
+  }
+
+  async function uploadMarkerAudio(file: File) {
+    if (!page || !selectedMarker) return;
+    setUploadingMarkerAudio(true);
+    setError("");
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (sessionError || !token) throw new Error("Sesi kreator tidak dapat diverifikasi. Silakan masuk kembali.");
+      const form = new FormData();
+      form.append("pageId", page.id);
+      form.append("file", file);
+      const response = await fetch("/api/r2/page-interactive-audio", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const result: unknown = await response.json();
+      if (!response.ok || !result || typeof result !== "object" || !("objectKey" in result) || typeof result.objectKey !== "string") {
+        throw new Error(result && typeof result === "object" && "error" in result && typeof result.error === "string"
+          ? result.error
+          : "Suara interaktif gagal diunggah.");
+      }
+      pendingMarkerAudioKeysRef.current.add(result.objectKey);
+      updateInteractiveMarker(selectedMarker.id, { soundObjectKey: result.objectKey });
+      setMessage("Suara marker berhasil diunggah. Simpan perubahan halaman untuk menerapkannya.");
+    } catch (uploadError) {
+      console.error("Unable to upload interactive marker sound:", uploadError);
+      setError(uploadError instanceof Error ? uploadError.message : "Suara interaktif gagal diunggah.");
+    } finally {
+      setUploadingMarkerAudio(false);
+    }
   }
 
   function updateTextSelection(textarea: HTMLTextAreaElement) {
@@ -267,20 +395,41 @@ export default function PageTextEditor() {
     setSaving(true);
     setError("");
     setMessage("");
-    const document = { overlays, imageVerticalAlign };
+    const document = { overlays, interactiveMarkers, imageVerticalAlign };
     const serializedDocument = serializePageTextOverlayDocument(document);
     const result = await supabase.from("pages").update({ text_overlays: JSON.parse(serializedDocument) }).eq("id", page.id).select("id").maybeSingle();
     if (result.error || !result.data) {
       if (result.error) console.error("Unable to save page text overlays:", result.error);
-      setError(result.error?.code === "42703" || result.error?.code === "PGRST204"
+      setError(result.error?.code === "23514"
+        ? "Database menolak format teks halaman terbaru. Jalankan supabase/page-text-overlays.sql, lalu coba simpan lagi."
+        : result.error?.code === "42703" || result.error?.code === "PGRST204"
         ? "Kolom teks halaman belum tersedia. Jalankan supabase/page-text-overlays.sql terlebih dahulu."
         : "Perubahan teks halaman gagal disimpan. Pastikan Anda memiliki akses kreator untuk komik ini lalu coba lagi.");
       setSaving(false);
       return;
     }
+    const previousDocument = parsePageTextOverlayDocument(JSON.parse(savedDocument));
     setSavedDocument(serializedDocument);
     setMessage("Teks halaman berhasil disimpan.");
     setSaving(false);
+    const nextAudioKeys = new Set(interactiveMarkers.map((marker) => marker.soundObjectKey).filter((key): key is string => key !== null));
+    const removedAudioKeys = new Set(previousDocument.interactiveMarkers
+      .map((marker) => marker.soundObjectKey)
+      .filter((key): key is string => key !== null && !nextAudioKeys.has(key)));
+    for (const key of pendingMarkerAudioKeysRef.current) {
+      if (!nextAudioKeys.has(key)) removedAudioKeys.add(key);
+    }
+    if (removedAudioKeys.size) {
+      const cleanupResults = await Promise.all([...removedAudioKeys].map(async (key) => ({
+        key,
+        cleaned: await deleteUnattachedMarkerAudio(key),
+      })));
+      cleanupResults.filter(({ cleaned }) => cleaned).forEach(({ key }) => pendingMarkerAudioKeysRef.current.delete(key));
+      if (cleanupResults.some(({ cleaned }) => !cleaned)) {
+        setMessage("Perubahan tersimpan, tetapi beberapa berkas suara lama belum dapat dibersihkan.");
+      }
+    }
+    nextAudioKeys.forEach((key) => pendingMarkerAudioKeysRef.current.delete(key));
   }
 
   if (loading) {
@@ -349,7 +498,7 @@ export default function PageTextEditor() {
                   role="button"
                   tabIndex={0}
                   aria-label={`Pindahkan ${overlay.type === "balloon" ? "balon dialog" : "narasi"}: ${overlay.text || "teks kosong"}`}
-                  onClick={() => setSelectedId(overlay.id)}
+                  onClick={() => { setSelectedId(overlay.id); setSelectedMarkerId(null); }}
                   onPointerDown={(event) => startDragging(event, overlay)}
                   onPointerMove={moveOverlay}
                   onPointerUp={() => { dragRef.current = null; }}
@@ -378,6 +527,27 @@ export default function PageTextEditor() {
                   <span>{overlay.text || (overlay.type === "balloon" ? "Dialog" : "Narasi")}</span>
                 </div>
               ))}
+              {interactiveMarkers.map((marker, index) => (
+                <button
+                  key={marker.id}
+                  type="button"
+                  className={`page-interactive-marker page-interactive-marker-edit${selectedMarkerId === marker.id ? " is-selected" : ""}`}
+                  aria-label={`Pindahkan area interaktif ${index + 1}`}
+                  style={{
+                    left: `${marker.x}%`,
+                    top: `${marker.y}%`,
+                    width: `${marker.width}%`,
+                    height: `${marker.height}%`,
+                  }}
+                  onPointerDown={(event) => startDraggingMarker(event, marker)}
+                  onPointerMove={moveInteractiveMarker}
+                  onPointerUp={() => { markerDragRef.current = null; }}
+                  onPointerCancel={() => { markerDragRef.current = null; }}
+                  onClick={() => { setSelectedMarkerId(marker.id); setSelectedId(null); }}
+                >
+                  <span aria-hidden="true"><MousePointer2 size={17} /></span>
+                </button>
+              ))}
             </div>
           </div>
         </section>
@@ -387,6 +557,7 @@ export default function PageTextEditor() {
           <div className="page-text-editor-add-actions">
             <button type="button" onClick={() => addOverlay("balloon")}><MessageSquareText size={17} /> Balon dialog</button>
             <button type="button" onClick={() => addOverlay("narration")}><Plus size={17} /> Kotak narasi</button>
+            <button type="button" className="page-text-editor-marker-action" onClick={addInteractiveMarker}><MousePointer2 size={17} /> Area interaktif</button>
           </div>
           <p className="page-text-editor-tool-hint">Geser teks di pratinjau. Gunakan tombol panah setelah memilih teks untuk mengatur posisi lebih presisi.</p>
           <label className="page-text-editor-page-setting">
@@ -401,9 +572,9 @@ export default function PageTextEditor() {
               <option value="bottom">Bawah</option>
             </select>
           </label>
-          {overlays.length > 0 && (
-            <section className="page-text-overlay-list" aria-label="Lapisan teks halaman">
-              <h3>Lapisan teks ({overlays.length})</h3>
+          {(overlays.length > 0 || interactiveMarkers.length > 0) && (
+            <section className="page-text-overlay-list" aria-label="Lapisan halaman">
+              <h3>Lapisan halaman ({overlays.length + interactiveMarkers.length})</h3>
               <ul>
                 {overlays.map((overlay, index) => {
                   const visible = previewDevice === "mobile" ? overlay.showOnMobile : overlay.showOnTablet;
@@ -412,9 +583,9 @@ export default function PageTextEditor() {
                       <button
                         type="button"
                         className="page-text-overlay-list-select"
-                        aria-pressed={selectedId === overlay.id}
+                        aria-pressed={selectedId === overlay.id && !selectedMarkerId}
                         aria-label={`Pilih ${overlay.type === "balloon" ? "balon dialog" : "narasi"} ${index + 1}, ${visible ? "tampil" : "disembunyikan"} di ${previewDevice === "mobile" ? "ponsel" : "tablet"}`}
-                        onClick={() => setSelectedId(overlay.id)}
+                        onClick={() => { setSelectedId(overlay.id); setSelectedMarkerId(null); }}
                       >
                         {visible ? <Eye size={15} aria-hidden="true" /> : <EyeOff size={15} aria-hidden="true" />}
                         <span>{index + 1}. {overlay.type === "balloon" ? "Balon" : "Narasi"} — {overlay.text.trim() || "Teks kosong"}</span>
@@ -428,13 +599,124 @@ export default function PageTextEditor() {
                     </li>
                   );
                 })}
+                {interactiveMarkers.map((marker, index) => (
+                  <li key={marker.id}>
+                    <button
+                      type="button"
+                      className="page-text-overlay-list-select"
+                      aria-pressed={selectedMarkerId === marker.id}
+                      aria-label={`Pilih area interaktif ${index + 1}`}
+                      onClick={() => { setSelectedMarkerId(marker.id); setSelectedId(null); }}
+                    >
+                      <MousePointer2 size={15} aria-hidden="true" />
+                      <span>{index + 1}. Area interaktif{marker.soundObjectKey ? " · suara" : ""} · efek {marker.effect}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="page-text-editor-delete"
+                      aria-label={`Hapus area interaktif ${index + 1}`}
+                      onClick={() => void removeInteractiveMarker(marker.id)}
+                    ><Trash2 size={15} /></button>
+                  </li>
+                ))}
               </ul>
               <p className="page-text-editor-tool-hint">
                 {previewDevice === "mobile" ? "Ponsel" : "Tablet"}: ikon mata menandai teks yang tampil pada pratinjau ini.
               </p>
             </section>
           )}
-          {selectedOverlay ? (
+          {selectedMarker ? (
+            <div className="page-text-editor-selected">
+              <div className="page-text-editor-selected-title">
+                <MousePointer2 size={17} />
+                <h3>Area interaktif</h3>
+                <button
+                  type="button"
+                  className="page-text-editor-delete"
+                  aria-label="Hapus area interaktif terpilih"
+                  onClick={() => void removeInteractiveMarker(selectedMarker.id)}
+                ><Trash2 size={16} /></button>
+              </div>
+              <p className="page-text-editor-tool-hint">Geser area pada pratinjau. Area transparan ini menjalankan aksi saat diketuk pembaca.</p>
+              <label>
+                Efek visual
+                <select
+                  value={selectedMarker.effect}
+                  onChange={(event) => updateInteractiveMarker(selectedMarker.id, { effect: event.target.value as PageInteractiveEffect })}
+                >
+                  <option value="none">Tanpa efek</option>
+                  <option value="sparkle">Kilau</option>
+                  <option value="impact">Benturan</option>
+                  <option value="shake">Getar</option>
+                </select>
+              </label>
+              <label>
+                Posisi horizontal
+                <input
+                  type="range"
+                  min={selectedMarker.width / 2}
+                  max={100 - selectedMarker.width / 2}
+                  step="0.5"
+                  value={selectedMarker.x}
+                  onChange={(event) => updateInteractiveMarker(selectedMarker.id, { x: Number(event.target.value) })}
+                />
+              </label>
+              <label>
+                Posisi vertikal
+                <input
+                  type="range"
+                  min={selectedMarker.height / 2}
+                  max={100 - selectedMarker.height / 2}
+                  step="0.5"
+                  value={selectedMarker.y}
+                  onChange={(event) => updateInteractiveMarker(selectedMarker.id, { y: Number(event.target.value) })}
+                />
+              </label>
+              <label>
+                Lebar area
+                <input
+                  type="range"
+                  min="5"
+                  max="100"
+                  step="1"
+                  value={selectedMarker.width}
+                  onChange={(event) => updateInteractiveMarker(selectedMarker.id, { width: Number(event.target.value) })}
+                />
+              </label>
+              <label>
+                Tinggi area
+                <input
+                  type="range"
+                  min="5"
+                  max="100"
+                  step="1"
+                  value={selectedMarker.height}
+                  onChange={(event) => updateInteractiveMarker(selectedMarker.id, { height: Number(event.target.value) })}
+                />
+              </label>
+              <label className="page-text-marker-audio-upload">
+                <span>Suara (MP3, maks. 10 MB)</span>
+                <input
+                  type="file"
+                  accept="audio/mpeg,.mp3"
+                  disabled={uploadingMarkerAudio}
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    event.currentTarget.value = "";
+                    if (file) void uploadMarkerAudio(file);
+                  }}
+                />
+              </label>
+              {uploadingMarkerAudio && <p className="page-text-editor-tool-hint" role="status">Mengunggah suara...</p>}
+              {selectedMarker.soundObjectKey && (
+                <div className="page-text-marker-audio-actions">
+                  <span><Volume2 size={15} /> Suara MP3 terpasang</span>
+                  <button type="button" onClick={() => updateInteractiveMarker(selectedMarker.id, { soundObjectKey: null })}>Lepas suara</button>
+                </div>
+              )}
+              <p className="page-text-editor-tool-hint">Efek suara tidak diputar otomatis; pembaca perlu mengetuk area marker.</p>
+            </div>
+          ) : selectedOverlay ? (
             <div className="page-text-editor-selected">
               <div className="page-text-editor-selected-title">
                 {selectedOverlay.type === "balloon" ? <MessageSquareText size={17} /> : <Type size={17} />}

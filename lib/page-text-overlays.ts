@@ -85,8 +85,21 @@ export type PageTextOverlay = {
   underline: boolean;
 };
 
+export type PageInteractiveEffect = "none" | "sparkle" | "impact" | "shake";
+
+export type PageInteractiveMarker = {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  soundObjectKey: string | null;
+  effect: PageInteractiveEffect;
+};
+
 export type PageTextOverlayDocument = {
   overlays: PageTextOverlay[];
+  interactiveMarkers: PageInteractiveMarker[];
   imageVerticalAlign: PageTextImageVerticalAlign;
 };
 
@@ -186,22 +199,59 @@ export function parsePageTextOverlayDocument(value: unknown): PageTextOverlayDoc
     const legacyAlign = value.find((item) => item && typeof item === "object" && "imageVerticalAlign" in item)?.imageVerticalAlign;
     return {
       overlays,
+      interactiveMarkers: [],
       imageVerticalAlign: isPageTextImageVerticalAlign(legacyAlign) ? legacyAlign : "center",
     };
   }
   if (!value || typeof value !== "object" || !("overlays" in value)) {
-    if (value == null) return { overlays: [], imageVerticalAlign: "center" };
+    if (value == null) return { overlays: [], interactiveMarkers: [], imageVerticalAlign: "center" };
     throw new Error("Pengaturan teks halaman tidak valid.");
   }
   if ("imageVerticalAlign" in value && value.imageVerticalAlign !== undefined && !isPageTextImageVerticalAlign(value.imageVerticalAlign)) {
     throw new Error("Posisi gambar halaman tidak valid.");
   }
+  const interactiveMarkers = "interactiveMarkers" in value && value.interactiveMarkers !== undefined
+    ? parsePageInteractiveMarkers(value.interactiveMarkers)
+    : [];
   return {
     overlays: parsePageTextOverlays(value.overlays),
+    interactiveMarkers,
     imageVerticalAlign: "imageVerticalAlign" in value && isPageTextImageVerticalAlign(value.imageVerticalAlign)
       ? value.imageVerticalAlign
       : "center",
   };
+}
+
+export function parsePageInteractiveMarkers(value: unknown): PageInteractiveMarker[] {
+  if (value == null) return [];
+  if (!Array.isArray(value)) throw new Error("Area interaktif halaman harus berupa daftar.");
+  return value.map((item, index) => {
+    if (!item || typeof item !== "object"
+      || !("id" in item) || typeof item.id !== "string" || !item.id
+      || !("x" in item) || typeof item.x !== "number" || !Number.isFinite(item.x)
+      || !("y" in item) || typeof item.y !== "number" || !Number.isFinite(item.y)
+      || !("width" in item) || typeof item.width !== "number" || !Number.isFinite(item.width)
+      || !("height" in item) || typeof item.height !== "number" || !Number.isFinite(item.height)
+      || "soundObjectKey" in item && item.soundObjectKey !== null && item.soundObjectKey !== undefined && typeof item.soundObjectKey !== "string"
+      || "soundObjectKey" in item && typeof item.soundObjectKey === "string"
+        && !/^comics\/[a-f0-9-]{36}\/chapters\/[a-f0-9-]{36}\/pages\/[a-f0-9-]{36}\/interactive\/[a-f0-9-]{36}\.mp3$/i.test(item.soundObjectKey)
+      || "effect" in item && item.effect !== undefined && item.effect !== "none"
+        && item.effect !== "sparkle" && item.effect !== "impact" && item.effect !== "shake"
+    ) {
+      throw new Error(`Area interaktif halaman ke-${index + 1} tidak valid.`);
+    }
+    const width = Math.min(100, Math.max(5, item.width));
+    const height = Math.min(100, Math.max(5, item.height));
+    return {
+      id: item.id,
+      x: Math.min(100 - width / 2, Math.max(width / 2, item.x)),
+      y: Math.min(100 - height / 2, Math.max(height / 2, item.y)),
+      width,
+      height,
+      soundObjectKey: "soundObjectKey" in item && typeof item.soundObjectKey === "string" ? item.soundObjectKey : null,
+      effect: "effect" in item && item.effect ? item.effect as PageInteractiveEffect : "sparkle",
+    };
+  });
 }
 
 export function serializePageTextOverlayDocument(document: PageTextOverlayDocument): string {
@@ -209,7 +259,20 @@ export function serializePageTextOverlayDocument(document: PageTextOverlayDocume
     version: 1,
     imageVerticalAlign: document.imageVerticalAlign,
     overlays: document.overlays,
+    interactiveMarkers: document.interactiveMarkers,
   });
+}
+
+export function createPageInteractiveMarker(): PageInteractiveMarker {
+  return {
+    id: crypto.randomUUID(),
+    x: 50,
+    y: 50,
+    width: 24,
+    height: 18,
+    soundObjectKey: null,
+    effect: "sparkle",
+  };
 }
 
 export function createPageTextOverlay(type: PageTextOverlayType): PageTextOverlay {

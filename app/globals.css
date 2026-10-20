@@ -641,6 +641,7 @@ button, input, select { font: inherit; }
 .page-text-editor-tools > h2 { margin: 0; color: var(--ink); font-size: .95rem; }
 .page-text-editor-add-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .page-text-editor-add-actions button { min-width: 0; min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line); border-radius: 7px; background: #f7f8f6; color: #195748; font-size: .7rem; font-weight: 750; cursor: pointer; }
+.page-text-editor-add-actions .page-text-editor-marker-action { grid-column: 1 / -1; border-color: #a8c6d4; background: #f1f7fa; color: #315c72; }
 .page-text-editor-tool-hint, .page-text-editor-empty { margin: 0; color: #758079; font-size: .71rem; line-height: 1.55; }
 .page-text-editor-page-setting { display: grid; gap: 5px; color: #65716a; font-size: .7rem; font-weight: 700; }
 .page-text-editor-page-setting select { min-height: 38px; border: 1px solid var(--line); border-radius: 6px; padding: 0 8px; background: #fff; color: var(--ink); font: inherit; }
@@ -657,6 +658,10 @@ button, input, select { font: inherit; }
 .page-text-editor-selected-title h3 { flex: 1; margin: 0; color: var(--ink); font-size: .8rem; }
 .page-text-editor-delete { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #f0d3ce; border-radius: 6px; background: #fff6f4; color: #aa4132; cursor: pointer; }
 .page-text-editor-selected > label { display: grid; gap: 6px; color: #35443c; font-size: .7rem; font-weight: 750; }
+.page-text-editor-selected > label input[type="file"] { width: 100%; box-sizing: border-box; font-size: .68rem; }
+.page-text-marker-audio-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #42634e; font-size: .68rem; }
+.page-text-marker-audio-actions span { display: inline-flex; align-items: center; gap: 5px; }
+.page-text-marker-audio-actions button { border: 0; background: transparent; color: #9b3c31; font: inherit; font-weight: 700; cursor: pointer; }
 .page-text-editor-selected textarea, .page-text-editor-selected select { width: 100%; min-height: 40px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 6px; padding: 9px; background: #fff; color: var(--ink); font: inherit; font-weight: 500; line-height: 1.5; }
 .page-text-editor-selected textarea { min-height: 94px; resize: vertical; }
 .page-text-color-control { display: flex; align-items: center; gap: 9px; min-height: 40px; }
@@ -739,9 +744,28 @@ button, input, select { font: inherit; }
 .page-text-overlay-edit-layer .page-text-overlay { pointer-events: auto; cursor: grab; touch-action: none; user-select: none; }
 .page-text-overlay-edit-layer .page-text-overlay:active { cursor: grabbing; }
 .page-text-overlay-edit-layer .page-text-overlay.is-selected { outline: max(2px, .32cqw) solid #f0805d; outline-offset: max(1px, .18cqw); }
+.page-interactive-marker-layer { position: absolute; z-index: 4; inset: 0; pointer-events: none; }
+.page-interactive-marker { position: absolute; display: grid; place-items: center; box-sizing: border-box; transform: translate(-50%, -50%); border: 0; border-radius: 0; padding: 0; background: transparent; color: #fff; cursor: pointer; pointer-events: auto; }
+.page-interactive-marker > span { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 50%; background: rgba(18,30,34,.62); box-shadow: 0 1px 5px rgba(0,0,0,.25); color: #fff; font-size: 1rem; line-height: 1; opacity: .78; }
+.page-interactive-marker:hover > span, .page-interactive-marker:focus-visible > span { opacity: 1; outline: 2px solid #d9f2ff; outline-offset: 2px; }
+.page-interactive-marker-edit { z-index: 1; touch-action: none; user-select: none; }
+.page-interactive-marker-edit > span { width: 30px; height: 30px; background: rgba(20,53,70,.82); color: #e9f8ff; }
+.page-interactive-marker-edit.is-selected > span { background: #a85624; outline: 2px solid #ffcf9e; outline-offset: 2px; opacity: 1; }
+.page-interactive-marker.is-active.page-interactive-marker-sparkle > span, .page-interactive-marker.is-active.page-interactive-marker-impact > span { animation: page-interactive-marker-pop .75s ease-out; }
+.page-interactive-marker.is-active.page-interactive-marker-sparkle::after, .page-interactive-marker.is-active.page-interactive-marker-impact::after { position: absolute; top: 50%; left: 50%; content: "✨"; font-size: clamp(1.3rem, 4cqw, 3rem); pointer-events: none; animation: page-interactive-marker-burst .8s ease-out both; }
+.page-interactive-marker.is-active.page-interactive-marker-impact::after { content: "💥"; }
+.page-interactive-marker.is-active.page-interactive-marker-shake { animation: page-interactive-marker-shake .45s ease-in-out; }
+@keyframes page-interactive-marker-pop { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.18); } }
+@keyframes page-interactive-marker-burst { from { opacity: 1; transform: translate(-50%, -50%) scale(.35) rotate(-15deg); } to { opacity: 0; transform: translate(-50%, -50%) scale(1.6) rotate(15deg); } }
+@keyframes page-interactive-marker-shake { 25% { transform: translate(calc(-50% - 4px), -50%); } 75% { transform: translate(calc(-50% + 4px), -50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .page-interactive-marker.is-active { animation: none !important; }
+  .page-interactive-marker.is-active::after, .page-interactive-marker.is-active > span { animation: none !important; }
+}
 html[data-theme="dark"] .page-text-editor-canvas-panel { border-color: #3a433e; }
 html[data-theme="dark"] .page-text-editor-tools { border-color: var(--line); background: #222825; }
 html[data-theme="dark"] .page-text-editor-add-actions button { border-color: var(--line); background: #293831; color: #b8e2d1; }
+html[data-theme="dark"] .page-text-editor-add-actions .page-text-editor-marker-action { border-color: #476c7c; background: #253840; color: #c7eafa; }
 html[data-theme="dark"] .page-text-editor-page-setting { color: #c8d2cb; }
 html[data-theme="dark"] .page-text-editor-page-setting select, html[data-theme="dark"] .page-text-overlay-list-select { border-color: var(--line); background: #171c19; color: var(--ink); }
 html[data-theme="dark"] .page-text-overlay-list-select[aria-pressed="true"] { border-color: #79b7a2; background: #293831; color: #b8e2d1; }
@@ -757,6 +781,7 @@ html[data-theme="dark"] .page-text-emoji-group h4 { background: #293831; color: 
 html[data-theme="dark"] .page-text-emoji-picker button:hover:not(:disabled), html[data-theme="dark"] .page-text-emoji-picker button:focus-visible { border-color: #587b68; background: #171c19; }
 html[data-theme="dark"] .page-text-editor-back { color: #b8c4bc; }
 html[data-theme="dark"] .page-text-editor-delete { border-color: #6a3c36; background: #392623; }
+html[data-theme="dark"] .page-text-marker-audio-actions { color: #b8e2d1; }
 @media (max-width: 800px) {
   .page-text-editor-workspace { grid-template-columns: minmax(0,1fr); }
   .page-text-editor-tools { grid-template-columns: minmax(0,1fr); }

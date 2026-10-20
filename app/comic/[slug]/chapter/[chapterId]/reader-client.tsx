@@ -8,20 +8,21 @@ import { createClient } from "@/lib/supabase/client";
 import SponsoredAd from "@/components/sponsored-ad";
 import BrandLogo from "@/components/brand-logo";
 import DeviceUnavailableNotice from "@/components/device-unavailable-notice";
+import PageInteractiveMarkerLayer from "@/components/page-interactive-marker-layer";
 import { useCurrentDevice } from "@/components/use-current-device";
 import { COMIC_TARGET_DEVICES, isComicAvailableOnDevice, type ComicTargetDevice } from "@/lib/comic-target-device";
 import { useReaderMembership } from "@/app/membership-runtime";
 import { KidsModeToggle, useKidsMode } from "@/app/platform-runtime";
 import { parseChapterSubtitles, type ChapterSubtitleCue } from "@/lib/chapter-subtitles";
 import PageTextOverlayLayer from "@/components/page-text-overlay-layer";
-import { parsePageTextOverlayDocument, type PageTextImageVerticalAlign, type PageTextOverlay } from "@/lib/page-text-overlays";
+import { parsePageTextOverlayDocument, type PageInteractiveMarker, type PageTextImageVerticalAlign, type PageTextOverlay } from "@/lib/page-text-overlays";
 
 const supabase = createClient();
 const TRANSITION_AD_LOAD_TIMEOUT_MS = 2000;
 const READER_LOAD_TIMEOUT_MS = 8000;
 const BOOK_TURN_SPREAD_COMMIT_DELAY_MS = 340;
 
-type Page = { id: string; page_number: number; object_key: string; text_overlays: PageTextOverlay[]; image_vertical_align: PageTextImageVerticalAlign };
+type Page = { id: string; page_number: number; object_key: string; text_overlays: PageTextOverlay[]; interactive_markers: PageInteractiveMarker[]; image_vertical_align: PageTextImageVerticalAlign };
 type Chapter = {
   id: string;
   title: string;
@@ -344,6 +345,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
             page_number: page.page_number,
             object_key: page.object_key,
             text_overlays: pageText.overlays,
+            interactive_markers: pageText.interactiveMarkers,
             image_vertical_align: pageText.imageVerticalAlign,
           });
           pagesByChapter.set(page.chapter_id, chapterPages);
@@ -1074,7 +1076,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                           currentChapterRead && <div data-reader-stop="episode-end">{episodeEndContent}</div>
                         ) : page && src ? (
                           <div
-                            className={`reader-book-page-art${page.text_overlays.length ? " reader-page-art-with-text-overlays" : ""}`}
+                            className={`reader-book-page-art${page.text_overlays.length || page.interactive_markers.length ? " reader-page-art-with-text-overlays" : ""}`}
                             style={{ "--reader-page-aspect-ratio": pageAspectRatios[page.id] ?? 0.75 } as CSSProperties}
                           >
                             <img
@@ -1093,6 +1095,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                               }}
                             />
                             <PageTextOverlayLayer overlays={page.text_overlays} />
+                            <PageInteractiveMarkerLayer markers={page.interactive_markers} />
                             {activeSubtitlePageId === page.id && activeSubtitle && (
                               <p className="reader-page-subtitle reader-book-page-subtitle" aria-live="polite">{activeSubtitle}</p>
                             )}
@@ -1146,7 +1149,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                       {src
                         ? (
                           <div
-                            className={`reader-page-art${page.text_overlays.length ? " reader-page-art-with-text-overlays" : ""}`}
+                            className={`reader-page-art${page.text_overlays.length || page.interactive_markers.length ? " reader-page-art-with-text-overlays" : ""}`}
                             style={{ "--reader-page-aspect-ratio": pageAspectRatios[page.id] ?? 0.75 } as CSSProperties}
                           >
                             <img
@@ -1166,6 +1169,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                               }}
                             />
                             <PageTextOverlayLayer overlays={page.text_overlays} />
+                            <PageInteractiveMarkerLayer markers={page.interactive_markers} />
                             {activeSubtitlePageId === page.id && activeSubtitle && (
                               <p className="reader-page-subtitle" aria-live="polite">{activeSubtitle}</p>
                             )}

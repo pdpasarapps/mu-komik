@@ -120,7 +120,17 @@ alter table public.pages
 
 alter table public.pages
   add constraint pages_text_overlays_is_array
-  check (jsonb_typeof(text_overlays) = 'array');
+  check (
+    jsonb_typeof(text_overlays) = 'array'
+    or (
+      jsonb_typeof(text_overlays) = 'object'
+      and jsonb_typeof(text_overlays -> 'overlays') = 'array'
+      and (
+        text_overlays -> 'interactiveMarkers' is null
+        or jsonb_typeof(text_overlays -> 'interactiveMarkers') = 'array'
+      )
+    )
+  );
 
 create table if not exists public.comic_kids_curation (
   comic_id uuid primary key references public.comics(id) on delete cascade,
