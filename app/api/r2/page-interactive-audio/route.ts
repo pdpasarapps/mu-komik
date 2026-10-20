@@ -1,12 +1,13 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { parseBuffer } from "music-metadata";
 import { parsePageTextOverlayDocument } from "@/lib/page-text-overlays";
 import { getPlatformSettings } from "@/lib/platform-settings";
 
 export const runtime = "nodejs";
 
-const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
+const ABSOLUTE_MAX_AUDIO_BYTES = 50 * 1024 * 1024;
 const requiredEnvironment = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
@@ -67,7 +68,11 @@ async function authorizePage(request: NextRequest, pageId: string) {
   const { data: comic, error: comicError } = await comicQuery.maybeSingle();
   if (comicError) return { response: errorResponse("Could not verify comic ownership", 500) };
   if (!comic) return { response: errorResponse("Comic not found", 404) };
-  return { page, prefix: `comics/${comic.id}/chapters/${chapter.id}/pages/${page.id}/interactive/` };
+  return {
+    page,
+    settings,
+    prefix: `comics/${comic.id}/chapters/${chapter.id}/pages/${page.id}/interactive/`,
+  };
 }
 
 function isMp3(bytes: Uint8Array) {
@@ -77,31 +82,60 @@ function isMp3(bytes: Uint8Array) {
   );
 }
 
+function audioTypeForFile(file: File) {
+  const extension = file.name.toLocaleLowerCase("id-ID").split(".").pop();
+  if (extension === "mp3" && file.type === "audio/mpeg") return "audio/mpeg";
+  if (extension === "ogg" && file.type === "audio/ogg") return "audio/ogg";
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const contentLength = request.headers.get("content-length");
-    const declaredLength = contentLength === null ? null : Number(contentLength);
-    if (declaredLength !== null && (!Number.isFinite(declaredLength) || declaredLength <= 0 || declaredLength > MAX_AUDIO_BYTES + 64 * 1024)) {
-      return errorResponse("Suara interaktif harus berukuran maksimal 10 MB.", 413);
-    }
-    const form = await request.formData();
-    const pageId = form.get("pageId");
-    const file = form.get("file");
-    if (typeof pageId !== "string" || !(file instanceof File)) return errorResponse("Data unggahan suara tidak valid.", 400);
-    if (file.size <= 0 || file.size > MAX_AUDIO_BYTES) return errorResponse("Suara interaktif harus berukuran antara 1 byte dan 10 MB.", 413);
-    if (!file.name.toLocaleLowerCase("id-ID").endsWith(".mp3")) {
-      return errorResponse("Format suara interaktif yang didukung adalah MP3.", 415);
-    }
+    const pageId = request.nextUrl.searchParams.get("pageId");
+    if (!pageId) return errorResponse("Data unggahan suara tidak valid.", 400);
     const authorized = await authorizePage(request, pageId);
     if ("response" in authorized) return authorized.response;
+
+    const contentLength = request.headers.get("content-length");
+    const declaredLength = contentLength === null ? null : Number(contentLength);
+    const maxBytes = authorized.settings.max_interactive_audio_size_mb * 1024 * 1024;
+    if (declaredLength !== null && (!Number.isFinite(declaredLength) || declaredLength <= 0 || declaredLength > Math.min(maxBytes, ABSOLUTE_MAX_AUDIO_BYTES) + 64 * 1024)) {
+      return errorResponse(`Suara interaktif harus berukuran maksimal ${authorized.settings.max_interactive_audio_size_mb} MB.`, 413);
+    }
+    const form = await request.formData();
+    const file = form.get("file");
+    if (!(file instanceof File)) return errorResponse("Data unggahan suara tidak valid.", 400);
+    if (file.size <= 0 || file.size > maxBytes || file.size > ABSOLUTE_MAX_AUDIO_BYTES) {
+      return errorResponse(`Suara interaktif harus berukuran antara 1 byte dan ${authorized.settings.max_interactive_audio_size_mb} MB.`, 413);
+    }
+    const contentType = audioTypeForFile(file);
+    if (!contentType || !authorized.settings.allowed_interactive_audio_types.includes(contentType)) {
+      return errorResponse("Format suara tidak cocok atau tidak diizinkan. Gunakan format yang diaktifkan admin.", 415);
+    }
     const bytes = new Uint8Array(await file.arrayBuffer());
-    if (!isMp3(bytes)) return errorResponse("Isi berkas tidak sesuai dengan format MP3.", 415);
-    const objectKey = `${authorized.prefix}${crypto.randomUUID()}.mp3`;
+    const validSignature = contentType === "audio/mpeg"
+      ? isMp3(bytes)
+      : bytes.length >= 4 && String.fromCharCode(...bytes.subarray(0, 4)) === "OggS";
+    if (!validSignature) return errorResponse(`Isi berkas tidak sesuai dengan format ${contentType === "audio/mpeg" ? "MP3" : "OGG"}.`, 415);
+    let duration: number;
+    try {
+      const metadata = await parseBuffer(bytes, contentType);
+      duration = metadata.format.duration ?? 0;
+    } catch (error) {
+      console.error("Unable to read interactive audio metadata:", error);
+      return errorResponse("Berkas audio tidak valid atau tidak dapat dibaca.", 415);
+    }
+    if (!Number.isFinite(duration) || duration <= 0) return errorResponse("Durasi berkas audio tidak dapat diverifikasi.", 415);
+    if (duration > authorized.settings.max_interactive_audio_duration_seconds) {
+      return errorResponse(`Durasi suara interaktif maksimal ${authorized.settings.max_interactive_audio_duration_seconds} detik.`, 413);
+    }
+    const extension = contentType === "audio/mpeg" ? "mp3" : "ogg";
+    const objectKey = `${authorized.prefix}${crypto.randomUUID()}.${extension}`;
     await createStorageClient().send(new PutObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME!,
       Key: objectKey,
       Body: bytes,
-      ContentType: "audio/mpeg",
+      ContentType: contentType,
       ContentLength: file.size,
     }));
     return NextResponse.json({ objectKey }, { headers: { "Cache-Control": "no-store" } });
@@ -128,7 +162,7 @@ export async function DELETE(request: NextRequest) {
     const authorized = await authorizePage(request, body.pageId);
     if ("response" in authorized) return authorized.response;
     if (!body.objectKey.startsWith(authorized.prefix)
-      || !/^[a-f0-9-]{36}\.mp3$/i.test(body.objectKey.slice(authorized.prefix.length))) {
+      || !/^[a-f0-9-]{36}\.(mp3|ogg)$/i.test(body.objectKey.slice(authorized.prefix.length))) {
       return errorResponse("Kunci penyimpanan suara tidak valid.", 400);
     }
     let savedMarkers;

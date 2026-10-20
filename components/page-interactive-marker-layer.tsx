@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { PageInteractiveMarker } from "@/lib/page-text-overlays";
+import { getInteractiveSound } from "@/lib/interactive-sounds";
 
 const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
 
@@ -23,13 +24,17 @@ export default function PageInteractiveMarkerLayer({ markers }: { markers: PageI
     if (marker.effect !== "none") {
       animationTimer.current = setTimeout(() => setActiveMarkerId(null), 900);
     }
-    if (!marker.soundObjectKey) return;
-    if (!publicUrl) {
+    const librarySound = getInteractiveSound(marker.soundId);
+    if (!marker.soundObjectKey && !librarySound) return;
+    if (!librarySound && !publicUrl) {
       setPlaybackError("Suara interaktif belum dapat dimuat.");
       return;
     }
     audioRef.current?.pause();
-    const audio = new Audio(`${publicUrl.replace(/\/$/, "")}/${marker.soundObjectKey}`);
+    const audioUrl = librarySound
+      ? librarySound.url
+      : `${publicUrl!.replace(/\/$/, "")}/${marker.soundObjectKey}`;
+    const audio = new Audio(audioUrl);
     audioRef.current = audio;
     audio.onended = () => {
       if (audioRef.current === audio) audioRef.current = null;
@@ -55,7 +60,7 @@ export default function PageInteractiveMarkerLayer({ markers }: { markers: PageI
           className={`page-interactive-marker page-interactive-marker-${marker.effect}${activeMarkerId === marker.id ? " is-active" : ""}`}
           key={marker.id}
           type="button"
-          aria-label={`Area interaktif ${index + 1}${marker.soundObjectKey ? ", putar suara" : ""}${marker.effect !== "none" ? `, efek ${marker.effect}` : ""}`}
+          aria-label={`Area interaktif ${index + 1}${marker.soundObjectKey || marker.soundId ? ", putar suara" : ""}${marker.effect !== "none" ? `, efek ${marker.effect}` : ""}`}
           onClick={() => void activateMarker(marker)}
           style={{
             left: `${marker.x}%`,
@@ -64,7 +69,7 @@ export default function PageInteractiveMarkerLayer({ markers }: { markers: PageI
             height: `${marker.height}%`,
           } as CSSProperties}
         >
-          <span aria-hidden="true">{marker.soundObjectKey ? "♪" : marker.effect !== "none" ? "✦" : ""}</span>
+          <span aria-hidden="true">{marker.soundObjectKey || marker.soundId ? "♪" : marker.effect !== "none" ? "✦" : ""}</span>
         </button>
       ))}
       {playbackError && <span className="reader-sr-only" role="status">{playbackError}</span>}

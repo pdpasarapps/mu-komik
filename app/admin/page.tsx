@@ -57,8 +57,11 @@ const platformSettingLabels: Record<string, string> = {
   creator_applications_enabled: "Pengajuan kreator",
   max_comics_per_creator: "Batas komik per kreator",
   max_upload_size_mb: "Ukuran file maksimum",
+  max_interactive_audio_size_mb: "Ukuran audio interaktif maksimum",
+  max_interactive_audio_duration_seconds: "Durasi audio interaktif maksimum",
   max_pages_per_chapter: "Batas halaman per bab",
   allowed_image_types: "Format gambar",
+  allowed_interactive_audio_types: "Format audio interaktif",
   feature_flags: "Status fitur",
 };
 
@@ -208,7 +211,7 @@ export default function AdminPage() {
   const loadPlatformSettings = useEffectEvent(async () => {
     const { data: settingsData, error: settingsError } = await supabase
       .from("platform_settings")
-      .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_message, feature_flags, require_comic_review, creator_applications_enabled, max_comics_per_creator, max_upload_size_mb, max_pages_per_chapter, allowed_image_types")
+      .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_message, feature_flags, require_comic_review, creator_applications_enabled, max_comics_per_creator, max_upload_size_mb, max_pages_per_chapter, allowed_image_types, max_interactive_audio_size_mb, max_interactive_audio_duration_seconds, allowed_interactive_audio_types")
       .eq("id", true)
       .maybeSingle();
     const { data: auditData, error: auditError } = await supabase
@@ -230,6 +233,9 @@ export default function AdminPage() {
         ...settingsData,
         feature_flags: { ...defaultPlatformSettings.feature_flags, ...settingsData.feature_flags },
         allowed_image_types: Array.isArray(settingsData.allowed_image_types) ? settingsData.allowed_image_types : defaultPlatformSettings.allowed_image_types,
+        allowed_interactive_audio_types: Array.isArray(settingsData.allowed_interactive_audio_types)
+          ? settingsData.allowed_interactive_audio_types
+          : defaultPlatformSettings.allowed_interactive_audio_types,
       });
       setPlatformSettingsError("");
     } else {
@@ -328,6 +334,16 @@ export default function AdminPage() {
       setPlatformSettingsMessage("Ukuran file harus berupa bilangan bulat antara 1 dan 50 MB.");
       return;
     }
+    if (!Number.isInteger(platformSettings.max_interactive_audio_size_mb)
+      || platformSettings.max_interactive_audio_size_mb < 1 || platformSettings.max_interactive_audio_size_mb > 50) {
+      setPlatformSettingsMessage("Ukuran audio interaktif harus berupa bilangan bulat antara 1 dan 50 MB.");
+      return;
+    }
+    if (!Number.isInteger(platformSettings.max_interactive_audio_duration_seconds)
+      || platformSettings.max_interactive_audio_duration_seconds < 1 || platformSettings.max_interactive_audio_duration_seconds > 60) {
+      setPlatformSettingsMessage("Durasi audio interaktif harus berupa bilangan bulat antara 1 dan 60 detik.");
+      return;
+    }
     if (!Number.isInteger(platformSettings.max_pages_per_chapter) || platformSettings.max_pages_per_chapter < 1 || platformSettings.max_pages_per_chapter > 500) {
       setPlatformSettingsMessage("Batas halaman harus berupa bilangan bulat antara 1 dan 500.");
       return;
@@ -342,6 +358,10 @@ export default function AdminPage() {
     }
     if (!platformSettings.allowed_image_types.length) {
       setPlatformSettingsMessage("Pilih minimal satu format gambar yang diizinkan.");
+      return;
+    }
+    if (!platformSettings.allowed_interactive_audio_types.length) {
+      setPlatformSettingsMessage("Pilih minimal satu format audio yang diizinkan.");
       return;
     }
     setSavingPlatformSettings(true);
@@ -683,7 +703,16 @@ export default function AdminPage() {
                   <label key={type}><input type="checkbox" checked={platformSettings.allowed_image_types.includes(type)} onChange={(event) => setPlatformSettings((current) => ({ ...current, allowed_image_types: event.target.checked ? [...current.allowed_image_types, type] : current.allowed_image_types.filter((item) => item !== type) }))} /> {label}</label>
                 ))}
               </fieldset>
-              <p className="admin-setting-note">Batas yang sudah tercapai tidak menghapus konten lama, tetapi mencegah penambahan komik atau halaman baru.</p>
+              <div className="admin-setting-number-grid">
+                <label>Ukuran maksimum audio interaktif (MB)<input type="number" min={1} max={50} value={platformSettings.max_interactive_audio_size_mb} onChange={(event) => setPlatformSettings((current) => ({ ...current, max_interactive_audio_size_mb: Number(event.target.value) }))} /></label>
+                <label>Durasi maksimum audio interaktif (detik)<input type="number" min={1} max={60} value={platformSettings.max_interactive_audio_duration_seconds} onChange={(event) => setPlatformSettings((current) => ({ ...current, max_interactive_audio_duration_seconds: Number(event.target.value) }))} /></label>
+              </div>
+              <fieldset className="admin-image-types"><legend>Format audio interaktif yang diizinkan</legend>
+                {([["audio/mpeg", "MP3"], ["audio/ogg", "OGG / Opus"]] as const).map(([type, label]) => (
+                  <label key={type}><input type="checkbox" checked={platformSettings.allowed_interactive_audio_types.includes(type)} onChange={(event) => setPlatformSettings((current) => ({ ...current, allowed_interactive_audio_types: event.target.checked ? [...current.allowed_interactive_audio_types, type] : current.allowed_interactive_audio_types.filter((item) => item !== type) }))} /> {label}</label>
+                ))}
+              </fieldset>
+              <p className="admin-setting-note">Batas komik dan halaman hanya mencegah penambahan baru, tanpa menghapus konten lama. Batas ukuran dan durasi suara berlaku untuk unggahan marker baru.</p>
             </article>
             <div className="admin-settings-actions">
               <button className="approve-button" type="button" onClick={() => void savePlatformSettings()} disabled={savingPlatformSettings}>{savingPlatformSettings ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />}{savingPlatformSettings ? "Menyimpan..." : "Simpan pengaturan"}</button>

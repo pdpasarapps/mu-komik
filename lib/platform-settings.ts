@@ -18,6 +18,9 @@ export type PlatformSettings = {
   max_upload_size_mb: number;
   max_pages_per_chapter: number;
   allowed_image_types: string[];
+  max_interactive_audio_size_mb: number;
+  max_interactive_audio_duration_seconds: number;
+  allowed_interactive_audio_types: string[];
 };
 
 export const defaultPlatformSettings: PlatformSettings = {
@@ -38,6 +41,9 @@ export const defaultPlatformSettings: PlatformSettings = {
   max_upload_size_mb: 10,
   max_pages_per_chapter: 100,
   allowed_image_types: ["image/jpeg", "image/png", "image/webp"],
+  max_interactive_audio_size_mb: 10,
+  max_interactive_audio_duration_seconds: 15,
+  allowed_interactive_audio_types: ["audio/mpeg", "audio/ogg"],
 };
 
 export function matchesImageContentType(type: string, bytes: Uint8Array) {
@@ -59,7 +65,7 @@ export async function getPlatformSettings(): Promise<{ settings: PlatformSetting
   }
 
   try {
-    const response = await fetch(`${url.replace(/\/$/, "")}/rest/v1/platform_settings?select=maintenance_enabled,maintenance_message,announcement_enabled,announcement_message,feature_flags,require_comic_review,creator_applications_enabled,max_comics_per_creator,max_upload_size_mb,max_pages_per_chapter,allowed_image_types&id=eq.true`, {
+    const response = await fetch(`${url.replace(/\/$/, "")}/rest/v1/platform_settings?select=maintenance_enabled,maintenance_message,announcement_enabled,announcement_message,feature_flags,require_comic_review,creator_applications_enabled,max_comics_per_creator,max_upload_size_mb,max_pages_per_chapter,allowed_image_types,max_interactive_audio_size_mb,max_interactive_audio_duration_seconds,allowed_interactive_audio_types&id=eq.true`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
       cache: "no-store",
     });
@@ -75,6 +81,9 @@ export async function getPlatformSettings(): Promise<{ settings: PlatformSetting
         ...row,
         feature_flags: { ...defaultPlatformSettings.feature_flags, ...row.feature_flags },
         allowed_image_types: Array.isArray(row.allowed_image_types) ? row.allowed_image_types : defaultPlatformSettings.allowed_image_types,
+        allowed_interactive_audio_types: Array.isArray(row.allowed_interactive_audio_types)
+          ? row.allowed_interactive_audio_types
+          : defaultPlatformSettings.allowed_interactive_audio_types,
       },
       error: null,
     };

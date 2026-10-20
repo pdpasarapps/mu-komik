@@ -94,6 +94,7 @@ export type PageInteractiveMarker = {
   width: number;
   height: number;
   soundObjectKey: string | null;
+  soundId: string | null;
   effect: PageInteractiveEffect;
 };
 
@@ -234,7 +235,11 @@ export function parsePageInteractiveMarkers(value: unknown): PageInteractiveMark
       || !("height" in item) || typeof item.height !== "number" || !Number.isFinite(item.height)
       || "soundObjectKey" in item && item.soundObjectKey !== null && item.soundObjectKey !== undefined && typeof item.soundObjectKey !== "string"
       || "soundObjectKey" in item && typeof item.soundObjectKey === "string"
-        && !/^comics\/[a-f0-9-]{36}\/chapters\/[a-f0-9-]{36}\/pages\/[a-f0-9-]{36}\/interactive\/[a-f0-9-]{36}\.mp3$/i.test(item.soundObjectKey)
+        && !/^comics\/[a-f0-9-]{36}\/chapters\/[a-f0-9-]{36}\/pages\/[a-f0-9-]{36}\/interactive\/[a-f0-9-]{36}\.(mp3|ogg)$/i.test(item.soundObjectKey)
+      || "soundId" in item && item.soundId !== null && item.soundId !== undefined
+        && (typeof item.soundId !== "string" || !/^(laugh|cry|cheer|magic|impact)$/.test(item.soundId))
+      || "soundId" in item && typeof item.soundId === "string"
+        && "soundObjectKey" in item && typeof item.soundObjectKey === "string"
       || "effect" in item && item.effect !== undefined && item.effect !== "none"
         && item.effect !== "sparkle" && item.effect !== "impact" && item.effect !== "shake"
     ) {
@@ -249,6 +254,7 @@ export function parsePageInteractiveMarkers(value: unknown): PageInteractiveMark
       width,
       height,
       soundObjectKey: "soundObjectKey" in item && typeof item.soundObjectKey === "string" ? item.soundObjectKey : null,
+      soundId: "soundId" in item && typeof item.soundId === "string" ? item.soundId : null,
       effect: "effect" in item && item.effect ? item.effect as PageInteractiveEffect : "sparkle",
     };
   });
@@ -271,6 +277,7 @@ export function createPageInteractiveMarker(): PageInteractiveMarker {
     width: 24,
     height: 18,
     soundObjectKey: null,
+    soundId: null,
     effect: "sparkle",
   };
 }

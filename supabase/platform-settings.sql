@@ -18,6 +18,14 @@ create table if not exists public.platform_settings (
       and jsonb_array_length(allowed_image_types) > 0
       and allowed_image_types <@ '["image/jpeg","image/png","image/webp"]'::jsonb
     ),
+  max_interactive_audio_size_mb integer not null default 10 check (max_interactive_audio_size_mb between 1 and 50),
+  max_interactive_audio_duration_seconds integer not null default 15 check (max_interactive_audio_duration_seconds between 1 and 60),
+  allowed_interactive_audio_types jsonb not null default '["audio/mpeg","audio/ogg"]'::jsonb
+    check (
+      jsonb_typeof(allowed_interactive_audio_types) = 'array'
+      and jsonb_array_length(allowed_interactive_audio_types) > 0
+      and allowed_interactive_audio_types <@ '["audio/mpeg","audio/ogg"]'::jsonb
+    ),
   updated_by uuid references public.profiles(id),
   updated_at timestamptz not null default now()
 );
@@ -32,6 +40,16 @@ alter table public.platform_settings add column if not exists allowed_image_type
     jsonb_typeof(allowed_image_types) = 'array'
     and jsonb_array_length(allowed_image_types) > 0
     and allowed_image_types <@ '["image/jpeg","image/png","image/webp"]'::jsonb
+  );
+alter table public.platform_settings add column if not exists max_interactive_audio_size_mb integer not null default 10
+  check (max_interactive_audio_size_mb between 1 and 50);
+alter table public.platform_settings add column if not exists max_interactive_audio_duration_seconds integer not null default 15
+  check (max_interactive_audio_duration_seconds between 1 and 60);
+alter table public.platform_settings add column if not exists allowed_interactive_audio_types jsonb not null default '["audio/mpeg","audio/ogg"]'::jsonb
+  check (
+    jsonb_typeof(allowed_interactive_audio_types) = 'array'
+    and jsonb_array_length(allowed_interactive_audio_types) > 0
+    and allowed_interactive_audio_types <@ '["audio/mpeg","audio/ogg"]'::jsonb
   );
 
 alter table public.platform_settings enable row level security;

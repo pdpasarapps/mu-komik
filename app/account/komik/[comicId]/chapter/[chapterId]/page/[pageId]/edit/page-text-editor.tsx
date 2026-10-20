@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { getInteractiveSound, interactiveSounds } from "@/lib/interactive-sounds";
 import {
   createPageInteractiveMarker,
   createPageTextOverlay,
@@ -60,16 +61,20 @@ export default function PageTextEditor() {
   const [savedDocument, setSavedDocument] = useState("");
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [uploadingMarkerAudio, setUploadingMarkerAudio] = useState(false);
+  const [previewingSoundId, setPreviewingSoundId] = useState<string | null>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const textSelectionRef = useRef({ start: 0, end: 0 });
   const dragRef = useRef<{ id: string; pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
   const markerDragRef = useRef<{ id: string; pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
   const pendingMarkerAudioKeysRef = useRef(new Set<string>());
+  const soundPreviewRef = useRef<HTMLAudioElement | null>(null);
   const selectedOverlay = overlays.find((overlay) => overlay.id === selectedId) ?? null;
   const selectedMarker = interactiveMarkers.find((marker) => marker.id === selectedMarkerId) ?? null;
   const imageUrl = page && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${page.object_key}` : null;
   const backHref = `/account/komik/${encodeURIComponent(comicId)}`;
   const isDirty = serializePageTextOverlayDocument({ overlays, interactiveMarkers, imageVerticalAlign }) !== savedDocument;
+
+  useEffect(() => () => soundPreviewRef.current?.pause(), []);
 
   useEffect(() => {
     if (!isDirty) return;
@@ -218,6 +223,8 @@ export default function PageTextEditor() {
     setInteractiveMarkers((current) => current.map((marker) => {
       if (marker.id !== id) return marker;
       const updated = { ...marker, ...updates };
+      if (updates.soundId) updated.soundObjectKey = null;
+      if (updates.soundObjectKey) updated.soundId = null;
       if (updates.width !== undefined || updates.x !== undefined) updated.x = Math.min(100 - updated.width / 2, Math.max(updated.width / 2, updated.x));
       if (updates.height !== undefined || updates.y !== undefined) updated.y = Math.min(100 - updated.height / 2, Math.max(updated.height / 2, updated.y));
       return updated;
@@ -309,7 +316,7 @@ export default function PageTextEditor() {
       const form = new FormData();
       form.append("pageId", page.id);
       form.append("file", file);
-      const response = await fetch("/api/r2/page-interactive-audio", {
+      const response = await fetch(`/api/r2/page-interactive-audio?pageId=${encodeURIComponent(page.id)}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: form,
@@ -321,13 +328,47 @@ export default function PageTextEditor() {
           : "Suara interaktif gagal diunggah.");
       }
       pendingMarkerAudioKeysRef.current.add(result.objectKey);
-      updateInteractiveMarker(selectedMarker.id, { soundObjectKey: result.objectKey });
+      updateInteractiveMarker(selectedMarker.id, { soundObjectKey: result.objectKey, soundId: null });
       setMessage("Suara marker berhasil diunggah. Simpan perubahan halaman untuk menerapkannya.");
     } catch (uploadError) {
       console.error("Unable to upload interactive marker sound:", uploadError);
       setError(uploadError instanceof Error ? uploadError.message : "Suara interaktif gagal diunggah.");
     } finally {
       setUploadingMarkerAudio(false);
+    }
+  }
+
+  async function previewInteractiveSound(soundId: string | null) {
+    const sound = getInteractiveSound(soundId);
+    if (!sound) {
+      soundPreviewRef.current?.pause();
+      soundPreviewRef.current = null;
+      setPreviewingSoundId(null);
+      return;
+    }
+    soundPreviewRef.current?.pause();
+    const audio = new Audio(sound.url);
+    soundPreviewRef.current = audio;
+    setPreviewingSoundId(sound.id);
+    audio.onended = () => {
+      if (soundPreviewRef.current === audio) {
+        soundPreviewRef.current = null;
+        setPreviewingSoundId(null);
+      }
+    };
+    audio.onerror = () => {
+      if (soundPreviewRef.current === audio) {
+        soundPreviewRef.current = null;
+        setPreviewingSoundId(null);
+      }
+      setError("Pratinjau suara gagal dimuat. Periksa koneksi internet.");
+    };
+    try {
+      await audio.play();
+    } catch (previewError) {
+      console.error("Unable to preview interactive sound:", previewError);
+      setPreviewingSoundId(null);
+      setError("Pratinjau suara tidak dapat diputar.");
     }
   }
 
@@ -609,7 +650,7 @@ export default function PageTextEditor() {
                       onClick={() => { setSelectedMarkerId(marker.id); setSelectedId(null); }}
                     >
                       <MousePointer2 size={15} aria-hidden="true" />
-                      <span>{index + 1}. Area interaktif{marker.soundObjectKey ? " · suara" : ""} · efek {marker.effect}</span>
+                      <span>{index + 1}. Area interaktif{marker.soundObjectKey || marker.soundId ? " · suara" : ""} · efek {marker.effect}</span>
                     </button>
                     <button
                       type="button"
@@ -695,10 +736,33 @@ export default function PageTextEditor() {
                 />
               </label>
               <label className="page-text-marker-audio-upload">
-                <span>Suara (MP3, maks. 10 MB)</span>
+                Pustaka suara
+                <select
+                  value={selectedMarker.soundId ?? ""}
+                  onChange={(event) => updateInteractiveMarker(selectedMarker.id, {
+                    soundId: event.target.value || null,
+                    soundObjectKey: null,
+                  })}
+                >
+                  <option value="">Tidak menggunakan suara pustaka</option>
+                  {interactiveSounds.map((sound) => (
+                    <option key={sound.id} value={sound.id}>{sound.label}</option>
+                  ))}
+                </select>
+              </label>
+              {selectedMarker.soundId && (
+                <div className="page-text-marker-audio-actions">
+                  <span><Volume2 size={15} /> {getInteractiveSound(selectedMarker.soundId)?.label} · CC0</span>
+                  <button type="button" onClick={() => void previewInteractiveSound(selectedMarker.soundId)}>
+                    {previewingSoundId === selectedMarker.soundId ? "Putar ulang" : "Pratinjau"}
+                  </button>
+                </div>
+              )}
+              <label>
+                <span>Unggah suara kustom (MP3/OGG; batas mengikuti pengaturan admin)</span>
                 <input
                   type="file"
-                  accept="audio/mpeg,.mp3"
+                  accept="audio/mpeg,audio/ogg,.mp3,.ogg"
                   disabled={uploadingMarkerAudio}
                   onChange={(event) => {
                     const file = event.currentTarget.files?.[0];
@@ -710,7 +774,7 @@ export default function PageTextEditor() {
               {uploadingMarkerAudio && <p className="page-text-editor-tool-hint" role="status">Mengunggah suara...</p>}
               {selectedMarker.soundObjectKey && (
                 <div className="page-text-marker-audio-actions">
-                  <span><Volume2 size={15} /> Suara MP3 terpasang</span>
+                  <span><Volume2 size={15} /> Suara unggahan terpasang</span>
                   <button type="button" onClick={() => updateInteractiveMarker(selectedMarker.id, { soundObjectKey: null })}>Lepas suara</button>
                 </div>
               )}
