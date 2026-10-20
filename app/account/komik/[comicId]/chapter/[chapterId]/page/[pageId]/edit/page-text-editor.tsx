@@ -10,6 +10,8 @@ import { getInteractiveSound, interactiveSounds } from "@/lib/interactive-sounds
 import {
   createPageInteractiveMarker,
   createPageTextOverlay,
+  getInteractiveEffectDuration,
+  getInteractiveSparklePositions,
   PAGE_TEXT_BALLOON_SHAPES,
   PAGE_TEXT_FONTS,
   PAGE_TEXT_BALLOON_TAIL_BASE_PATHS,
@@ -62,19 +64,24 @@ export default function PageTextEditor() {
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [uploadingMarkerAudio, setUploadingMarkerAudio] = useState(false);
   const [previewingSoundId, setPreviewingSoundId] = useState<string | null>(null);
+  const [previewingEffectMarkerId, setPreviewingEffectMarkerId] = useState<string | null>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const textSelectionRef = useRef({ start: 0, end: 0 });
   const dragRef = useRef<{ id: string; pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
   const markerDragRef = useRef<{ id: string; pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
   const pendingMarkerAudioKeysRef = useRef(new Set<string>());
   const soundPreviewRef = useRef<HTMLAudioElement | null>(null);
+  const effectPreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedOverlay = overlays.find((overlay) => overlay.id === selectedId) ?? null;
   const selectedMarker = interactiveMarkers.find((marker) => marker.id === selectedMarkerId) ?? null;
   const imageUrl = page && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${page.object_key}` : null;
   const backHref = `/account/komik/${encodeURIComponent(comicId)}`;
   const isDirty = serializePageTextOverlayDocument({ overlays, interactiveMarkers, imageVerticalAlign }) !== savedDocument;
 
-  useEffect(() => () => soundPreviewRef.current?.pause(), []);
+  useEffect(() => () => {
+    soundPreviewRef.current?.pause();
+    if (effectPreviewTimerRef.current) clearTimeout(effectPreviewTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (!isDirty) return;
@@ -372,6 +379,16 @@ export default function PageTextEditor() {
     }
   }
 
+  function previewInteractiveEffect(marker: PageInteractiveMarker) {
+    if (marker.effect === "none") return;
+    if (effectPreviewTimerRef.current) clearTimeout(effectPreviewTimerRef.current);
+    setPreviewingEffectMarkerId(marker.id);
+    effectPreviewTimerRef.current = setTimeout(() => {
+      setPreviewingEffectMarkerId(null);
+      effectPreviewTimerRef.current = null;
+    }, getInteractiveEffectDuration(marker.effect, marker.effectLoops));
+  }
+
   function updateTextSelection(textarea: HTMLTextAreaElement) {
     textSelectionRef.current = { start: textarea.selectionStart, end: textarea.selectionEnd };
   }
@@ -572,14 +589,15 @@ export default function PageTextEditor() {
                 <button
                   key={marker.id}
                   type="button"
-                  className={`page-interactive-marker page-interactive-marker-edit${selectedMarkerId === marker.id ? " is-selected" : ""}`}
+                  className={`page-interactive-marker page-interactive-marker-${marker.effect} page-interactive-marker-edit${selectedMarkerId === marker.id ? " is-selected" : ""}${previewingEffectMarkerId === marker.id ? " is-active" : ""}`}
                   aria-label={`Pindahkan area interaktif ${index + 1}`}
                   style={{
                     left: `${marker.x}%`,
                     top: `${marker.y}%`,
                     width: `${marker.width}%`,
                     height: `${marker.height}%`,
-                  }}
+                    "--effect-loop-count": marker.effectLoops,
+                  } as CSSProperties}
                   onPointerDown={(event) => startDraggingMarker(event, marker)}
                   onPointerMove={moveInteractiveMarker}
                   onPointerUp={() => { markerDragRef.current = null; }}
@@ -587,6 +605,17 @@ export default function PageTextEditor() {
                   onClick={() => { setSelectedMarkerId(marker.id); setSelectedId(null); }}
                 >
                   <span aria-hidden="true"><MousePointer2 size={17} /></span>
+                  {marker.effect === "sparkle" && getInteractiveSparklePositions(marker.id, marker.effectDensity).map((position, particleIndex) => (
+                    <span
+                      key={`${marker.id}-sparkle-${particleIndex}`}
+                      className="page-interactive-sparkle"
+                      aria-hidden="true"
+                      style={{
+                        ...position,
+                        "--sparkle-delay": `${(particleIndex / marker.effectDensity) * 0.2}s`,
+                      } as CSSProperties}
+                    >{particleIndex % 3 === 0 ? "✦" : "✨"}</span>
+                  ))}
                 </button>
               ))}
             </div>
@@ -691,6 +720,40 @@ export default function PageTextEditor() {
                   <option value="shake">Getar</option>
                 </select>
               </label>
+              {selectedMarker.effect !== "none" && (
+                <label>
+                  Pengulangan efek (1–10 kali): {selectedMarker.effectLoops}
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    step="1"
+                    value={selectedMarker.effectLoops}
+                    onChange={(event) => updateInteractiveMarker(selectedMarker.id, { effectLoops: Number(event.target.value) })}
+                  />
+                </label>
+              )}
+              {selectedMarker.effect === "sparkle" && (
+                <label>
+                  Density kilau (1–20): {selectedMarker.effectDensity}
+                  <input
+                    type="range"
+                    min="1"
+                    max="20"
+                    step="1"
+                    value={selectedMarker.effectDensity}
+                    onChange={(event) => updateInteractiveMarker(selectedMarker.id, { effectDensity: Number(event.target.value) })}
+                  />
+                </label>
+              )}
+              <div className="page-text-marker-audio-actions">
+                <span><Eye size={15} /> Pratinjau efek visual</span>
+                <button
+                  type="button"
+                  disabled={selectedMarker.effect === "none"}
+                  onClick={() => previewInteractiveEffect(selectedMarker)}
+                >Pratinjau</button>
+              </div>
               <label>
                 Posisi horizontal
                 <input

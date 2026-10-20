@@ -747,20 +747,26 @@ button, input, select { font: inherit; }
 .page-interactive-marker-layer { position: absolute; z-index: 4; inset: 0; pointer-events: none; }
 .page-interactive-marker { position: absolute; display: grid; place-items: center; box-sizing: border-box; transform: translate(-50%, -50%); border: 0; border-radius: 0; padding: 0; background: transparent; color: #fff; cursor: pointer; pointer-events: auto; }
 .page-interactive-marker > span { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 50%; background: rgba(18,30,34,.62); box-shadow: 0 1px 5px rgba(0,0,0,.25); color: #fff; font-size: 1rem; line-height: 1; opacity: .78; }
-.page-interactive-marker:hover > span, .page-interactive-marker:focus-visible > span { opacity: 1; outline: 2px solid #d9f2ff; outline-offset: 2px; }
-.page-interactive-marker-edit { z-index: 1; touch-action: none; user-select: none; }
-.page-interactive-marker-edit > span { width: 30px; height: 30px; background: rgba(20,53,70,.82); color: #e9f8ff; }
-.page-interactive-marker-edit.is-selected > span { background: #a85624; outline: 2px solid #ffcf9e; outline-offset: 2px; opacity: 1; }
-.page-interactive-marker.is-active.page-interactive-marker-sparkle > span, .page-interactive-marker.is-active.page-interactive-marker-impact > span { animation: page-interactive-marker-pop .75s ease-out; }
-.page-interactive-marker.is-active.page-interactive-marker-sparkle::after, .page-interactive-marker.is-active.page-interactive-marker-impact::after { position: absolute; top: 50%; left: 50%; content: "✨"; font-size: clamp(1.3rem, 4cqw, 3rem); pointer-events: none; animation: page-interactive-marker-burst .8s ease-out both; }
-.page-interactive-marker.is-active.page-interactive-marker-impact::after { content: "💥"; }
-.page-interactive-marker.is-active.page-interactive-marker-shake { animation: page-interactive-marker-shake .45s ease-in-out; }
+.page-interactive-marker:hover > span:first-child, .page-interactive-marker:focus-visible > span:first-child { opacity: 1; outline: 2px solid #d9f2ff; outline-offset: 2px; }
+.page-interactive-marker-edit { z-index: 1; border: 1px solid rgba(116,205,246,.85); border-radius: 8px; background: rgba(53,157,205,.2); box-shadow: inset 0 0 0 1px rgba(8,36,51,.22); touch-action: none; user-select: none; }
+.page-interactive-marker-edit > span:first-child { width: 30px; height: 30px; background: rgba(20,53,70,.82); color: #e9f8ff; }
+.page-interactive-marker-edit.is-selected { border-color: #ffcf9e; background: rgba(214,112,49,.25); box-shadow: inset 0 0 0 1px rgba(110,48,18,.35), 0 0 0 1px rgba(255,207,158,.35); }
+.page-interactive-marker-edit.is-selected > span:first-child { background: #a85624; outline: 2px solid #ffcf9e; outline-offset: 2px; opacity: 1; }
+.page-interactive-marker.is-active.page-interactive-marker-sparkle { background: radial-gradient(ellipse, rgba(255,225,123,.2), rgba(255,220,100,.07) 62%, transparent 100%); }
+.page-interactive-marker.is-active.page-interactive-marker-sparkle > span:not(.page-interactive-sparkle), .page-interactive-marker.is-active.page-interactive-marker-impact > span:not(.page-interactive-sparkle) { animation: page-interactive-marker-pop .75s ease-out var(--effect-loop-count, 3) both; }
+.page-interactive-marker.is-active.page-interactive-marker-impact::after { position: absolute; top: 50%; left: 50%; content: "💥"; font-size: clamp(1.3rem, 4cqw, 3rem); pointer-events: none; animation: page-interactive-marker-burst .8s ease-out var(--effect-loop-count, 3) both; }
+.page-interactive-marker.is-active.page-interactive-marker-shake::after { position: absolute; top: 50%; left: 50%; content: "⚡"; font-size: clamp(1.3rem, 4cqw, 3rem); pointer-events: none; animation: page-interactive-marker-burst .6s ease-out var(--effect-loop-count, 3) both; }
+.page-interactive-marker.is-active.page-interactive-marker-shake { animation: page-interactive-marker-shake .45s ease-in-out var(--effect-loop-count, 3); }
+.page-interactive-marker > .page-interactive-sparkle { position: absolute; display: block; width: auto; height: auto; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #fff4b5; font-size: clamp(1rem, 3.2cqw, 2.6rem); line-height: 1; opacity: 0; pointer-events: none; text-shadow: 0 0 8px #ffc928, 0 0 18px rgba(255,205,41,.9); }
+.page-interactive-marker.is-active > .page-interactive-sparkle { animation: page-interactive-sparkle .9s ease-in-out var(--sparkle-delay, 0s) var(--effect-loop-count, 3) both; }
 @keyframes page-interactive-marker-pop { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.18); } }
 @keyframes page-interactive-marker-burst { from { opacity: 1; transform: translate(-50%, -50%) scale(.35) rotate(-15deg); } to { opacity: 0; transform: translate(-50%, -50%) scale(1.6) rotate(15deg); } }
 @keyframes page-interactive-marker-shake { 25% { transform: translate(calc(-50% - 4px), -50%); } 75% { transform: translate(calc(-50% + 4px), -50%); } }
+@keyframes page-interactive-sparkle { 0%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(.35) rotate(-25deg); } 35%, 65% { opacity: 1; transform: translate(-50%, -50%) scale(1.15) rotate(15deg); } }
 @media (prefers-reduced-motion: reduce) {
   .page-interactive-marker.is-active { animation: none !important; }
   .page-interactive-marker.is-active::after, .page-interactive-marker.is-active > span { animation: none !important; }
+  .page-interactive-marker.is-active > .page-interactive-sparkle { opacity: 1; }
 }
 html[data-theme="dark"] .page-text-editor-canvas-panel { border-color: #3a433e; }
 html[data-theme="dark"] .page-text-editor-tools { border-color: var(--line); background: #222825; }

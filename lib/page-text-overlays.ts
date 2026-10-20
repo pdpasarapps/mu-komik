@@ -96,6 +96,8 @@ export type PageInteractiveMarker = {
   soundObjectKey: string | null;
   soundId: string | null;
   effect: PageInteractiveEffect;
+  effectLoops: number;
+  effectDensity: number;
 };
 
 export type PageTextOverlayDocument = {
@@ -103,6 +105,28 @@ export type PageTextOverlayDocument = {
   interactiveMarkers: PageInteractiveMarker[];
   imageVerticalAlign: PageTextImageVerticalAlign;
 };
+
+export function getInteractiveSparklePositions(markerId: string, density: number) {
+  let seed = 2166136261;
+  for (let index = 0; index < markerId.length; index += 1) {
+    seed = Math.imul(seed ^ markerId.charCodeAt(index), 16777619);
+  }
+  const positions: Array<{ left: string; top: string }> = [];
+  for (let index = 0; index < density; index += 1) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    const x = 10 + (seed / 0x100000000) * 80;
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    const y = 10 + (seed / 0x100000000) * 80;
+    positions.push({ left: `${x}%`, top: `${y}%` });
+  }
+  return positions;
+}
+
+export function getInteractiveEffectDuration(effect: PageInteractiveEffect, loops: number) {
+  if (effect === "none") return 0;
+  const loopDuration = effect === "sparkle" ? 900 : effect === "impact" ? 800 : 600;
+  return loops * loopDuration + (effect === "sparkle" ? 200 : 0);
+}
 
 function isPageTextImageVerticalAlign(value: unknown): value is PageTextImageVerticalAlign {
   return value === "top" || value === "center" || value === "bottom";
@@ -242,6 +266,8 @@ export function parsePageInteractiveMarkers(value: unknown): PageInteractiveMark
         && "soundObjectKey" in item && typeof item.soundObjectKey === "string"
       || "effect" in item && item.effect !== undefined && item.effect !== "none"
         && item.effect !== "sparkle" && item.effect !== "impact" && item.effect !== "shake"
+      || "effectLoops" in item && (typeof item.effectLoops !== "number" || !Number.isInteger(item.effectLoops) || item.effectLoops < 1 || item.effectLoops > 10)
+      || "effectDensity" in item && (typeof item.effectDensity !== "number" || !Number.isInteger(item.effectDensity) || item.effectDensity < 1 || item.effectDensity > 20)
     ) {
       throw new Error(`Area interaktif halaman ke-${index + 1} tidak valid.`);
     }
@@ -256,6 +282,8 @@ export function parsePageInteractiveMarkers(value: unknown): PageInteractiveMark
       soundObjectKey: "soundObjectKey" in item && typeof item.soundObjectKey === "string" ? item.soundObjectKey : null,
       soundId: "soundId" in item && typeof item.soundId === "string" ? item.soundId : null,
       effect: "effect" in item && item.effect ? item.effect as PageInteractiveEffect : "sparkle",
+      effectLoops: "effectLoops" in item && typeof item.effectLoops === "number" ? item.effectLoops : 3,
+      effectDensity: "effectDensity" in item && typeof item.effectDensity === "number" ? item.effectDensity : 8,
     };
   });
 }
@@ -279,6 +307,8 @@ export function createPageInteractiveMarker(): PageInteractiveMarker {
     soundObjectKey: null,
     soundId: null,
     effect: "sparkle",
+    effectLoops: 3,
+    effectDensity: 8,
   };
 }
 

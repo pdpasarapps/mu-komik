@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import type { PageInteractiveMarker } from "@/lib/page-text-overlays";
+import { getInteractiveEffectDuration, getInteractiveSparklePositions, type PageInteractiveMarker } from "@/lib/page-text-overlays";
 import { getInteractiveSound } from "@/lib/interactive-sounds";
 
 const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
@@ -22,7 +22,10 @@ export default function PageInteractiveMarkerLayer({ markers }: { markers: PageI
     setActiveMarkerId(marker.effect === "none" ? null : marker.id);
     if (animationTimer.current) clearTimeout(animationTimer.current);
     if (marker.effect !== "none") {
-      animationTimer.current = setTimeout(() => setActiveMarkerId(null), 900);
+      animationTimer.current = setTimeout(
+        () => setActiveMarkerId(null),
+        getInteractiveEffectDuration(marker.effect, marker.effectLoops),
+      );
     }
     const librarySound = getInteractiveSound(marker.soundId);
     if (!marker.soundObjectKey && !librarySound) return;
@@ -67,9 +70,21 @@ export default function PageInteractiveMarkerLayer({ markers }: { markers: PageI
             top: `${marker.y}%`,
             width: `${marker.width}%`,
             height: `${marker.height}%`,
+            "--effect-loop-count": marker.effectLoops,
           } as CSSProperties}
         >
           <span aria-hidden="true">{marker.soundObjectKey || marker.soundId ? "♪" : marker.effect !== "none" ? "✦" : ""}</span>
+          {marker.effect === "sparkle" && getInteractiveSparklePositions(marker.id, marker.effectDensity).map((position, particleIndex) => (
+            <span
+              key={`${marker.id}-sparkle-${particleIndex}`}
+              className="page-interactive-sparkle"
+              aria-hidden="true"
+              style={{
+                ...position,
+                "--sparkle-delay": `${(particleIndex / marker.effectDensity) * 0.2}s`,
+              } as CSSProperties}
+            >{particleIndex % 3 === 0 ? "✦" : "✨"}</span>
+          ))}
         </button>
       ))}
       {playbackError && <span className="reader-sr-only" role="status">{playbackError}</span>}
