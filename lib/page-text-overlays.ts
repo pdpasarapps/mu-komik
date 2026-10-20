@@ -2,6 +2,7 @@ export type PageTextOverlayType = "balloon" | "narration";
 export type PageTextBalloonShape = "speech" | "thought" | "inner" | "none";
 export type PageTextLevel = "body" | "h1" | "h2" | "h3";
 export type PageTextFont = "default" | "comic-neue" | "bangers" | "patrick-hand" | "nunito" | "caveat";
+export type PageTextImageVerticalAlign = "top" | "center" | "bottom";
 export type PageTextBalloonTailDirection =
   | "bottom-left"
   | "bottom"
@@ -70,6 +71,11 @@ export type PageTextOverlay = {
   x: number;
   y: number;
   width: number;
+  mobileX: number;
+  mobileY: number;
+  mobileWidth: number;
+  showOnMobile: boolean;
+  showOnTablet: boolean;
   fontSize: number;
   font: PageTextFont;
   textColor: string;
@@ -79,7 +85,19 @@ export type PageTextOverlay = {
   underline: boolean;
 };
 
+export type PageTextOverlayDocument = {
+  overlays: PageTextOverlay[];
+  imageVerticalAlign: PageTextImageVerticalAlign;
+};
+
+function isPageTextImageVerticalAlign(value: unknown): value is PageTextImageVerticalAlign {
+  return value === "top" || value === "center" || value === "bottom";
+}
+
 export function parsePageTextOverlays(value: unknown): PageTextOverlay[] {
+  if (value && typeof value === "object" && !Array.isArray(value) && "overlays" in value) {
+    return parsePageTextOverlays(value.overlays);
+  }
   if (value == null) return [];
   if (!Array.isArray(value)) throw new Error("Teks halaman harus berupa daftar.");
 
@@ -98,6 +116,13 @@ export function parsePageTextOverlays(value: unknown): PageTextOverlay[] {
       || !("x" in item) || typeof item.x !== "number" || !Number.isFinite(item.x)
       || !("y" in item) || typeof item.y !== "number" || !Number.isFinite(item.y)
       || !("width" in item) || typeof item.width !== "number" || !Number.isFinite(item.width)
+      || "mobileX" in item && item.mobileX !== undefined && (typeof item.mobileX !== "number" || !Number.isFinite(item.mobileX))
+      || "mobileY" in item && item.mobileY !== undefined && (typeof item.mobileY !== "number" || !Number.isFinite(item.mobileY))
+      || "mobileWidth" in item && item.mobileWidth !== undefined && (typeof item.mobileWidth !== "number" || !Number.isFinite(item.mobileWidth))
+      || "showOnMobile" in item && item.showOnMobile !== undefined && typeof item.showOnMobile !== "boolean"
+      || "showOnTablet" in item && item.showOnTablet !== undefined && typeof item.showOnTablet !== "boolean"
+      || "imageVerticalAlign" in item && item.imageVerticalAlign !== undefined
+        && !isPageTextImageVerticalAlign(item.imageVerticalAlign)
       || !("fontSize" in item) || typeof item.fontSize !== "number" || !Number.isFinite(item.fontSize)
       || "font" in item && item.font !== undefined
         && (typeof item.font !== "string" || !PAGE_TEXT_FONTS.some((font) => font.value === item.font))
@@ -113,6 +138,11 @@ export function parsePageTextOverlays(value: unknown): PageTextOverlay[] {
     }
 
     const width = Math.min(80, Math.max(12, item.width));
+    const mobileWidth = "mobileWidth" in item && typeof item.mobileWidth === "number"
+      ? Math.min(80, Math.max(12, item.mobileWidth))
+      : width;
+    const mobileX = "mobileX" in item && typeof item.mobileX === "number" ? item.mobileX : item.x;
+    const mobileY = "mobileY" in item && typeof item.mobileY === "number" ? item.mobileY : item.y;
     return {
       id: item.id,
       type: item.type,
@@ -126,6 +156,11 @@ export function parsePageTextOverlays(value: unknown): PageTextOverlay[] {
       x: Math.min(100 - width / 2, Math.max(width / 2, item.x)),
       y: Math.min(100, Math.max(0, item.y)),
       width,
+      mobileX: Math.min(100 - mobileWidth / 2, Math.max(mobileWidth / 2, mobileX)),
+      mobileY: Math.min(100, Math.max(0, mobileY)),
+      mobileWidth,
+      showOnMobile: "showOnMobile" in item && typeof item.showOnMobile === "boolean" ? item.showOnMobile : true,
+      showOnTablet: "showOnTablet" in item && typeof item.showOnTablet === "boolean" ? item.showOnTablet : true,
       fontSize: Math.min(8, Math.max(1.5, item.fontSize)),
       font: "font" in item && typeof item.font === "string" && PAGE_TEXT_FONTS.some((font) => font.value === item.font)
         ? item.font as PageTextFont
@@ -145,6 +180,38 @@ export function parsePageTextOverlays(value: unknown): PageTextOverlay[] {
   });
 }
 
+export function parsePageTextOverlayDocument(value: unknown): PageTextOverlayDocument {
+  if (Array.isArray(value)) {
+    const overlays = parsePageTextOverlays(value);
+    const legacyAlign = value.find((item) => item && typeof item === "object" && "imageVerticalAlign" in item)?.imageVerticalAlign;
+    return {
+      overlays,
+      imageVerticalAlign: isPageTextImageVerticalAlign(legacyAlign) ? legacyAlign : "center",
+    };
+  }
+  if (!value || typeof value !== "object" || !("overlays" in value)) {
+    if (value == null) return { overlays: [], imageVerticalAlign: "center" };
+    throw new Error("Pengaturan teks halaman tidak valid.");
+  }
+  if ("imageVerticalAlign" in value && value.imageVerticalAlign !== undefined && !isPageTextImageVerticalAlign(value.imageVerticalAlign)) {
+    throw new Error("Posisi gambar halaman tidak valid.");
+  }
+  return {
+    overlays: parsePageTextOverlays(value.overlays),
+    imageVerticalAlign: "imageVerticalAlign" in value && isPageTextImageVerticalAlign(value.imageVerticalAlign)
+      ? value.imageVerticalAlign
+      : "center",
+  };
+}
+
+export function serializePageTextOverlayDocument(document: PageTextOverlayDocument): string {
+  return JSON.stringify({
+    version: 1,
+    imageVerticalAlign: document.imageVerticalAlign,
+    overlays: document.overlays,
+  });
+}
+
 export function createPageTextOverlay(type: PageTextOverlayType): PageTextOverlay {
   return {
     id: crypto.randomUUID(),
@@ -155,6 +222,11 @@ export function createPageTextOverlay(type: PageTextOverlayType): PageTextOverla
     x: 50,
     y: 50,
     width: type === "balloon" ? 32 : 38,
+    mobileX: 50,
+    mobileY: 50,
+    mobileWidth: type === "balloon" ? 38 : 44,
+    showOnMobile: true,
+    showOnTablet: true,
     fontSize: 3,
     font: "default",
     textColor: "#191b19",

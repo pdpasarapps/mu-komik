@@ -12,12 +12,15 @@ export default function PageTextOverlayLayer({ overlays }: { overlays: PageTextO
     <div className="page-text-overlay-layer">
       {overlays.map((overlay) => (
         <div
-          className={`page-text-overlay page-text-overlay-${overlay.type} page-text-font-${overlay.font} page-text-level-${overlay.textLevel}${overlay.bold ? " page-text-bold" : ""}${overlay.italic ? " page-text-italic" : ""}${overlay.underline ? " page-text-underline" : ""}${overlay.type === "balloon" ? ` page-text-balloon-${overlay.shape} page-text-tail-${overlay.tailDirection}` : ""}`}
+          className={`page-text-overlay page-text-overlay-${overlay.type}${overlay.showOnMobile ? "" : " page-text-hide-mobile"}${overlay.showOnTablet ? "" : " page-text-hide-tablet"} page-text-font-${overlay.font} page-text-level-${overlay.textLevel}${overlay.bold ? " page-text-bold" : ""}${overlay.italic ? " page-text-italic" : ""}${overlay.underline ? " page-text-underline" : ""}${overlay.type === "balloon" ? ` page-text-balloon-${overlay.shape} page-text-tail-${overlay.tailDirection}` : ""}`}
           key={overlay.id}
           style={{
-            left: `${overlay.x}%`,
-            top: `${overlay.y}%`,
-            width: `${overlay.width}%`,
+            "--page-text-x": `${overlay.x}%`,
+            "--page-text-y": `${overlay.y}%`,
+            "--page-text-width": `${overlay.width}%`,
+            "--page-text-mobile-x": `${overlay.mobileX}%`,
+            "--page-text-mobile-y": `${overlay.mobileY}%`,
+            "--page-text-mobile-width": `${overlay.mobileWidth}%`,
             "--page-text-font-size": `${overlay.fontSize}cqw`,
             "--page-text-color": overlay.textColor,
           } as CSSProperties}

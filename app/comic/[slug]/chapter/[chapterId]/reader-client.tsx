@@ -14,14 +14,14 @@ import { useReaderMembership } from "@/app/membership-runtime";
 import { KidsModeToggle, useKidsMode } from "@/app/platform-runtime";
 import { parseChapterSubtitles, type ChapterSubtitleCue } from "@/lib/chapter-subtitles";
 import PageTextOverlayLayer from "@/components/page-text-overlay-layer";
-import { parsePageTextOverlays, type PageTextOverlay } from "@/lib/page-text-overlays";
+import { parsePageTextOverlayDocument, type PageTextImageVerticalAlign, type PageTextOverlay } from "@/lib/page-text-overlays";
 
 const supabase = createClient();
 const TRANSITION_AD_LOAD_TIMEOUT_MS = 2000;
 const READER_LOAD_TIMEOUT_MS = 8000;
 const BOOK_TURN_SPREAD_COMMIT_DELAY_MS = 340;
 
-type Page = { id: string; page_number: number; object_key: string; text_overlays: PageTextOverlay[] };
+type Page = { id: string; page_number: number; object_key: string; text_overlays: PageTextOverlay[]; image_vertical_align: PageTextImageVerticalAlign };
 type Chapter = {
   id: string;
   title: string;
@@ -338,11 +338,13 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       try {
         for (const page of allPageData ?? []) {
           const chapterPages = pagesByChapter.get(page.chapter_id) ?? [];
+          const pageText = parsePageTextOverlayDocument(page.text_overlays);
           chapterPages.push({
             id: page.id,
             page_number: page.page_number,
             object_key: page.object_key,
-            text_overlays: parsePageTextOverlays(page.text_overlays),
+            text_overlays: pageText.overlays,
+            image_vertical_align: pageText.imageVerticalAlign,
           });
           pagesByChapter.set(page.chapter_id, chapterPages);
         }
@@ -1071,11 +1073,24 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                         ) : leaf.kind === "end" ? (
                           currentChapterRead && <div data-reader-stop="episode-end">{episodeEndContent}</div>
                         ) : page && src ? (
-                          <div className="reader-book-page-art">
+                          <div
+                            className={`reader-book-page-art${page.text_overlays.length ? " reader-page-art-with-text-overlays" : ""}`}
+                            style={{ "--reader-page-aspect-ratio": pageAspectRatios[page.id] ?? 0.75 } as CSSProperties}
+                          >
                             <img
                               src={src}
                               alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`}
                               draggable={false}
+                              style={{ objectPosition: `center ${page.image_vertical_align}` }}
+                              onLoad={(event) => {
+                                const image = event.currentTarget;
+                                const aspectRatio = image.naturalWidth / image.naturalHeight;
+                                if (Number.isFinite(aspectRatio) && aspectRatio > 0) {
+                                  setPageAspectRatios((current) => current[page.id] === aspectRatio
+                                    ? current
+                                    : { ...current, [page.id]: aspectRatio });
+                                }
+                              }}
                             />
                             <PageTextOverlayLayer overlays={page.text_overlays} />
                             {activeSubtitlePageId === page.id && activeSubtitle && (
@@ -1130,12 +1145,16 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                       </span>
                       {src
                         ? (
-                          <div className="reader-page-art" style={{ aspectRatio: pageAspectRatios[page.id] ?? "3 / 4" }}>
+                          <div
+                            className={`reader-page-art${page.text_overlays.length ? " reader-page-art-with-text-overlays" : ""}`}
+                            style={{ "--reader-page-aspect-ratio": pageAspectRatios[page.id] ?? 0.75 } as CSSProperties}
+                          >
                             <img
                               src={src}
                               alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`}
                               loading={index < 2 ? "eager" : "lazy"}
                               draggable={false}
+                              style={{ objectPosition: `center ${page.image_vertical_align}` }}
                               onLoad={(event) => {
                                 const image = event.currentTarget;
                                 const aspectRatio = image.naturalWidth / image.naturalHeight;
