@@ -132,6 +132,7 @@ function HomepagePromoCarousel({ promos }: { promos: HomepagePromo[] }) {
 function ComicCard({ comic, compact = false, overlayDetails = false, landscapeCard = false }: { comic: HomepageComic; compact?: boolean; overlayDetails?: boolean; landscapeCard?: boolean }) {
   const chapter = comic.latestChapter;
   const { kidsMode } = useKidsMode();
+  const authorName = comic.contributor.trim().replace(/^penulis\s*:\s*/i, "").trim() || comic.creator;
   const creatorProfile = !kidsMode && comic.creatorHandle && comic.creatorProfilePublic
     ? `/kreator/${encodeURIComponent(comic.creatorHandle)}`
     : null;
@@ -140,8 +141,8 @@ function ComicCard({ comic, compact = false, overlayDetails = false, landscapeCa
       {!overlayDetails && <><span className="reader-card-genre">{comicGenre(comic.genre)}</span><h3>{comic.title}</h3></>}
       {kidsMode && comic.kidsModeApproved && getKidsAgeLabel(comic.kidsAgeRange) && <span className="kids-comic-age-badge">{getKidsAgeLabel(comic.kidsAgeRange)}</span>}
       {!kidsMode && <div className={overlayDetails ? "reader-card-author" : undefined}>
-        <p>{comic.contributor || comic.creator}</p>
-        {overlayDetails && creatorProfile && <Link className="reader-card-creator-shortcut" href={creatorProfile} aria-label={`Lihat profil kreator ${comic.contributor || comic.creator}`} title="Profil kreator"><ArrowUpRight size={13} /></Link>}
+        <p title={authorName}>{authorName}</p>
+        {overlayDetails && creatorProfile && <Link className="reader-card-creator-shortcut" href={creatorProfile} aria-label={`Lihat profil kreator ${authorName}`} title="Profil kreator"><ArrowUpRight size={13} /></Link>}
       </div>}
     </div>
   );

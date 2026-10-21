@@ -1316,10 +1316,10 @@ html[data-theme="dark"] .reader-comic-card-landscape { background: #222825; }
 .reader-comic-card:hover .reader-comic-cover img { transform: scale(1.025); }
 .reader-comic-cover > span:not(.reader-cover-episode) { color: #707b72; font-size: 2.7rem; font-weight: 850; letter-spacing: -.09em; }
 .reader-cover-episode { position: absolute; right: 8px; bottom: 8px; padding: 5px 8px; border-radius: 999px; background: rgba(255,255,255,.92); color: #363e39; font-size: .62rem; font-weight: 800; }
-.reader-comic-info { display: grid; gap: 5px; padding: 10px 1px 0; }
+.reader-comic-info { min-width: 0; display: grid; gap: 5px; padding: 10px 1px 0; }
 .reader-card-genre { color: #788078; font-size: .62rem; font-weight: 750; }
 .reader-comic-info h3 { overflow: hidden; margin: 0; font-size: .96rem; line-height: 1.22; letter-spacing: -.025em; text-overflow: ellipsis; white-space: nowrap; }
-.reader-comic-info p { overflow: hidden; margin: 0; color: #737b75; font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
+.reader-comic-info p { max-width: 100%; min-width: 0; overflow: hidden; margin: 0; color: #737b75; font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
 .reader-comic-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 26px 18px; }
 .reader-home-section .reader-latest-comic-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; }
 .reader-home-section .reader-latest-comic-grid .reader-comic-cover { aspect-ratio: 3 / 4; }
