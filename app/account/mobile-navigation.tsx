@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { BarChart3, BookOpen, Bookmark, CircleHelp, Home, LayoutDashboard, Library, Menu, Plus, Settings2, Sparkles, UserRound, X } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { usePlatformSettings } from "../platform-runtime";
 
 type AccountRole = "reader" | "creator" | "admin";
 
@@ -13,7 +12,6 @@ const supabase = createClient();
 
 export default function AccountMobileNavigation() {
   const pathname = usePathname();
-  const { settings } = usePlatformSettings();
   const [role, setRole] = useState<AccountRole | null>(null);
   const [creatorMobileNavOpen, setCreatorMobileNavOpen] = useState(false);
 
@@ -67,11 +65,17 @@ export default function AccountMobileNavigation() {
         aria-hidden={role === "creator" && !creatorMobileNavOpen}
         inert={role === "creator" && !creatorMobileNavOpen}
       >
+        {role === "reader" ? <>
+          <Link href="/account" className={current("overview") ? "active" : ""} aria-current={current("overview") ? "page" : undefined}><LayoutDashboard size={19} /><span>Ringkasan</span></Link>
+          <Link href="/"><Home size={19} /><span>Beranda</span></Link>
+          <Link href="/account/reading" className={current("reading") ? "active" : ""} aria-current={current("reading") ? "page" : undefined}><BookOpen size={19} /><span>Baca</span></Link>
+          <Link href="/account/favorites" className={current("favorites") ? "active" : ""} aria-current={current("favorites") ? "page" : undefined}><Bookmark size={19} /><span>Favorit</span></Link>
+          <Link href="/account/account-settings" className={current("account-settings") ? "active" : ""} aria-current={current("account-settings") ? "page" : undefined}><Settings2 size={19} /><span>Akun</span></Link>
+        </> : <>
         <Link href="/account" className={current("overview") ? "active" : ""} aria-current={current("overview") ? "page" : undefined}><LayoutDashboard size={19} /><span>Ringkasan</span></Link>
         <Link href="/"><Home size={19} /><span>Beranda</span></Link>
         <Link href="/account/reading" className={current("reading") ? "active" : ""} aria-current={current("reading") ? "page" : undefined}><BookOpen size={19} /><span>Baca</span></Link>
         <Link href="/account/favorites" className={current("favorites") ? "active" : ""} aria-current={current("favorites") ? "page" : undefined}><Bookmark size={19} /><span>Favorit</span></Link>
-        {role === "reader" && settings.feature_flags.creators && <Link href="/account/creator-application" className={current("creator-application") ? "active" : ""} aria-current={current("creator-application") ? "page" : undefined}><Sparkles size={19} /><span>Kreator</span></Link>}
         {role === "creator" && <>
           <Link href="/account/creator" className={current("creator") ? "active" : ""} aria-current={current("creator") ? "page" : undefined}><Sparkles size={19} /><span>Kreator</span></Link>
           <Link href="/account/komiku" className={current("komiku") || isComicEditor ? "active" : ""} aria-current={current("komiku") || isComicEditor ? "page" : undefined}><Library size={19} /><span>Komikku</span></Link>
@@ -84,6 +88,7 @@ export default function AccountMobileNavigation() {
           <Link href="/account/creator-guide" className={current("creator-guide") ? "active" : ""} aria-current={current("creator-guide") ? "page" : undefined}><CircleHelp size={19} /><span>Panduan</span></Link>
         </>}
         {role === "admin" && <Link href="/admin"><Settings2 size={19} /><span>Admin</span></Link>}
+        </>}
       </nav>
       {role === "creator" && (
         <button
