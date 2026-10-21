@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getComicGenreLabel, isReaderInterestGenre, MAX_READER_INTEREST_GENRES, READER_INTEREST_GENRES } from "@/lib/reader-interests";
+import { useLocale } from "@/components/locale-provider";
 
 const supabase = createClient();
 
 export default function ReaderPreferencesPanel() {
+  const { t } = useLocale();
   const [preferredGenres, setPreferredGenres] = useState<string[]>([]);
   const [personalizedAdsConsent, setPersonalizedAdsConsent] = useState(false);
   const [initialConsent, setInitialConsent] = useState(false);
@@ -22,7 +24,7 @@ export default function ReaderPreferencesPanel() {
         if (userError || !userData.user) {
           if (active) {
             console.error("Unable to identify reader while loading preferences:", userError);
-            setMessage("Preferensi tidak dapat dimuat. Silakan masuk kembali.");
+            setMessage(t("Preferensi tidak dapat dimuat. Silakan masuk kembali."));
           }
           return;
         }
@@ -41,8 +43,8 @@ export default function ReaderPreferencesPanel() {
             hint: error.hint,
           });
           setMessage(error.code === "42P01" || error.code === "PGRST205"
-            ? "Preferensi minat belum tersedia. Jalankan supabase/reader-profiling.sql di Supabase SQL Editor."
-            : "Preferensi minat belum dapat dimuat. Coba muat ulang halaman.");
+            ? t("Preferensi minat belum tersedia. Jalankan supabase/reader-profiling.sql di Supabase SQL Editor.")
+            : t("Preferensi minat belum dapat dimuat. Coba muat ulang halaman."));
         } else {
           const genres = Array.isArray(data?.preferred_genres)
             ? data.preferred_genres.filter((genre: unknown): genre is string => typeof genre === "string" && isReaderInterestGenre(genre))
@@ -55,7 +57,7 @@ export default function ReaderPreferencesPanel() {
       } catch (error) {
         if (active) {
           console.error("Unable to load reader preferences:", error);
-          setMessage("Preferensi minat belum dapat dimuat. Coba muat ulang halaman.");
+          setMessage(t("Preferensi minat belum dapat dimuat. Coba muat ulang halaman."));
         }
       } finally {
         if (active) setLoading(false);
@@ -63,7 +65,7 @@ export default function ReaderPreferencesPanel() {
     };
     void loadPreferences();
     return () => { active = false; };
-  }, []);
+  }, [t]);
 
   const toggleGenre = (genre: string) => {
     setPreferredGenres((current) => current.includes(genre)
@@ -81,7 +83,7 @@ export default function ReaderPreferencesPanel() {
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError || !userData.user) {
         console.error("Unable to identify reader while saving preferences:", userError);
-        setMessage("Sesi kamu berakhir. Silakan masuk kembali.");
+        setMessage(t("Sesi kamu berakhir. Silakan masuk kembali."));
         return;
       }
       const { error } = await supabase.from("reader_preferences").upsert({
@@ -99,17 +101,17 @@ export default function ReaderPreferencesPanel() {
           hint: error.hint,
         });
         setMessage(error.code === "42P01" || error.code === "PGRST205"
-          ? "Preferensi minat belum tersedia. Jalankan supabase/reader-profiling.sql di Supabase SQL Editor."
-          : "Preferensi minat gagal disimpan. Coba lagi.");
+          ? t("Preferensi minat belum tersedia. Jalankan supabase/reader-profiling.sql di Supabase SQL Editor.")
+          : t("Preferensi minat gagal disimpan. Coba lagi."));
       } else {
         setPreferredGenres(genresToSave);
         setPersonalizedAdsConsent(consentToSave);
         setInitialConsent(consentToSave);
-        setMessage("Preferensi minat berhasil disimpan.");
+        setMessage(t("Preferensi minat berhasil disimpan."));
       }
     } catch (error) {
       console.error("Unable to save reader preferences:", error);
-      setMessage("Preferensi minat gagal disimpan. Coba lagi.");
+      setMessage(t("Preferensi minat gagal disimpan. Coba lagi."));
     } finally {
       setSaving(false);
     }
@@ -119,14 +121,14 @@ export default function ReaderPreferencesPanel() {
     <section className="reader-preferences-panel" aria-labelledby="reader-preferences-title">
       <div className="reader-preferences-heading">
         <div>
-          <p className="eyebrow">Personalisasi bacaan</p>
-          <h3 id="reader-preferences-title">Minat membaca</h3>
-          <p>Pilih hingga {MAX_READER_INTEREST_GENRES} genre. Pilihan ini bersifat pribadi dan dapat diubah kapan saja.</p>
+          <p className="eyebrow">{t("Personalisasi bacaan")}</p>
+          <h3 id="reader-preferences-title">{t("Minat membaca")}</h3>
+          <p>{t("Pilih hingga 5 genre. Pilihan ini bersifat pribadi dan dapat diubah kapan saja.").replace("5", String(MAX_READER_INTEREST_GENRES))}</p>
         </div>
       </div>
-      {loading ? <p role="status">Memuat preferensi...</p> : <>
+      {loading ? <p role="status">{t("Memuat preferensi...")}</p> : <>
         <fieldset className="reader-interest-options">
-          <legend className="sr-only">Genre yang diminati</legend>
+          <legend className="sr-only">{t("Genre yang diminati")}</legend>
           {READER_INTEREST_GENRES.map((genre) => (
             <label className="reader-interest-option" key={genre}>
               <input
@@ -135,7 +137,7 @@ export default function ReaderPreferencesPanel() {
                 onChange={() => toggleGenre(genre)}
                 disabled={saving || (!preferredGenres.includes(genre) && preferredGenres.length >= MAX_READER_INTEREST_GENRES)}
               />
-              <span>{getComicGenreLabel(genre)}</span>
+              <span>{t(getComicGenreLabel(genre))}</span>
             </label>
           ))}
         </fieldset>
@@ -146,15 +148,15 @@ export default function ReaderPreferencesPanel() {
             onChange={(event) => setPersonalizedAdsConsent(event.target.checked)}
             disabled={saving}
           />
-          <span><strong>Izinkan iklan yang dipersonalisasi</strong><small>Jika dinonaktifkan, iklan tetap dapat disesuaikan dengan genre komik yang sedang kamu baca, tanpa menggunakan pilihan minat profilmu. Perubahan berlaku untuk tayangan berikutnya.</small></span>
+          <span><strong>{t("Izinkan iklan yang dipersonalisasi")}</strong><small>{t("Jika dinonaktifkan, iklan tetap dapat disesuaikan dengan genre komik yang sedang kamu baca, tanpa menggunakan pilihan minat profilmu. Perubahan berlaku untuk tayangan berikutnya.")}</small></span>
         </label>
         {message && <p className="creator-profile-message" role={message.includes("gagal") || message.includes("tidak") ? "alert" : "status"}>{message}</p>}
         <div className="reader-preferences-actions">
           <button type="button" className="button button-dark" onClick={() => void savePreferences()} disabled={saving}>
-            {saving ? "Menyimpan..." : "Simpan preferensi"}
+            {saving ? t("Menyimpan...") : t("Simpan preferensi")}
           </button>
           <button type="button" className="button button-light" onClick={() => void savePreferences([], false)} disabled={saving || (!preferredGenres.length && !personalizedAdsConsent)}>
-            Hapus minat dan nonaktifkan personalisasi
+            {t("Hapus minat dan nonaktifkan personalisasi")}
           </button>
         </div>
       </>}

@@ -5,9 +5,12 @@ import { getArticleCoverUrl } from "@/lib/article-cover";
 export type HomepageArticle = {
   id: string;
   title: string;
+  title_en: string;
   slug: string;
   excerpt: string;
+  excerpt_en: string;
   category: string;
+  category_en: string;
   coverUrl: string | undefined;
 };
 
@@ -55,7 +58,7 @@ export async function getHomepageArticles(): Promise<HomepageArticle[]> {
 
   const { data, error } = await supabase
     .from("articles")
-    .select("id, title, slug, excerpt, category, cover_key")
+    .select("id, title, title_en, slug, excerpt, excerpt_en, category, category_en, cover_key")
     .eq("status", "published")
     .lte("published_at", new Date().toISOString())
     .order("published_at", { ascending: false })
@@ -69,9 +72,12 @@ export async function getHomepageArticles(): Promise<HomepageArticle[]> {
   return (data ?? []).map((article) => ({
     id: article.id,
     title: article.title,
+    title_en: article.title_en,
     slug: article.slug,
     excerpt: article.excerpt,
+    excerpt_en: article.excerpt_en,
     category: article.category,
+    category_en: article.category_en,
     coverUrl: getArticleCoverUrl(article.cover_key),
   }));
 }

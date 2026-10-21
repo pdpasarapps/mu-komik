@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore, type FormEvent } from "react";
 import { Eye, EyeOff, KeyRound, Laptop, Moon, Shield, Sun, Type } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useLocale } from "@/components/locale-provider";
 
 const THEME_STORAGE_KEY = "mu-komik-theme";
 const supabase = createClient();
@@ -32,6 +33,7 @@ const subscribeToTextSize = (onTextSizeChange: () => void) => {
 };
 
 export default function AccountSecuritySettings() {
+  const { t } = useLocale();
   const theme = useSyncExternalStore(subscribeToTheme, getThemeSnapshot, () => "light");
   const textSize = useSyncExternalStore(subscribeToTextSize, getTextSizeSnapshot, () => "standard");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -64,15 +66,15 @@ export default function AccountSecuritySettings() {
     event.preventDefault();
     setPasswordFeedback(null);
     if (newPassword.length < 8) {
-      setPasswordFeedback({ type: "error", message: "Kata sandi baru minimal 8 karakter." });
+      setPasswordFeedback({ type: "error", message: t("Kata sandi baru minimal 8 karakter.") });
       return;
     }
     if (!currentPassword) {
-      setPasswordFeedback({ type: "error", message: "Masukkan kata sandi saat ini untuk melanjutkan." });
+      setPasswordFeedback({ type: "error", message: t("Masukkan kata sandi saat ini untuk melanjutkan.") });
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordFeedback({ type: "error", message: "Konfirmasi kata sandi belum cocok." });
+      setPasswordFeedback({ type: "error", message: t("Konfirmasi kata sandi belum cocok.") });
       return;
     }
 
@@ -81,7 +83,7 @@ export default function AccountSecuritySettings() {
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError || !userData.user?.email) {
         if (userError) console.error("Unable to load account for password verification:", userError);
-        setPasswordFeedback({ type: "error", message: "Sesi akun tidak dapat diverifikasi. Silakan masuk kembali." });
+        setPasswordFeedback({ type: "error", message: t("Sesi akun tidak dapat diverifikasi. Silakan masuk kembali.") });
         return;
       }
 
@@ -94,8 +96,8 @@ export default function AccountSecuritySettings() {
         setPasswordFeedback({
           type: "error",
           message: verificationError.code === "invalid_credentials" || verificationError.code === "invalid_login_credentials"
-            ? "Kata sandi saat ini tidak sesuai."
-            : "Kata sandi saat ini tidak dapat diverifikasi. Coba lagi.",
+            ? t("Kata sandi saat ini tidak sesuai.")
+            : t("Kata sandi saat ini tidak dapat diverifikasi. Coba lagi."),
         });
         return;
       }
@@ -106,18 +108,18 @@ export default function AccountSecuritySettings() {
         setPasswordFeedback({
           type: "error",
           message: error.code === "same_password"
-            ? "Kata sandi baru harus berbeda dari kata sandi saat ini."
-            : "Kata sandi gagal diperbarui. Coba lagi atau masuk kembali.",
+            ? t("Kata sandi baru harus berbeda dari kata sandi saat ini.")
+            : t("Kata sandi gagal diperbarui. Coba lagi atau masuk kembali."),
         });
       } else {
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
-        setPasswordFeedback({ type: "success", message: "Kata sandi berhasil diperbarui." });
+        setPasswordFeedback({ type: "success", message: t("Kata sandi berhasil diperbarui.") });
       }
     } catch (error) {
       console.error("Account password update request failed:", error);
-      setPasswordFeedback({ type: "error", message: "Kata sandi gagal diperbarui. Periksa koneksi lalu coba lagi." });
+      setPasswordFeedback({ type: "error", message: t("Kata sandi gagal diperbarui. Periksa koneksi lalu coba lagi.") });
     } finally {
       setSavingPassword(false);
     }
@@ -130,7 +132,7 @@ export default function AccountSecuritySettings() {
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError || !userData.user?.email) {
         if (userError) console.error("Unable to load account email for password reset:", userError);
-        setResetEmailFeedback({ type: "error", message: "Email akun tidak dapat diverifikasi. Silakan masuk kembali." });
+        setResetEmailFeedback({ type: "error", message: t("Email akun tidak dapat diverifikasi. Silakan masuk kembali.") });
         return;
       }
 
@@ -139,13 +141,13 @@ export default function AccountSecuritySettings() {
       });
       if (error) {
         console.error("Unable to send account password reset email:", error);
-        setResetEmailFeedback({ type: "error", message: "Email reset kata sandi gagal dikirim. Coba lagi nanti." });
+        setResetEmailFeedback({ type: "error", message: t("Email reset kata sandi gagal dikirim. Coba lagi nanti.") });
       } else {
-        setResetEmailFeedback({ type: "success", message: `Tautan reset dikirim ke ${userData.user.email}. Periksa kotak masuk dan folder spam.` });
+        setResetEmailFeedback({ type: "success", message: `${t("Tautan reset dikirim ke")} ${userData.user.email}. ${t("Periksa kotak masuk dan folder spam.")}` });
       }
     } catch (error) {
       console.error("Account password reset request failed:", error);
-      setResetEmailFeedback({ type: "error", message: "Permintaan reset gagal. Periksa koneksi lalu coba lagi." });
+      setResetEmailFeedback({ type: "error", message: t("Permintaan reset gagal. Periksa koneksi lalu coba lagi.") });
     } finally {
       setSendingResetEmail(false);
     }
@@ -158,13 +160,13 @@ export default function AccountSecuritySettings() {
       const { error } = await supabase.auth.signOut({ scope: "others" });
       if (error) {
         console.error("Unable to sign out other account sessions:", error);
-        setSessionFeedback({ type: "error", message: "Sesi lain gagal dikeluarkan. Coba lagi." });
+        setSessionFeedback({ type: "error", message: t("Sesi lain gagal dikeluarkan. Coba lagi.") });
       } else {
-        setSessionFeedback({ type: "success", message: "Sesi lain sudah dikeluarkan. Kamu tetap masuk di perangkat ini." });
+        setSessionFeedback({ type: "success", message: t("Sesi lain sudah dikeluarkan. Kamu tetap masuk di perangkat ini.") });
       }
     } catch (error) {
       console.error("Other session sign-out request failed:", error);
-      setSessionFeedback({ type: "error", message: "Sesi lain gagal dikeluarkan. Periksa koneksi lalu coba lagi." });
+      setSessionFeedback({ type: "error", message: t("Sesi lain gagal dikeluarkan. Periksa koneksi lalu coba lagi.") });
     } finally {
       setSigningOutOthers(false);
     }
@@ -174,8 +176,8 @@ export default function AccountSecuritySettings() {
     <section className="account-extra-settings" aria-labelledby="account-extra-settings-title">
       <div className="reader-preferences-heading">
         <div>
-          <p className="eyebrow">Tampilan dan keamanan</p>
-          <h3 id="account-extra-settings-title">Pengaturan lainnya</h3>
+          <p className="eyebrow">{t("Tampilan dan keamanan")}</p>
+          <h3 id="account-extra-settings-title">{t("Pengaturan lainnya")}</h3>
         </div>
       </div>
 
@@ -183,16 +185,16 @@ export default function AccountSecuritySettings() {
         <div className="account-extra-setting-heading">
           <span className="account-extra-setting-icon"><Moon size={18} /></span>
           <div>
-            <strong>Tema tampilan</strong>
-            <small>Berlaku di seluruh MU Komik dan tersimpan di browser ini.</small>
+            <strong>{t("Tema tampilan")}</strong>
+            <small>{t("Berlaku di seluruh MU Komik dan tersimpan di browser ini.")}</small>
           </div>
         </div>
-        <div className="account-theme-options" role="group" aria-label="Pilih tema">
+        <div className="account-theme-options" role="group" aria-label={t("Pilih tema")}>
           <button type="button" aria-pressed={theme === "light"} className={theme === "light" ? "selected" : ""} onClick={() => changeTheme("light")}>
-            <Sun size={16} /> Terang
+            <Sun size={16} /> {t("Terang")}
           </button>
           <button type="button" aria-pressed={theme === "dark"} className={theme === "dark" ? "selected" : ""} onClick={() => changeTheme("dark")}>
-            <Moon size={16} /> Gelap
+            <Moon size={16} /> {t("Gelap")}
           </button>
         </div>
       </div>
@@ -201,16 +203,16 @@ export default function AccountSecuritySettings() {
         <div className="account-extra-setting-heading">
           <span className="account-extra-setting-icon"><Type size={18} /></span>
           <div>
-            <strong>Ukuran teks dan kontrol</strong>
-            <small>Perbesar teks antarmuka dan tombol navigasi, terutama saat membaca di ponsel. Pengaturan tersimpan di browser ini.</small>
+            <strong>{t("Ukuran teks dan kontrol")}</strong>
+            <small>{t("Perbesar teks antarmuka dan tombol navigasi, terutama saat membaca di ponsel. Pengaturan tersimpan di browser ini.")}</small>
           </div>
         </div>
-        <div className="account-theme-options" role="group" aria-label="Pilih ukuran teks dan kontrol">
+        <div className="account-theme-options" role="group" aria-label={t("Pilih ukuran teks dan kontrol")}>
           <button type="button" aria-pressed={textSize === "standard"} className={textSize === "standard" ? "selected" : ""} onClick={() => changeTextSize("standard")}>
-            Standar
+            {t("Standar")}
           </button>
           <button type="button" aria-pressed={textSize === "large"} className={textSize === "large" ? "selected" : ""} onClick={() => changeTextSize("large")}>
-            Lebih besar
+            {t("Lebih besar")}
           </button>
         </div>
       </div>
@@ -219,13 +221,13 @@ export default function AccountSecuritySettings() {
         <div className="account-extra-setting-heading">
           <span className="account-extra-setting-icon"><KeyRound size={18} /></span>
           <div>
-            <strong>Ganti kata sandi</strong>
-            <small>Pilih kata sandi baru minimal 8 karakter yang belum pernah kamu pakai sebelumnya.</small>
+            <strong>{t("Ganti kata sandi")}</strong>
+            <small>{t("Pilih kata sandi baru minimal 8 karakter yang belum pernah kamu pakai sebelumnya.")}</small>
           </div>
         </div>
         <div className="account-password-fields">
           <label>
-            <span>Kata sandi saat ini</span>
+            <span>{t("Kata sandi saat ini")}</span>
             <span className="account-password-input-wrap">
               <input
                 id="account-current-password"
@@ -242,14 +244,14 @@ export default function AccountSecuritySettings() {
               <button
                 className="account-password-visibility"
                 type="button"
-                aria-label={showCurrentPassword ? "Sembunyikan kata sandi saat ini" : "Tampilkan kata sandi saat ini"}
+                aria-label={t(showCurrentPassword ? "Sembunyikan kata sandi saat ini" : "Tampilkan kata sandi saat ini")}
                 aria-controls="account-current-password"
                 onClick={() => setShowCurrentPassword((visible) => !visible)}
               >{showCurrentPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>
             </span>
           </label>
           <label>
-            <span>Kata sandi baru</span>
+            <span>{t("Kata sandi baru")}</span>
             <span className="account-password-input-wrap">
               <input
                 id="account-new-password"
@@ -268,15 +270,15 @@ export default function AccountSecuritySettings() {
               <button
                 className="account-password-visibility"
                 type="button"
-                aria-label={showNewPassword ? "Sembunyikan kata sandi baru" : "Tampilkan kata sandi baru"}
+                aria-label={t(showNewPassword ? "Sembunyikan kata sandi baru" : "Tampilkan kata sandi baru")}
                 aria-controls="account-new-password"
                 onClick={() => setShowNewPassword((visible) => !visible)}
               >{showNewPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>
             </span>
-            <small id="account-new-password-hint">Minimal 8 karakter.</small>
+            <small id="account-new-password-hint">{t("Minimal 8 karakter.")}</small>
           </label>
           <label>
-            <span>Konfirmasi kata sandi baru</span>
+            <span>{t("Konfirmasi kata sandi baru")}</span>
             <span className="account-password-input-wrap">
               <input
                 id="account-confirm-password"
@@ -296,23 +298,23 @@ export default function AccountSecuritySettings() {
               <button
                 className="account-password-visibility"
                 type="button"
-                aria-label={showConfirmPassword ? "Sembunyikan konfirmasi kata sandi" : "Tampilkan konfirmasi kata sandi"}
+                aria-label={t(showConfirmPassword ? "Sembunyikan konfirmasi kata sandi" : "Tampilkan konfirmasi kata sandi")}
                 aria-controls="account-confirm-password"
                 onClick={() => setShowConfirmPassword((visible) => !visible)}
               >{showConfirmPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>
             </span>
             <small id="account-confirm-password-hint" className={passwordMismatch ? "account-password-mismatch" : ""} aria-live="polite">
-              {passwordMismatch ? "Konfirmasi kata sandi belum cocok." : "Masukkan kembali kata sandi baru."}
+              {t(passwordMismatch ? "Konfirmasi kata sandi belum cocok." : "Masukkan kembali kata sandi baru.")}
             </small>
           </label>
         </div>
         {passwordFeedback && <p className={`account-security-message ${passwordFeedback.type}`} role={passwordFeedback.type === "error" ? "alert" : "status"}>{passwordFeedback.message}</p>}
         <button className="button button-dark account-security-button" type="submit" disabled={savingPassword}>
-          {savingPassword ? "Memperbarui..." : "Perbarui kata sandi"}
+          {savingPassword ? t("Memperbarui...") : t("Perbarui kata sandi")}
         </button>
         <div className="account-password-reset">
           <button className="account-password-reset-link" type="button" onClick={() => void sendPasswordResetEmail()} disabled={sendingResetEmail}>
-            {sendingResetEmail ? "Mengirim tautan..." : "Lupa kata sandi saat ini?"}
+            {sendingResetEmail ? t("Mengirim tautan...") : t("Lupa kata sandi saat ini?")}
           </button>
           {resetEmailFeedback && <p className={`account-security-message ${resetEmailFeedback.type}`} role={resetEmailFeedback.type === "error" ? "alert" : "status"}>{resetEmailFeedback.message}</p>}
         </div>
@@ -322,13 +324,13 @@ export default function AccountSecuritySettings() {
         <div className="account-extra-setting-heading">
           <span className="account-extra-setting-icon"><Shield size={18} /></span>
           <div>
-            <strong>Sesi aktif</strong>
-            <small>Keluar dari perangkat lain jika kamu tidak mengenali sesi tersebut.</small>
+            <strong>{t("Sesi aktif")}</strong>
+            <small>{t("Keluar dari perangkat lain jika kamu tidak mengenali sesi tersebut.")}</small>
           </div>
         </div>
         {sessionFeedback && <p className={`account-security-message ${sessionFeedback.type}`} role={sessionFeedback.type === "error" ? "alert" : "status"}>{sessionFeedback.message}</p>}
         <button className="button button-light account-security-button" type="button" onClick={() => void signOutOtherSessions()} disabled={signingOutOthers}>
-          <Laptop size={16} /> {signingOutOthers ? "Mengeluarkan sesi..." : "Keluar dari perangkat lain"}
+          <Laptop size={16} /> {signingOutOthers ? t("Mengeluarkan sesi...") : t("Keluar dari perangkat lain")}
         </button>
       </div>
     </section>

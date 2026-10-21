@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } fr
 import { Image as ImageIcon, LoaderCircle, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import ContentLanguageTabs from "@/components/content-language-tabs";
+import type { Locale } from "@/lib/locale";
 
 type PromoStatus = "draft" | "active" | "paused";
 type PromoImageField = "image_url" | "image_url_tablet" | "image_url_mobile";
@@ -12,10 +14,14 @@ type HomepagePromo = {
   eyebrow: string;
   title: string;
   description: string;
+  eyebrow_en: string;
+  title_en: string;
+  description_en: string;
   image_url: string;
   image_url_tablet: string | null;
   image_url_mobile: string | null;
   cta_label: string;
+  cta_label_en: string;
   destination_url: string;
   sort_order: number;
   starts_on: string;
@@ -49,10 +55,14 @@ function emptyPromo(): PromoForm {
     eyebrow: "",
     title: "",
     description: "",
+    eyebrow_en: "",
+    title_en: "",
+    description_en: "",
     image_url: "",
     image_url_tablet: "",
     image_url_mobile: "",
     cta_label: "Selengkapnya",
+    cta_label_en: "",
     destination_url: "",
     sort_order: 0,
     starts_on: localDate(),
@@ -64,6 +74,9 @@ function emptyPromo(): PromoForm {
 function errorMessage(code?: string) {
   if (code === "42P01" || code === "PGRST205") {
     return "Tabel promo beranda belum tersedia. Jalankan supabase/homepage-promos.sql di Supabase SQL Editor.";
+  }
+  if (code === "42703" || code === "PGRST204") {
+    return "Kolom bahasa promo belum tersedia. Jalankan ulang supabase/homepage-promos.sql di Supabase SQL Editor.";
   }
   if (code === "42501" || code === "PGRST301") {
     return "Akses ditolak. Pastikan akun memiliki peran admin dan kebijakan database sudah diterapkan.";
@@ -84,6 +97,7 @@ function isValidDestination(value: string) {
 export default function HomepagePromosPanel() {
   const [promos, setPromos] = useState<HomepagePromo[]>([]);
   const [form, setForm] = useState<PromoForm>(emptyPromo);
+  const [editingLocale, setEditingLocale] = useState<Locale>("id");
   const [formVisible, setFormVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -94,7 +108,7 @@ export default function HomepagePromosPanel() {
   const loadPromos = useCallback(async (): Promise<boolean> => {
     const { data, error } = await supabase
       .from("homepage_promos")
-      .select("id, eyebrow, title, description, image_url, image_url_tablet, image_url_mobile, cta_label, destination_url, sort_order, starts_on, ends_on, status")
+      .select("id, eyebrow, title, description, eyebrow_en, title_en, description_en, image_url, image_url_tablet, image_url_mobile, cta_label, cta_label_en, destination_url, sort_order, starts_on, ends_on, status")
       .order("sort_order")
       .order("created_at", { ascending: false });
     if (error) {
@@ -118,6 +132,7 @@ export default function HomepagePromosPanel() {
 
   const startEdit = (promo: HomepagePromo) => {
     setForm({ ...promo, image_url_tablet: promo.image_url_tablet ?? "", image_url_mobile: promo.image_url_mobile ?? "" });
+    setEditingLocale("id");
     setFormVisible(true);
     setMessage("");
   };
@@ -189,10 +204,14 @@ export default function HomepagePromosPanel() {
       eyebrow: form.eyebrow.trim(),
       title: form.title.trim(),
       description: form.description.trim(),
+      eyebrow_en: form.eyebrow_en.trim(),
+      title_en: form.title_en.trim(),
+      description_en: form.description_en.trim(),
       image_url: form.image_url.trim(),
       image_url_tablet: form.image_url_tablet.trim() || null,
       image_url_mobile: form.image_url_mobile.trim() || null,
       cta_label: form.cta_label.trim(),
+      cta_label_en: form.cta_label_en.trim(),
       destination_url: destination,
       sort_order: Number(form.sort_order),
       starts_on: form.starts_on,
@@ -236,18 +255,19 @@ export default function HomepagePromosPanel() {
       <section className="ads-management-card" aria-labelledby="homepage-promos-title">
         <div className="admin-section-heading">
           <div><p className="eyebrow">Konten beranda</p><h2 id="homepage-promos-title">Hero & promo</h2><p>Atur slide promosi independen dari katalog komik. Urutan terkecil tampil lebih dahulu.</p></div>
-          {!formVisible && <button className="approve-button" type="button" onClick={() => { setForm(emptyPromo()); setFormVisible(true); setMessage(""); }}><Plus size={15} /> Tambah promo</button>}
+          {!formVisible && <button className="approve-button" type="button" onClick={() => { setForm(emptyPromo()); setEditingLocale("id"); setFormVisible(true); setMessage(""); }}><Plus size={15} /> Tambah promo</button>}
         </div>
 
         {formVisible && <form className="ads-form homepage-promo-form" onSubmit={savePromo}>
           <h3>{form.id ? "Ubah promo beranda" : "Promo baru"}</h3>
+          <ContentLanguageTabs value={editingLocale} onChange={setEditingLocale} />
           <div className="ads-form-two-columns">
-            <label>Label kecil (opsional)<input value={form.eyebrow} maxLength={80} onChange={(event) => setForm((current) => ({ ...current, eyebrow: event.target.value }))} placeholder="PROMO SPESIAL" /></label>
-            <label>Judul<input required value={form.title} maxLength={120} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} /></label>
+            <label>Label kecil (opsional)<input value={editingLocale === "id" ? form.eyebrow : form.eyebrow_en} maxLength={80} onChange={(event) => setForm((current) => ({ ...current, [editingLocale === "id" ? "eyebrow" : "eyebrow_en"]: event.target.value }))} placeholder="PROMO SPESIAL" /></label>
+            <label>Judul{editingLocale === "id" ? "" : " (opsional)"}<input required={editingLocale === "id"} value={editingLocale === "id" ? form.title : form.title_en} maxLength={120} onChange={(event) => setForm((current) => ({ ...current, [editingLocale === "id" ? "title" : "title_en"]: event.target.value }))} /></label>
           </div>
-          <label>Deskripsi<textarea value={form.description} maxLength={500} rows={3} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
+          <label>Deskripsi<textarea value={editingLocale === "id" ? form.description : form.description_en} maxLength={500} rows={3} onChange={(event) => setForm((current) => ({ ...current, [editingLocale === "id" ? "description" : "description_en"]: event.target.value }))} /></label>
           <div className="ads-form-two-columns">
-            <label>Teks tombol<input value={form.cta_label} maxLength={40} onChange={(event) => setForm((current) => ({ ...current, cta_label: event.target.value }))} placeholder="Selengkapnya" /></label>
+            <label>Teks tombol<input value={editingLocale === "id" ? form.cta_label : form.cta_label_en} maxLength={40} onChange={(event) => setForm((current) => ({ ...current, [editingLocale === "id" ? "cta_label" : "cta_label_en"]: event.target.value }))} placeholder={editingLocale === "id" ? "Selengkapnya" : "Learn more"} /></label>
             <label>Tautan tujuan<input required value={form.destination_url} onChange={(event) => setForm((current) => ({ ...current, destination_url: event.target.value }))} placeholder="/promo atau https://contoh.id" /></label>
           </div>
           <div className="ads-form-two-columns">

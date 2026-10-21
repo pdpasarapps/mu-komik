@@ -5,9 +5,15 @@ create table if not exists public.articles (
   excerpt text not null default '',
   content_markdown text not null default '',
   category text not null default 'Komik',
+  title_en text not null default '',
+  excerpt_en text not null default '',
+  content_markdown_en text not null default '',
+  category_en text not null default '',
   cover_key text,
   seo_title text,
   seo_description text,
+  seo_title_en text,
+  seo_description_en text,
   status text not null default 'draft' check (status in ('draft', 'published')),
   author_name text not null default 'Tim MU-Komik',
   author_id uuid not null references public.profiles(id),
@@ -16,6 +22,14 @@ create table if not exists public.articles (
   updated_at timestamptz not null default now(),
   check (status <> 'published' or published_at is not null)
 );
+
+alter table public.articles
+  add column if not exists title_en text not null default '',
+  add column if not exists excerpt_en text not null default '',
+  add column if not exists content_markdown_en text not null default '',
+  add column if not exists category_en text not null default '',
+  add column if not exists seo_title_en text,
+  add column if not exists seo_description_en text;
 
 create index if not exists articles_published_at_idx
   on public.articles (published_at desc)
@@ -55,3 +69,5 @@ drop trigger if exists articles_set_updated_at on public.articles;
 create trigger articles_set_updated_at
   before update on public.articles
   for each row execute function public.set_article_updated_at();
+
+notify pgrst, 'reload schema';

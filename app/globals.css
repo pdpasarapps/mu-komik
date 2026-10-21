@@ -1037,6 +1037,10 @@ html[data-theme="dark"] .chapter-subtitle-edit-fields input, html[data-theme="da
 .ads-form-actions, .ads-item-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .ads-form-actions .approve-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; }
 .homepage-promo-form { margin: 0 0 18px; }
+.content-language-tabs { width: fit-content; display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 7px; background: #f3f2ed; }
+.content-language-tabs button { min-height: 32px; padding: 0 12px; border: 0; border-radius: 4px; background: transparent; color: #66736b; font: inherit; font-size: .7rem; font-weight: 750; cursor: pointer; }
+.content-language-tabs button[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: 0 1px 3px #2026221c; }
+.content-language-tabs button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .homepage-promo-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .homepage-promo-list > li { min-width: 0; display: grid; grid-template-columns: minmax(120px, 220px) minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .homepage-promo-list > li > img { width: 100%; aspect-ratio: 16 / 6; border-radius: 5px; object-fit: cover; background: #efede6; }
@@ -1214,6 +1218,10 @@ html[data-theme="dark"] .kids-pin-dialog-icon { background: #1f3856; color: #64a
 .reader-login-button { padding: 0 14px; border: 1px solid var(--reader-border); background: white; }
 .reader-login-button:hover { border-color: #c9c6bc; }
 .reader-search-mobile, .reader-menu-toggle, .reader-search-close { display: none; }
+.language-switcher { position: fixed; z-index: 32; right: 16px; bottom: 16px; min-width: 58px; min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 11px; border: 1px solid var(--reader-border); border-radius: 999px; background: rgba(250,249,246,.96); color: var(--reader-text); box-shadow: 0 4px 16px rgba(32,36,34,.12); font: inherit; font-size: .7rem; font-weight: 850; cursor: pointer; backdrop-filter: blur(12px); }
+.language-switcher:hover { border-color: var(--reader-accent); color: var(--reader-accent); }
+.language-switcher:focus-visible { outline: 3px solid rgba(237,105,68,.45); outline-offset: 3px; }
+html[data-theme="dark"] .language-switcher { border-color: var(--line); background: rgba(23,27,25,.96); color: var(--ink); }
 .reader-inline-message { display: flex; justify-content: center; align-items: center; gap: 10px; padding: 8px 16px; color: #7f3927; background: #fff0e9; font-size: .78rem; }
 .reader-inline-message button, .reader-empty-state button { border: 0; border-bottom: 1px solid currentColor; background: none; color: inherit; font-size: inherit; font-weight: 800; cursor: pointer; }
 .reader-featured { min-height: 360px; display: grid; grid-template-columns: 1.1fr .9fr; align-items: center; gap: 6%; padding: 24px clamp(22px, 9vw, 140px); background: var(--reader-green); }
@@ -1791,6 +1799,7 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
   .reader-wordmark { justify-self: start; }.reader-wordmark .wordmark-image { width: 44px; height: 44px; }
   .reader-nav-links { display: none; }
   .reader-bottom-nav { position: fixed; z-index: 31; right: 0; bottom: 0; left: 0; min-height: 60px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 4px 8px calc(4px + env(safe-area-inset-bottom)); border-top: 1px solid var(--reader-border); background: rgba(250,249,246,.97); box-shadow: 0 -5px 18px rgba(32,36,34,.06); backdrop-filter: blur(14px); }
+  .language-switcher { right: 12px; bottom: calc(72px + env(safe-area-inset-bottom)); }
   .reader-bottom-nav > a { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; border-radius: 9px; background: transparent; color: #535d56; font-size: .64rem; font-weight: 750; text-decoration: none; }
   .reader-bottom-nav > a:active { background: rgba(237,105,68,.1); color: var(--reader-accent); }
   .reader-bottom-nav-kids { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2618,6 +2627,7 @@ html[data-theme="dark"] .article-markdown pre, html[data-theme="dark"] .article-
 .article-admin-editor-heading h2 { margin: 0; font-size: 1.35rem; letter-spacing: -.04em; }
 .article-admin-view-link, .article-admin-preview-toggle { display: inline-flex; align-items: center; gap: 6px; color: #53665a; font-size: .68rem; font-weight: 750; }
 .article-admin-form { display: grid; gap: 12px; }
+.article-admin-form .content-language-tabs { margin-bottom: 2px; }
 .article-admin-form .admin-setting-field { margin: 0; gap: 6px; }
 .article-admin-form .admin-setting-field > input, .article-admin-form .admin-setting-field > textarea, .article-admin-form .admin-setting-field > select { width: 100%; min-height: 40px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); font: inherit; font-size: .75rem; font-weight: 500; }
 .article-admin-form .admin-setting-field > textarea { resize: vertical; line-height: 1.55; }
@@ -2648,6 +2658,9 @@ html[data-theme="dark"] .article-admin-form .admin-setting-field > textarea,
 html[data-theme="dark"] .article-admin-form .admin-setting-field > select,
 html[data-theme="dark"] .article-admin-markdown-input,
 html[data-theme="dark"] .article-admin-markdown-preview { border-color: var(--reader-border); background: #1a1f1c; color: var(--ink); }
+html[data-theme="dark"] .content-language-tabs { border-color: var(--reader-border); background: #202622; }
+html[data-theme="dark"] .content-language-tabs button { color: #a9b2ab; }
+html[data-theme="dark"] .content-language-tabs button[aria-pressed="true"] { background: #343c38; color: #f1efe8; }
 html[data-theme="dark"] .article-admin-upload { background: #1a1f1c; color: #c4ccc6; }
 @media (max-width: 850px) {
   .article-listing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

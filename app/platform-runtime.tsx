@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Baby } from "lucide-react";
 import BrandLogo from "@/components/brand-logo";
 import PlatformLinks from "@/components/platform-links";
+import { useLocale } from "@/components/locale-provider";
 import type { PlatformSettings } from "@/lib/platform-settings";
 
 const PlatformSettingsContext = createContext<{ settings: PlatformSettings; updateSettings: (settings: PlatformSettings) => void } | null>(null);
@@ -26,13 +27,14 @@ export function useKidsMode() {
 
 export function KidsModeToggle() {
   const { kidsMode, setKidsMode } = useKidsMode();
+  const { t } = useLocale();
   return (
     <button
       className={`kids-mode-toggle${kidsMode ? " kids-mode-toggle-active" : ""}`}
       type="button"
       role="switch"
       aria-checked={kidsMode}
-      aria-label={kidsMode ? "Nonaktifkan Kids Mode" : "Aktifkan Kids Mode"}
+      aria-label={t(kidsMode ? "Nonaktifkan Kids Mode" : "Aktifkan Kids Mode")}
       onClick={() => setKidsMode(!kidsMode)}
     >
       <span className="kids-mode-toggle-label">Kids Mode</span>
@@ -55,6 +57,7 @@ export default function PlatformRuntime({
   initialKidsModePinConfigured: boolean;
 }) {
   const pathname = usePathname();
+  const { t } = useLocale();
   const [settings, updateSettings] = useState(initialSettings);
   const [kidsMode, setKidsModeState] = useState(initialKidsMode);
   const [kidsModePinConfigured, setKidsModePinConfigured] = useState(initialKidsModePinConfigured);
@@ -158,21 +161,21 @@ export default function PlatformRuntime({
       <main className="reader-detail-page reader-not-found-page platform-maintenance-page">
         <nav className="reader-subnav">
           <BrandLogo className="wordmark reader-wordmark" showName />
-          <span className="platform-maintenance-status">Pemeliharaan</span>
+          <span className="platform-maintenance-status">{t("Pemeliharaan")}</span>
         </nav>
         <section className="reader-detail-not-found">
           <Image
             className="reader-not-found-illustration platform-maintenance-illustration"
             src="/pemelihraan.png"
-            alt="Kreator MU-Komik sedang memperbaiki platform"
+            alt={t("Kreator MU-Komik sedang memperbaiki platform")}
             width={1536}
             height={1024}
             priority
             unoptimized
           />
-          <h1>Kami sedang berbenah.</h1>
+          <h1>{t("Kami sedang berbenah.")}</h1>
           <p>{settings.maintenance_message}</p>
-          <Link className="reader-primary-button" href="/">Kembali lagi nanti</Link>
+          <Link className="reader-primary-button" href="/">{t("Kembali lagi nanti")}</Link>
           <PlatformLinks includeEmail={false} />
         </section>
       </main>
@@ -180,19 +183,19 @@ export default function PlatformRuntime({
   } else if (restrictedInKidsMode) {
     content = (
       <main className="reader-detail-page reader-detail-not-found kids-mode-restricted-page">
-        <p className="reader-section-kicker">KIDS MODE AKTIF</p>
-        <h1>Halaman ini tidak tersedia di Kids Mode.</h1>
-        <p>Kembali ke koleksi cerita anak atau nonaktifkan Kids Mode untuk melanjutkan.</p>
-        <Link className="reader-primary-button" href="/">Kembali ke cerita anak</Link>
-        <button className="reader-detail-secondary-link" type="button" onClick={() => kidsModeContext.setKidsMode(false)}>Nonaktifkan Kids Mode</button>
+        <p className="reader-section-kicker">{t("KIDS MODE AKTIF")}</p>
+        <h1>{t("Halaman ini tidak tersedia di Kids Mode.")}</h1>
+        <p>{t("Kembali ke koleksi cerita anak atau nonaktifkan Kids Mode untuk melanjutkan.")}</p>
+        <Link className="reader-primary-button" href="/">{t("Kembali ke cerita anak")}</Link>
+        <button className="reader-detail-secondary-link" type="button" onClick={() => kidsModeContext.setKidsMode(false)}>{t("Nonaktifkan Kids Mode")}</button>
       </main>
     );
   } else if (gatedFeature) {
     content = (
       <main className="platform-state-page">
-        <p className="eyebrow">Fitur sementara dijeda</p>
-        <h1>Fitur ini sedang tidak tersedia.</h1>
-        <p>Tim MU-Komik sedang menyiapkan kembali fitur ini. Silakan coba lagi nanti.</p>
+        <p className="eyebrow">{t("Fitur sementara dijeda")}</p>
+        <h1>{t("Fitur ini sedang tidak tersedia.")}</h1>
+        <p>{t("Tim MU-Komik sedang menyiapkan kembali fitur ini. Silakan coba lagi nanti.")}</p>
       </main>
     );
   } else if (settings.announcement_enabled && settings.announcement_message) {
@@ -214,11 +217,11 @@ export default function PlatformRuntime({
           }}>
             <section className="kids-pin-dialog" role="dialog" aria-modal="true" aria-labelledby="kids-pin-title">
               <span className="kids-pin-dialog-icon"><Baby size={24} aria-hidden="true" /></span>
-              <p className="reader-section-kicker">{pinDialog === "setup" ? "PENGATURAN ORANG TUA" : "KIDS MODE TERKUNCI"}</p>
-              <h2 id="kids-pin-title">{pinDialog === "setup" ? "Buat PIN orang tua" : "Masukkan PIN orang tua"}</h2>
+              <p className="reader-section-kicker">{t(pinDialog === "setup" ? "PENGATURAN ORANG TUA" : "KIDS MODE TERKUNCI")}</p>
+              <h2 id="kids-pin-title">{t(pinDialog === "setup" ? "Buat PIN orang tua" : "Masukkan PIN orang tua")}</h2>
               <p>{pinDialog === "setup"
-                ? "PIN 6 angka diperlukan untuk keluar dari Kids Mode. Simpan PIN ini agar anak tidak bisa beralih ke library umum."
-                : "Masukkan PIN 6 angka untuk menonaktifkan Kids Mode."}</p>
+                ? t("PIN 6 angka diperlukan untuk keluar dari Kids Mode. Simpan PIN ini agar anak tidak bisa beralih ke library umum.")
+                : t("Masukkan PIN 6 angka untuk menonaktifkan Kids Mode.")}</p>
               <form onSubmit={(event) => {
                 event.preventDefault();
                 if (pinBusy) return;
@@ -226,7 +229,7 @@ export default function PlatformRuntime({
                   ? { action: "setup", pin, confirmPin: pinConfirmation }
                   : { action: "disable", pin });
               }}>
-                <label htmlFor="kids-parent-pin">{pinDialog === "setup" ? "PIN baru" : "PIN orang tua"}</label>
+                <label htmlFor="kids-parent-pin">{t(pinDialog === "setup" ? "PIN baru" : "PIN orang tua")}</label>
                 <input
                   id="kids-parent-pin"
                   type="password"
@@ -237,12 +240,12 @@ export default function PlatformRuntime({
                   maxLength={6}
                   value={pin}
                   onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="6 angka"
+                  placeholder={t("6 angka")}
                   required
                   autoFocus
                 />
                 {pinDialog === "setup" && <>
-                  <label htmlFor="kids-parent-pin-confirm">Ulangi PIN</label>
+                  <label htmlFor="kids-parent-pin-confirm">{t("Ulangi PIN")}</label>
                   <input
                     id="kids-parent-pin-confirm"
                     type="password"
@@ -253,15 +256,15 @@ export default function PlatformRuntime({
                     maxLength={6}
                     value={pinConfirmation}
                     onChange={(event) => setPinConfirmation(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                    placeholder="Ulangi PIN"
+                    placeholder={t("Ulangi PIN")}
                     required
                   />
                 </>}
-                {pinError && <p className="kids-pin-error" role="alert">{pinError}</p>}
+                {pinError && <p className="kids-pin-error" role="alert">{t(pinError)}</p>}
                 <div className="kids-pin-actions">
-                  <button type="button" className="kids-pin-cancel" onClick={closePinDialog} disabled={pinBusy}>Batal</button>
+                  <button type="button" className="kids-pin-cancel" onClick={closePinDialog} disabled={pinBusy}>{t("Batal")}</button>
                   <button type="submit" className="kids-pin-submit" disabled={pinBusy || pin.length !== 6 || (pinDialog === "setup" && pinConfirmation.length !== 6)}>
-                    {pinBusy ? "Memeriksa..." : pinDialog === "setup" ? "Simpan PIN & aktifkan" : "Buka Kids Mode"}
+                    {pinBusy ? t("Memeriksa...") : t(pinDialog === "setup" ? "Simpan PIN & aktifkan" : "Buka Kids Mode")}
                   </button>
                 </div>
               </form>

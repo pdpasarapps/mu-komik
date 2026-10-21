@@ -2,12 +2,14 @@ import type { Metadata, Viewport } from "next";
 import { Bangers, Caveat, Comic_Neue, Nunito, Patrick_Hand } from "next/font/google";
 import { siteUrl } from "@/lib/seo";
 import { getPlatformSettings } from "@/lib/platform-settings";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { KIDS_MODE_COOKIE_NAME, readKidsModeState } from "@/lib/kids-mode";
+import { getLocaleFromCountry, isLocale, LOCALE_COOKIE_NAME } from "@/lib/locale";
 import PlatformRuntime from "./platform-runtime";
 import ReaderMembershipRuntime from "./membership-runtime";
 import PwaSupport from "./pwa-support";
 import AppSplash from "@/components/app-splash";
+import { LanguageSwitcher, LocaleProvider } from "@/components/locale-provider";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -110,23 +112,31 @@ const structuredData = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const { settings } = await getPlatformSettings();
   const cookieStore = await cookies();
+  const requestHeaders = await headers();
   const kidsModeState = readKidsModeState(cookieStore.get(KIDS_MODE_COOKIE_NAME)?.value);
+  const localeCookie = cookieStore.get(LOCALE_COOKIE_NAME)?.value;
+  const locale = isLocale(localeCookie)
+    ? localeCookie
+    : getLocaleFromCountry(requestHeaders.get("cf-ipcountry"));
   return (
-    <html lang="id" className={`h-full antialiased ${comicNeue.variable} ${bangers.variable} ${patrickHand.variable} ${nunito.variable} ${caveat.variable}`} data-theme="light" suppressHydrationWarning>
+    <html lang={locale === "id" ? "id" : "en"} className={`h-full antialiased ${comicNeue.variable} ${bangers.variable} ${patrickHand.variable} ${nunito.variable} ${caveat.variable}`} data-theme="light" suppressHydrationWarning>
       <body className="min-h-full flex flex-col">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
         />
-        <ReaderMembershipRuntime>
-          <PlatformRuntime
-            initialSettings={settings}
-            initialKidsMode={kidsModeState?.enabled ?? false}
-            initialKidsModePinConfigured={Boolean(kidsModeState)}
-          >
-            {children}
-          </PlatformRuntime>
-        </ReaderMembershipRuntime>
+        <LocaleProvider initialLocale={locale}>
+          <ReaderMembershipRuntime>
+            <PlatformRuntime
+              initialSettings={settings}
+              initialKidsMode={kidsModeState?.enabled ?? false}
+              initialKidsModePinConfigured={Boolean(kidsModeState)}
+            >
+              {children}
+            </PlatformRuntime>
+          </ReaderMembershipRuntime>
+          <LanguageSwitcher />
+        </LocaleProvider>
         <AppSplash />
         <PwaSupport />
       </body>

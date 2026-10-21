@@ -18,6 +18,7 @@ import { getCreatorSocialPlaceholder, isValidCreatorSocialUrl, normalizeCreatorS
 import { usePlatformSettings } from "../platform-runtime";
 import { useReaderMembership } from "../membership-runtime";
 import { READER_MEMBERSHIP_TIERS } from "@/lib/reader-membership";
+import { useLocale } from "@/components/locale-provider";
 
 export type AccountSection = "overview" | "reading" | "favorites" | "account-settings" | "creator-application" | "creator-profile" | "creator-guide" | "comic-editor" | "analitik-komik" | CreatorArea;
 const isCreatorArea = (section: AccountSection): section is CreatorArea =>
@@ -74,6 +75,7 @@ const requestStatusLabels: Record<CreatorRequest["status"], string> = {
 };
 
 export default function AccountContent({ section, children }: { section: AccountSection; children?: ReactNode }) {
+  const { t } = useLocale();
   const { settings } = usePlatformSettings();
   const membership = useReaderMembership();
   const router = useRouter();
@@ -433,9 +435,9 @@ export default function AccountContent({ section, children }: { section: Account
     setRequestingCreator(false);
   };
 
-  if (loading) return <main className="account-shell"><p className="account-loading">Memuat halaman akun...</p></main>;
+  if (loading) return <main className="account-shell"><p className="account-loading">{t("Memuat halaman akun...")}</p></main>;
 
-  const roleLabel = profile?.role ? roleLabels[profile.role] : "Pembaca";
+  const roleLabel = profile?.role ? t(roleLabels[profile.role]) : t("Pembaca");
   const accountAvatar = profile?.avatar_key && publicUrl
     ? <Image src={`${publicUrl.replace(/\/$/, "")}/${profile.avatar_key}`} alt="" width={42} height={42} unoptimized />
     : <UserRound size={20} />;
@@ -446,53 +448,53 @@ export default function AccountContent({ section, children }: { section: Account
       {isReader && (
         <header className="reader-account-header">
           <BrandLogo className="reader-account-brand" showName />
-          <nav className="reader-account-nav" aria-label="Navigasi akun pembaca">
-            <Link className={section === "overview" ? "active" : ""} href="/account" aria-current={section === "overview" ? "page" : undefined}><LayoutDashboard size={17} /><span>Ringkasan</span></Link>
-            <Link href="/"><Home size={17} /><span>Beranda</span></Link>
-            <Link className={section === "reading" ? "active" : ""} href="/account/reading" aria-current={section === "reading" ? "page" : undefined}><BookOpen size={17} /><span>Lanjut membaca</span></Link>
-            <Link className={section === "favorites" ? "active" : ""} href="/account/favorites" aria-current={section === "favorites" ? "page" : undefined}><Bookmark size={17} /><span>Favorit</span></Link>
-            {settings.feature_flags.creators && <Link className={section === "creator-application" ? "active" : ""} href="/account/creator-application" aria-current={section === "creator-application" ? "page" : undefined}><Sparkles size={17} /><span>Jadi kreator</span></Link>}
-            <Link className={section === "account-settings" ? "active" : ""} href="/account/account-settings" aria-current={section === "account-settings" ? "page" : undefined}><Settings2 size={17} /><span>Pengaturan</span></Link>
+          <nav className="reader-account-nav" aria-label={t("Navigasi akun pembaca")}>
+            <Link className={section === "overview" ? "active" : ""} href="/account" aria-current={section === "overview" ? "page" : undefined}><LayoutDashboard size={17} /><span>{t("Ringkasan")}</span></Link>
+            <Link href="/"><Home size={17} /><span>{t("Beranda")}</span></Link>
+            <Link className={section === "reading" ? "active" : ""} href="/account/reading" aria-current={section === "reading" ? "page" : undefined}><BookOpen size={17} /><span>{t("Lanjut membaca")}</span></Link>
+            <Link className={section === "favorites" ? "active" : ""} href="/account/favorites" aria-current={section === "favorites" ? "page" : undefined}><Bookmark size={17} /><span>{t("Favorit")}</span></Link>
+            {settings.feature_flags.creators && <Link className={section === "creator-application" ? "active" : ""} href="/account/creator-application" aria-current={section === "creator-application" ? "page" : undefined}><Sparkles size={17} /><span>{t("Jadi kreator")}</span></Link>}
+            <Link className={section === "account-settings" ? "active" : ""} href="/account/account-settings" aria-current={section === "account-settings" ? "page" : undefined}><Settings2 size={17} /><span>{t("Pengaturan")}</span></Link>
           </nav>
           <div className="reader-account-user">
-            <span>{profile.display_name || "Pembaca"}</span>
-            <button className="account-logout" onClick={handleLogout} disabled={loggingOut}><LogOut size={16} /><span>{loggingOut ? "Keluar..." : "Keluar"}</span></button>
+            <span>{profile.display_name || t("Pembaca")}</span>
+            <button className="account-logout" onClick={handleLogout} disabled={loggingOut}><LogOut size={16} /><span>{loggingOut ? t("Keluar...") : t("Keluar")}</span></button>
           </div>
         </header>
       )}
       <aside className="account-sidebar">
         <BrandLogo className="account-brand" showName />
-        <nav className="account-sidebar-nav" aria-label="Navigasi akun">
-          <Link className={`account-nav-link${section === "overview" ? " active" : ""}`} href="/account" aria-current={section === "overview" ? "page" : undefined}><LayoutDashboard size={18} /><span>Ringkasan</span></Link>
-          <Link className="account-nav-link" href="/"><Home size={18} /><span>Beranda</span></Link>
-          <p className="account-nav-label">Pembaca</p>
-          <Link className={`account-nav-link${section === "reading" ? " active" : ""}`} href="/account/reading" aria-current={section === "reading" ? "page" : undefined}><BookOpen size={18} /><span>Lanjut membaca</span></Link>
-          <Link className={`account-nav-link${section === "favorites" ? " active" : ""}`} href="/account/favorites" aria-current={section === "favorites" ? "page" : undefined}><Bookmark size={18} /><span>Favorit</span></Link>
-          {profile?.role === "reader" && settings.feature_flags.creators && <Link className={`account-nav-link${section === "creator-application" ? " active" : ""}`} href="/account/creator-application" aria-current={section === "creator-application" ? "page" : undefined}><Sparkles size={18} /><span>Jadi kreator</span></Link>}
+        <nav className="account-sidebar-nav" aria-label={t("Navigasi akun")}>
+          <Link className={`account-nav-link${section === "overview" ? " active" : ""}`} href="/account" aria-current={section === "overview" ? "page" : undefined}><LayoutDashboard size={18} /><span>{t("Ringkasan")}</span></Link>
+          <Link className="account-nav-link" href="/"><Home size={18} /><span>{t("Beranda")}</span></Link>
+          <p className="account-nav-label">{t("Pembaca")}</p>
+          <Link className={`account-nav-link${section === "reading" ? " active" : ""}`} href="/account/reading" aria-current={section === "reading" ? "page" : undefined}><BookOpen size={18} /><span>{t("Lanjut membaca")}</span></Link>
+          <Link className={`account-nav-link${section === "favorites" ? " active" : ""}`} href="/account/favorites" aria-current={section === "favorites" ? "page" : undefined}><Bookmark size={18} /><span>{t("Favorit")}</span></Link>
+          {profile?.role === "reader" && settings.feature_flags.creators && <Link className={`account-nav-link${section === "creator-application" ? " active" : ""}`} href="/account/creator-application" aria-current={section === "creator-application" ? "page" : undefined}><Sparkles size={18} /><span>{t("Jadi kreator")}</span></Link>}
           {profile?.role === "creator" && <>
-            <p className="account-nav-label">Kreator</p>
-            <Link className={`account-nav-link${section === "creator" ? " active" : ""}`} href="/account/creator" aria-current={section === "creator" ? "page" : undefined}><Sparkles size={18} /><span>Ruang Kreator</span></Link>
-            <Link className={`account-nav-link${section === "komiku" || section === "comic-editor" ? " active" : ""}`} href="/account/komiku" aria-current={section === "komiku" || section === "comic-editor" ? "page" : undefined}><Library size={18} /><span>Komikku</span></Link>
-            <Link className={`account-nav-link${section === "terbitkan-komik" ? " active" : ""}`} href="/account/terbitkan-komik" aria-current={section === "terbitkan-komik" ? "page" : undefined}><Plus size={18} /><span>Terbitkan komik</span></Link>
-            <Link className={`account-nav-link${section === "analitik-komik" ? " active" : ""}`} href="/account/analitik-komik" aria-current={section === "analitik-komik" ? "page" : undefined}><BarChart3 size={18} /><span>Analitik komik</span></Link>
+            <p className="account-nav-label">{t("Kreator")}</p>
+            <Link className={`account-nav-link${section === "creator" ? " active" : ""}`} href="/account/creator" aria-current={section === "creator" ? "page" : undefined}><Sparkles size={18} /><span>{t("Ruang Kreator")}</span></Link>
+            <Link className={`account-nav-link${section === "komiku" || section === "comic-editor" ? " active" : ""}`} href="/account/komiku" aria-current={section === "komiku" || section === "comic-editor" ? "page" : undefined}><Library size={18} /><span>{t("Komikku")}</span></Link>
+            <Link className={`account-nav-link${section === "terbitkan-komik" ? " active" : ""}`} href="/account/terbitkan-komik" aria-current={section === "terbitkan-komik" ? "page" : undefined}><Plus size={18} /><span>{t("Terbitkan komik")}</span></Link>
+            <Link className={`account-nav-link${section === "analitik-komik" ? " active" : ""}`} href="/account/analitik-komik" aria-current={section === "analitik-komik" ? "page" : undefined}><BarChart3 size={18} /><span>{t("Analitik komik")}</span></Link>
           </>}
-          <p className="account-nav-label">Akun</p>
-          <Link className={`account-nav-link${section === "account-settings" ? " active" : ""}`} href="/account/account-settings" aria-current={section === "account-settings" ? "page" : undefined}><Settings2 size={18} /><span>Pengaturan</span></Link>
+          <p className="account-nav-label">{t("Akun")}</p>
+          <Link className={`account-nav-link${section === "account-settings" ? " active" : ""}`} href="/account/account-settings" aria-current={section === "account-settings" ? "page" : undefined}><Settings2 size={18} /><span>{t("Pengaturan")}</span></Link>
           {profile?.role === "creator" && <>
-            <Link className={`account-nav-link${section === "creator-profile" ? " active" : ""}`} href="/account/creator-profile" aria-current={section === "creator-profile" ? "page" : undefined}><UserRound size={18} /><span>Profil kreator</span></Link>
-            <Link className={`account-nav-link${section === "creator-guide" ? " active" : ""}`} href="/account/creator-guide" aria-current={section === "creator-guide" ? "page" : undefined}><CircleHelp size={18} /><span>Panduan</span></Link>
+            <Link className={`account-nav-link${section === "creator-profile" ? " active" : ""}`} href="/account/creator-profile" aria-current={section === "creator-profile" ? "page" : undefined}><UserRound size={18} /><span>{t("Profil kreator")}</span></Link>
+            <Link className={`account-nav-link${section === "creator-guide" ? " active" : ""}`} href="/account/creator-guide" aria-current={section === "creator-guide" ? "page" : undefined}><CircleHelp size={18} /><span>{t("Panduan")}</span></Link>
           </>}
-          {(profile?.role === "admin" || profile?.is_staff) && <Link className="account-nav-link" href="/admin"><Settings2 size={18} /><span>{profile.role === "admin" ? "Buka panel admin" : "Buka panel staf"}</span><ArrowUpRight size={15} /></Link>}
+          {(profile?.role === "admin" || profile?.is_staff) && <Link className="account-nav-link" href="/admin"><Settings2 size={18} /><span>{t(profile.role === "admin" ? "Buka panel admin" : "Buka panel staf")}</span><ArrowUpRight size={15} /></Link>}
         </nav>
         <div className="account-sidebar-user">
           <span className="account-user-avatar">{accountAvatar}</span>
-          <span className="account-user-copy"><strong>{profile?.display_name || "Pembaca"}</strong><small>{roleLabel}</small></span>
-          <button className="account-logout" onClick={handleLogout} disabled={loggingOut}><LogOut size={17} /><span>{loggingOut ? "Keluar..." : "Keluar"}</span></button>
+          <span className="account-user-copy"><strong>{profile?.display_name || t("Pembaca")}</strong><small>{roleLabel}</small></span>
+          <button className="account-logout" onClick={handleLogout} disabled={loggingOut}><LogOut size={17} /><span>{loggingOut ? t("Keluar...") : t("Keluar")}</span></button>
         </div>
       </aside>
       <div className={`account-main${isReader ? " account-main-reader" : ""}${profile?.role === "creator" ? " account-main-creator" : ""}${section === "creator-profile" ? " account-profile-focus" : ""}${section === "creator-guide" ? " account-guide-focus" : ""}${section !== "overview" ? " account-subpage" : ""}${isCreatorArea(section) ? " account-creator-area" : ""}${section === "comic-editor" ? " account-comic-editor-area" : ""}`}>
-      {!isReader && <div className="account-mobile-header"><BrandLogo showName /><button className="account-logout" onClick={handleLogout} disabled={loggingOut}><LogOut size={16} /> {loggingOut ? "Keluar..." : "Keluar"}</button></div>}
-      {!isCreatorArea(section) && section !== "comic-editor" && section !== "analitik-komik" && <header className="account-header"><p className="eyebrow">{section === "overview" ? "Ruang Bacamu" : "Akun"}</p><h1>{section === "overview" ? `Hai, ${profile?.display_name || "Pembaca"}.` : section === "reading" ? "Lanjut membaca" : section === "favorites" ? "Favorit" : section === "account-settings" ? "Pengaturan" : section === "creator-application" ? "Jadi kreator" : section === "creator-profile" ? "Profil kreator" : "Panduan MU-Komik"}</h1></header>}
+      {!isReader && <div className="account-mobile-header"><BrandLogo showName /><button className="account-logout" onClick={handleLogout} disabled={loggingOut}><LogOut size={16} /> {loggingOut ? t("Keluar...") : t("Keluar")}</button></div>}
+      {!isCreatorArea(section) && section !== "comic-editor" && section !== "analitik-komik" && <header className="account-header"><p className="eyebrow">{t(section === "overview" ? "Ruang Bacamu" : "Akun")}</p><h1>{section === "overview" ? `${t("Hai")}, ${profile?.display_name || t("Pembaca")}.` : t(section === "reading" ? "Lanjut membaca" : section === "favorites" ? "Favorit" : section === "account-settings" ? "Pengaturan" : section === "creator-application" ? "Jadi kreator" : section === "creator-profile" ? "Profil kreator" : "Panduan MU-Komik")}</h1></header>}
       {section === "comic-editor" ? children : section === "analitik-komik" ? (
         profile?.role === "creator"
           ? <CreatorAnalytics />
@@ -502,30 +504,30 @@ export default function AccountContent({ section, children }: { section: Account
         : <>
       {section !== "creator-guide" && <section className={`account-grid ${section === "overview" ? "account-dashboard-grid" : "account-subpage-content"}`}>
         {section === "overview" && profile?.role === "reader" && <article className="account-panel account-reader-info-panel">
-          <div className="panel-heading"><div><p className="eyebrow">Informasi akun</p><h2>Detail akunmu</h2></div><UserRound size={22} /></div>
+          <div className="panel-heading"><div><p className="eyebrow">{t("Informasi akun")}</p><h2>{t("Detail akunmu")}</h2></div><UserRound size={22} /></div>
           <dl className="account-reader-info-grid">
-            <div><dt>Nama</dt><dd>{profile.display_name || "Pembaca"}</dd></div>
+            <div><dt>{t("Nama")}</dt><dd>{profile.display_name || t("Pembaca")}</dd></div>
             <div><dt>Email</dt><dd>{email}</dd></div>
-            <div><dt>Jenis akun</dt><dd>{roleLabels[profile.role]}</dd></div>
-            <div><dt>Paket</dt><dd>{membership.ready ? READER_MEMBERSHIP_TIERS.find((item) => item.value === membership.tier)?.label || "Free" : "Memuat..."}</dd></div>
+            <div><dt>{t("Jenis akun")}</dt><dd>{t(roleLabels[profile.role])}</dd></div>
+            <div><dt>{t("Paket")}</dt><dd>{membership.ready ? READER_MEMBERSHIP_TIERS.find((item) => item.value === membership.tier)?.label || "Free" : t("Memuat...")}</dd></div>
           </dl>
-          <Link className="account-reader-info-settings" href="/account/account-settings">Pengaturan akun <ArrowRight size={15} /></Link>
+          <Link className="account-reader-info-settings" href="/account/account-settings">{t("Pengaturan akun")} <ArrowRight size={15} /></Link>
         </article>}
         {section === "overview" && profile?.is_staff && <article className="account-panel account-staff-access-panel">
-          <div className="panel-heading"><div><p className="eyebrow">Penugasan tambahan</p><h2>Akses staf</h2></div><Settings2 size={22} /></div>
-          <div className="settings-row"><span>Jabatan</span><strong>{profile.staff_title || "Staf"}</strong></div>
-          <div className="settings-row"><span>Peran utama</span><strong>{roleLabels[profile.role]}</strong></div>
+          <div className="panel-heading"><div><p className="eyebrow">{t("Penugasan tambahan")}</p><h2>{t("Akses staf")}</h2></div><Settings2 size={22} /></div>
+          <div className="settings-row"><span>{t("Jabatan")}</span><strong>{profile.staff_title || t("Staf")}</strong></div>
+          <div className="settings-row"><span>{t("Peran utama")}</span><strong>{t(roleLabels[profile.role])}</strong></div>
           <div className="account-staff-access-links">
-            <strong>Menu yang dapat diakses</strong>
+            <strong>{t("Menu yang dapat diakses")}</strong>
             {staffAccessLinks.filter((item) => profile.staff_permissions.includes(item.permission)).length
               ? <div>{staffAccessLinks
                 .filter((item) => profile.staff_permissions.includes(item.permission))
                 .map((item) => <Link key={item.permission} href={item.href}>{item.label}<ArrowUpRight size={15} /></Link>)}</div>
-              : <p>Belum ada menu staf yang ditetapkan. Hubungi admin untuk mengatur akses.</p>}
+              : <p>{t("Belum ada menu staf yang ditetapkan. Hubungi admin untuk mengatur akses.")}</p>}
           </div>
         </article>}
         {(section === "overview" || section === "reading") && <article className="account-panel account-panel-wide account-reading-panel" id="reading">
-          <div className="panel-heading"><div><p className="eyebrow">Lanjutkan dari sini</p><h2>Lanjutkan membaca</h2></div><BookOpen size={22} /></div>
+          <div className="panel-heading"><div><p className="eyebrow">{t("Lanjutkan dari sini")}</p><h2>{t("Lanjutkan membaca")}</h2></div><BookOpen size={22} /></div>
           {readingProgressError
             ? <p className="account-reading-message" role="alert">{readingProgressError}</p>
             : continueReading
@@ -539,20 +541,20 @@ export default function AccountContent({ section, children }: { section: Account
                     <small>{getComicGenreLabel(continueReading.genre)}</small>
                     <strong>{continueReading.comicTitle}</strong>
                     <span>Episode {continueReading.chapterNumber} · {continueReading.chapterTitle}</span>
-                    <small className="account-reading-progress">Halaman {continueReading.lastPage}{continueReading.pageCount ? ` dari ${continueReading.pageCount}` : ""}</small>
+                    <small className="account-reading-progress">{t("Halaman")} {continueReading.lastPage}{continueReading.pageCount ? ` ${t("dari")} ${continueReading.pageCount}` : ""}</small>
                     {continueReading.pageCount > 0 && <span className="account-reading-progressbar" aria-hidden="true"><i style={{ width: `${Math.min(100, (continueReading.lastPage / continueReading.pageCount) * 100)}%` }} /></span>}
                   </span>
-                  <span className="account-reading-action">Lanjutkan membaca <ArrowRight size={16} /></span>
+                  <span className="account-reading-action">{t("Lanjutkan membaca")} <ArrowRight size={16} /></span>
                 </Link>
               : <div className="account-reading-empty">
                   <span className="empty-icon"><BookOpen size={23} /></span>
-                  <h3>Belum ada bacaan terakhir.</h3>
-                  <p>Komik yang kamu baca saat masuk akan tersimpan di sini.</p>
-                  <Link className="button button-dark" href="/#discover">Jelajahi komik</Link>
+                  <h3>{t("Belum ada bacaan terakhir.")}</h3>
+                  <p>{t("Komik yang kamu baca saat masuk akan tersimpan di sini.")}</p>
+                  <Link className="button button-dark" href="/#discover">{t("Jelajahi komik")}</Link>
                 </div>}
         </article>}
         {(section === "overview" || section === "favorites") && <article className="account-panel account-bookmark-panel" id="favorites">
-          <div className="panel-heading"><div><p className="eyebrow">Simpan untuk nanti</p><h2>Favorit</h2></div><Bookmark size={22} /></div>
+          <div className="panel-heading"><div><p className="eyebrow">{t("Simpan untuk nanti")}</p><h2>{t("Favorit")}</h2></div><Bookmark size={22} /></div>
           {bookmarkError ? <p className="account-bookmark-message" role="alert">{bookmarkError} Jalankan supabase/comic-bookmarks.sql pada database.</p>
             : bookmarks.length ? <div className="account-bookmark-list">{bookmarks.map((comic) => {
               const coverUrl = comic.cover_key && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${comic.cover_key}` : null;
@@ -562,19 +564,19 @@ export default function AccountContent({ section, children }: { section: Account
                 <ArrowRight size={16} />
               </Link>;
             })}</div>
-            : <div className="account-empty compact"><div className="empty-icon"><Bookmark size={23} /></div><p>Belum ada komik favorit.</p><small>Simpan komik yang ingin kamu baca lagi nanti.</small><Link className="text-link" href="/#discover">Jelajahi komik <span>↗</span></Link></div>}
+            : <div className="account-empty compact"><div className="empty-icon"><Bookmark size={23} /></div><p>{t("Belum ada komik favorit.")}</p><small>{t("Simpan komik yang ingin kamu baca lagi nanti.")}</small><Link className="text-link" href="/#discover">{t("Jelajahi komik")} <span>↗</span></Link></div>}
         </article>}
         {(section === "account-settings" || (section === "creator-profile" && profile?.role === "creator")) && <article className="account-panel account-settings-panel" id="account-settings">
-          <div className="panel-heading"><div><p className="eyebrow">Akun dan bacaan</p><h2>Profil dan preferensi</h2></div><Settings2 size={22} /></div>
-          <div className="settings-row"><span>Jenis akun</span><strong>{roleLabel}</strong></div>
-          <div className="settings-row"><span>Alamat email</span><strong>{email}</strong></div>
+          <div className="panel-heading"><div><p className="eyebrow">{t("Akun dan bacaan")}</p><h2>{t("Profil dan preferensi")}</h2></div><Settings2 size={22} /></div>
+          <div className="settings-row"><span>{t("Jenis akun")}</span><strong>{roleLabel}</strong></div>
+          <div className="settings-row"><span>{t("Alamat email")}</span><strong>{email}</strong></div>
           <ReaderPreferencesPanel />
           <AccountSecuritySettings />
-          {profile?.role === "creator" && <Link className="account-creator-link" href="/account/creator"><Sparkles size={16} /> Buka Ruang Kreator <ArrowUpRight size={15} /></Link>}
+          {profile?.role === "creator" && <Link className="account-creator-link" href="/account/creator"><Sparkles size={16} /> {t("Buka Ruang Kreator")} <ArrowUpRight size={15} /></Link>}
           {profile?.role === "creator" && (
             <div className="creator-profile-setting">
               <label className="creator-profile-visibility">
-                <span><strong>Bagikan profil publik</strong><small>{profile.public_profile ? "Nama dan komik terbit dapat dilihat semua orang." : "Profil dan daftar komik disembunyikan dari publik."}</small></span>
+                <span><strong>{t("Bagikan profil publik")}</strong><small>{t(profile.public_profile ? "Nama dan komik terbit dapat dilihat semua orang." : "Profil dan daftar komik disembunyikan dari publik.")}</small></span>
                 <input
                   type="checkbox"
                   checked={profile.public_profile}
@@ -582,46 +584,46 @@ export default function AccountContent({ section, children }: { section: Account
                   onChange={(event) => void updateProfileVisibility(event.target.checked)}
                 />
               </label>
-              {profileVisibilityMessage && <p className="creator-profile-message" role="status">{profileVisibilityMessage}</p>}
+              {profileVisibilityMessage && <p className="creator-profile-message" role="status">{t(profileVisibilityMessage)}</p>}
             </div>
           )}
           {profile?.role === "creator" && (
             <form className="creator-profile-editor" id="creator-profile" onSubmit={saveCreatorProfile}>
               <div className="creator-profile-editor-heading">
-                <strong>Profil kreator</strong>
-                <small>Atur bagaimana pembaca melihat profil dan cerita yang kamu buat.</small>
+                <strong>{t("Profil kreator")}</strong>
+                <small>{t("Atur bagaimana pembaca melihat profil dan cerita yang kamu buat.")}</small>
                 {profile.public_profile && profile.public_handle && (
                   <Link className="creator-profile-public-link" href={`/kreator/${encodeURIComponent(profile.public_handle)}`}>
-                    Lihat profil <ArrowUpRight size={15} />
+                    {t("Lihat profil")} <ArrowUpRight size={15} />
                   </Link>
                 )}
               </div>
               <div className="creator-avatar-row">
                 <span className="creator-avatar-preview">
                   {profile.avatar_key && publicUrl
-                    ? <Image src={`${publicUrl.replace(/\/$/, "")}/${profile.avatar_key}`} alt="Foto profil kreator" width={54} height={54} unoptimized />
+                    ? <Image src={`${publicUrl.replace(/\/$/, "")}/${profile.avatar_key}`} alt={t("Foto profil kreator")} width={54} height={54} unoptimized />
                     : <UserRound size={22} />}
                 </span>
                 <label className="creator-avatar-upload">
-                  <strong>Foto profil</strong>
-                  <span>{avatarFile ? avatarFile.name : "Pilih foto profil"}</span>
+                  <strong>{t("Foto profil")}</strong>
+                  <span>{avatarFile ? avatarFile.name : t("Pilih foto profil")}</span>
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     onChange={(event) => setAvatarFile(event.target.files?.[0] ?? null)}
                     disabled={savingCreatorProfile}
                   />
-                  <small>JPG, PNG, atau WebP · Maks. 5 MB</small>
+                  <small>{t("JPG, PNG, atau WebP · Maks. 5 MB")}</small>
                 </label>
               </div>
               <label className="creator-profile-field creator-banner-field">
-                <span>Banner profil</span>
+                <span>{t("Banner profil")}</span>
                 <span className="creator-banner-preview">
                   {bannerFile
                     ? <span className="creator-banner-selected">{bannerFile.name} · Siap diunggah</span>
                     : profile.banner_key && publicUrl
-                      ? <Image src={`${publicUrl.replace(/\/$/, "")}/${profile.banner_key}`} alt="Banner profil saat ini" fill sizes="(max-width: 760px) 85vw, 380px" unoptimized />
-                      : <span>Tambahkan ilustrasi banner untuk bagian atas profilmu</span>}
+                      ? <Image src={`${publicUrl.replace(/\/$/, "")}/${profile.banner_key}`} alt={t("Banner profil saat ini")} fill sizes="(max-width: 760px) 85vw, 380px" unoptimized />
+                      : <span>{t("Tambahkan ilustrasi banner untuk bagian atas profilmu")}</span>}
                 </span>
                 <input
                   type="file"
@@ -629,15 +631,15 @@ export default function AccountContent({ section, children }: { section: Account
                   onChange={(event) => setBannerFile(event.target.files?.[0] ?? null)}
                   disabled={savingCreatorProfile}
                 />
-                <small>JPG, PNG, atau WebP · Maks. 10 MB · Disarankan rasio lebar 3:1</small>
+                <small>{t("JPG, PNG, atau WebP · Maks. 10 MB · Disarankan rasio lebar 3:1")}</small>
               </label>
               <label className="creator-profile-field">
-                <span>Nama tampilan</span>
+                <span>{t("Nama tampilan")}</span>
                 <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={80} required disabled={savingCreatorProfile} />
-                <small>Nama yang akan dilihat pembaca.</small>
+                <small>{t("Nama yang akan dilihat pembaca.")}</small>
               </label>
               <label className="creator-profile-field">
-                <span>URL profil</span>
+                <span>{t("URL profil")}</span>
                 <input
                   value={publicHandle}
                   onChange={(event) => setPublicHandle(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 40))}
@@ -649,43 +651,43 @@ export default function AccountContent({ section, children }: { section: Account
                   aria-describedby="creator-public-handle-help"
                 />
                 <small id="creator-public-handle-help">
-                  Tautan publik profilmu: /kreator/{publicHandle || "nama-kreator"}. 3–40 karakter, huruf kecil, angka, dan tanda hubung.
+                  {t("Tautan publik profilmu:")} /kreator/{publicHandle || "nama-kreator"}. {t("3–40 karakter, huruf kecil, angka, dan tanda hubung.")}
                 </small>
               </label>
               <label className="creator-profile-field">
-                <span>Tentang kreator</span>
-                <textarea value={bio} onChange={(event) => setBio(event.target.value)} maxLength={500} rows={4} placeholder="Ceritakan singkat tentang dirimu dan cerita yang kamu buat." disabled={savingCreatorProfile} />
-                <small>Ceritakan singkat tentang dirimu dan cerita yang kamu buat. {bio.length}/500 karakter</small>
+                <span>{t("Tentang kreator")}</span>
+                <textarea value={bio} onChange={(event) => setBio(event.target.value)} maxLength={500} rows={4} placeholder={t("Ceritakan singkat tentang dirimu dan cerita yang kamu buat.")} disabled={savingCreatorProfile} />
+                <small>{t("Ceritakan singkat tentang dirimu dan cerita yang kamu buat.")} {bio.length}/500 {t("karakter")}</small>
               </label>
               <div className="creator-social-editor">
                 <div className="creator-social-heading">
-                  <span><strong>Media sosial</strong><small>Tambahkan tautan untuk membantu pembaca mengenalmu.</small></span>
+                  <span><strong>{t("Media sosial")}</strong><small>{t("Tambahkan tautan untuk membantu pembaca mengenalmu.")}</small></span>
                   <button
                     className="creator-social-add"
                     type="button"
                     onClick={() => setSocialLinks((current) => [...current, { platform: socialPlatforms[0], url: "" }])}
                     disabled={savingCreatorProfile}
-                  ><Plus size={15} /> Tambah</button>
+                  ><Plus size={15} /> {t("Tambah")}</button>
                 </div>
                 {socialLinks.length === 0
-                  ? <p className="creator-social-empty">Belum ada tautan sosial.</p>
+                  ? <p className="creator-social-empty">{t("Belum ada tautan sosial.")}</p>
                   : <div className="creator-social-rows">
                       {socialLinks.map((link, index) => (
                         <div className="creator-social-row" key={`social-${index}`}>
                           <label>
-                            <span className="sr-only">Nama platform sosial {index + 1}</span>
+                            <span className="sr-only">{t("Nama platform sosial")} {index + 1}</span>
                             <select
                               value={link.platform}
                               onChange={(event) => setSocialLinks((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, platform: event.target.value } : item))}
                               disabled={savingCreatorProfile}
                               required
                             >
-                              <option value="" disabled>Pilih platform</option>
-                              {socialPlatforms.map((platform) => <option value={platform} key={platform}>{platform}</option>)}
+                              <option value="" disabled>{t("Pilih platform")}</option>
+                              {socialPlatforms.map((platform) => <option value={platform} key={platform}>{t(platform)}</option>)}
                             </select>
                           </label>
                           <label>
-                            <span className="sr-only">URL platform sosial {index + 1}</span>
+                            <span className="sr-only">{t("URL platform sosial")} {index + 1}</span>
                             <input
                               type="text"
                               inputMode="url"
@@ -708,67 +710,67 @@ export default function AccountContent({ section, children }: { section: Account
                     </div>}
               </div>
               <button className="button button-dark creator-profile-save" type="submit" disabled={savingCreatorProfile}>
-                {savingCreatorProfile ? "Menyimpan..." : "Simpan profil"}
+                {savingCreatorProfile ? t("Menyimpan...") : t("Simpan profil")}
               </button>
-              {creatorProfileMessage && <p className="creator-profile-message" role="status">{creatorProfileMessage}</p>}
+              {creatorProfileMessage && <p className="creator-profile-message" role="status">{t(creatorProfileMessage)}</p>}
             </form>
           )}
-          {(profile?.role === "admin" || profile?.is_staff) && <Link className="account-creator-link" href="/admin"><Settings2 size={16} /> {profile.role === "admin" ? "Buka panel admin" : "Buka panel staf"} <ArrowUpRight size={15} /></Link>}
+          {(profile?.role === "admin" || profile?.is_staff) && <Link className="account-creator-link" href="/admin"><Settings2 size={16} /> {profile.role === "admin" ? t("Buka panel admin") : t("Buka panel staf")} <ArrowUpRight size={15} /></Link>}
         </article>}
         {section === "creator-application" && profile?.role === "reader" && settings.feature_flags.creators && (
           <>
           <article className="account-panel account-creator-request-panel account-creator-request-teaser">
-            <div className="panel-heading"><div><p className="eyebrow">Punya cerita untuk dibagikan?</p><h2>Jadi kreator MU Komik</h2></div><Sparkles size={22} /></div>
-            <p>Kelola karya, bangun profil kreator, dan lihat analitik komikmu di Ruang Kreator.</p>
-            {creatorRequest?.status === "pending" && <span className="request-status request-pending">Pengajuan menunggu peninjauan</span>}
-            {creatorRequest?.status === "approved" && <span className="request-status request-approved">Pengajuan disetujui</span>}
+            <div className="panel-heading"><div><p className="eyebrow">{t("Punya cerita untuk dibagikan?")}</p><h2>{t("Jadi kreator MU Komik")}</h2></div><Sparkles size={22} /></div>
+            <p>{t("Kelola karya, bangun profil kreator, dan lihat analitik komikmu di Ruang Kreator.")}</p>
+            {creatorRequest?.status === "pending" && <span className="request-status request-pending">{t(requestStatusLabels.pending)}</span>}
+            {creatorRequest?.status === "approved" && <span className="request-status request-approved">{t(requestStatusLabels.approved)}</span>}
             <Link className="button button-dark account-creator-application-link" href="#creator-application-benefits">
-              {creatorRequest?.status === "rejected" ? "Perbarui pengajuan" : creatorRequest?.status === "pending" || creatorRequest?.status === "approved" ? "Lihat pengajuan" : "Lihat benefit dan ajukan"} <ArrowRight size={16} />
+              {t(creatorRequest?.status === "rejected" ? "Perbarui pengajuan" : creatorRequest?.status === "pending" || creatorRequest?.status === "approved" ? "Lihat pengajuan" : "Lihat benefit dan ajukan")} <ArrowRight size={16} />
             </Link>
           </article>
           <article className="account-panel account-creator-request-panel account-creator-application-panel" id="creator-application-benefits">
-            <div className="panel-heading"><div><p className="eyebrow">Berkarya bersama MU Komik</p><h2>Benefit menjadi kreator</h2></div><Sparkles size={22} /></div>
-            <p className="account-creator-benefits-intro">Bangun kehadiranmu sebagai kreator dengan alat yang tersedia di MU Komik.</p>
-            <div className="account-creator-benefits" aria-label="Benefit menjadi kreator MU Komik">
+            <div className="panel-heading"><div><p className="eyebrow">{t("Berkarya bersama MU Komik")}</p><h2>{t("Benefit menjadi kreator")}</h2></div><Sparkles size={22} /></div>
+            <p className="account-creator-benefits-intro">{t("Bangun kehadiranmu sebagai kreator dengan alat yang tersedia di MU Komik.")}</p>
+            <div className="account-creator-benefits" aria-label={t("Benefit menjadi kreator MU Komik")}>
               <article>
                 <span><Library size={18} /></span>
-                <div><h3>Kelola karya</h3><p>Buat komik, terbitkan episode, dan kelola karya dari Ruang Kreator.</p></div>
+                <div><h3>{t("Kelola karya")}</h3><p>{t("Buat komik, terbitkan episode, dan kelola karya dari Ruang Kreator.")}</p></div>
               </article>
               <article>
                 <span><UserRound size={18} /></span>
-                <div><h3>Profil kreator publik</h3><p>Tampilkan identitas dan komik terbit melalui halaman profil kreator.</p></div>
+                <div><h3>{t("Profil kreator publik")}</h3><p>{t("Tampilkan identitas dan komik terbit melalui halaman profil kreator.")}</p></div>
               </article>
               <article>
                 <span><BarChart3 size={18} /></span>
-                <div><h3>Lihat analitik</h3><p>Pantau performa komik melalui analitik kreator yang tersedia.</p></div>
+                <div><h3>{t("Lihat analitik")}</h3><p>{t("Pantau performa komik melalui analitik kreator yang tersedia.")}</p></div>
               </article>
               <article>
                 <span><Search size={18} /></span>
-                <div><h3>Berpeluang ditemukan</h3><p>Komik yang diterbitkan dapat muncul di katalog untuk dijelajahi pembaca.</p></div>
+                <div><h3>{t("Berpeluang ditemukan")}</h3><p>{t("Komik yang diterbitkan dapat muncul di katalog untuk dijelajahi pembaca.")}</p></div>
               </article>
             </div>
-            <p className="account-creator-benefits-note">Komik tetap melalui proses kurasi sebelum terbit. Jumlah pembaca dan penghasilan tidak dijamin.</p>
+            <p className="account-creator-benefits-note">{t("Komik tetap melalui proses kurasi sebelum terbit. Jumlah pembaca dan penghasilan tidak dijamin.")}</p>
             <div className="creator-request" id="creator-application-form">
-              <p>{!settings.creator_applications_enabled ? "Pengajuan kreator sedang ditutup sementara. Silakan coba lagi nanti." : creatorRequest?.status === "rejected" ? "Pengajuanmu ditolak. Perbarui dan kirim kembali pengajuan." : "Ceritakan kepada admin komik yang ingin kamu terbitkan dan alasan karyamu layak hadir di sini."}</p>
+              <p>{t(!settings.creator_applications_enabled ? "Pengajuan kreator sedang ditutup sementara. Silakan coba lagi nanti." : creatorRequest?.status === "rejected" ? "Pengajuanmu ditolak. Perbarui dan kirim kembali pengajuan." : "Ceritakan kepada admin komik yang ingin kamu terbitkan dan alasan karyamu layak hadir di sini.")}</p>
               {creatorRequest?.status === "pending" || creatorRequest?.status === "approved"
-                ? <span className={`request-status request-${creatorRequest.status}`}>{requestStatusLabels[creatorRequest.status]}</span>
+                ? <span className={`request-status request-${creatorRequest.status}`}>{t(requestStatusLabels[creatorRequest.status])}</span>
                 : settings.creator_applications_enabled ? <>
-                    <textarea className="creator-note" value={applicationNote} onChange={(event) => setApplicationNote(event.target.value)} placeholder="Ceritakan pengajuan kreatormu..." maxLength={1000} rows={4} />
-                    <input className="creator-link-input" type="url" value={portfolioUrl} onChange={(event) => setPortfolioUrl(event.target.value)} placeholder="Portofolio komik (https://...)" />
-                    <input className="creator-link-input" type="url" value={instagramUrl} onChange={(event) => setInstagramUrl(event.target.value)} placeholder="Instagram (https://instagram.com/...)" />
-                    <input className="creator-link-input" type="url" value={otherUrl} onChange={(event) => setOtherUrl(event.target.value)} placeholder="Situs web atau media sosial lain (opsional)" />
-                    <button className="button button-dark request-button" onClick={handleCreatorRequest} disabled={requestingCreator || !applicationNote.trim()}>{requestingCreator ? "Mengirim..." : creatorRequest?.status === "rejected" ? "Kirim ulang pengajuan" : "Ajukan akses kreator"} <ArrowRight size={16} /></button>
+                    <textarea className="creator-note" value={applicationNote} onChange={(event) => setApplicationNote(event.target.value)} placeholder={t("Ceritakan pengajuan kreatormu...")} maxLength={1000} rows={4} />
+                    <input className="creator-link-input" type="url" value={portfolioUrl} onChange={(event) => setPortfolioUrl(event.target.value)} placeholder={t("Portofolio komik (https://...)")} />
+                    <input className="creator-link-input" type="url" value={instagramUrl} onChange={(event) => setInstagramUrl(event.target.value)} placeholder={t("Instagram (https://instagram.com/...)")} />
+                    <input className="creator-link-input" type="url" value={otherUrl} onChange={(event) => setOtherUrl(event.target.value)} placeholder={t("Situs web atau media sosial lain (opsional)")} />
+                    <button className="button button-dark request-button" onClick={handleCreatorRequest} disabled={requestingCreator || !applicationNote.trim()}>{requestingCreator ? t("Mengirim...") : t(creatorRequest?.status === "rejected" ? "Kirim ulang pengajuan" : "Ajukan akses kreator")} <ArrowRight size={16} /></button>
                   </> : null}
-              {requestMessage && <small role="status">{requestMessage}</small>}
+              {requestMessage && <small role="status">{t(requestMessage)}</small>}
             </div>
           </article>
           </>
         )}
         {section === "creator-application" && (profile?.role !== "reader" || !settings.feature_flags.creators) && (
           <section className="account-panel account-route-unavailable" role="status">
-            <h2>Pengajuan kreator tidak tersedia.</h2>
-            <p>Halaman ini hanya tersedia untuk akun pembaca saat pengajuan kreator dibuka.</p>
-            <Link className="button button-dark" href="/account">Kembali ke ringkasan</Link>
+            <h2>{t("Pengajuan kreator tidak tersedia.")}</h2>
+            <p>{t("Halaman ini hanya tersedia untuk akun pembaca saat pengajuan kreator dibuka.")}</p>
+            <Link className="button button-dark" href="/account">{t("Kembali ke ringkasan")}</Link>
           </section>
         )}
       </section>}
@@ -783,12 +785,12 @@ export default function AccountContent({ section, children }: { section: Account
         <section className="account-panel account-creator-faq" id="creator-guide" aria-labelledby="creator-faq-title">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Panduan Kreator</p>
-              <h2 id="creator-faq-title">Panduan MU-Komik</h2>
+              <p className="eyebrow">{t("Panduan Kreator")}</p>
+              <h2 id="creator-faq-title">{t("Panduan MU-Komik")}</h2>
             </div>
             <Sparkles size={22} />
           </div>
-          <div className="account-creator-tabs" role="tablist" aria-label="Panduan kreator">
+          <div className="account-creator-tabs" role="tablist" aria-label={t("Panduan kreator")}>
             <button
               id="creator-publishing-tab"
               type="button"
@@ -808,7 +810,7 @@ export default function AccountContent({ section, children }: { section: Account
                 document.getElementById(`creator-${nextTab}-tab`)?.focus();
               }}
             >
-              Publikasi
+              {t("Publikasi")}
             </button>
             <button
               id="creator-rules-tab"
@@ -829,7 +831,7 @@ export default function AccountContent({ section, children }: { section: Account
                 document.getElementById(`creator-${nextTab}-tab`)?.focus();
               }}
             >
-              Pedoman
+              {t("Pedoman")}
             </button>
             <button
               id="creator-images-tab"
@@ -850,69 +852,69 @@ export default function AccountContent({ section, children }: { section: Account
                 document.getElementById(`creator-${nextTab}-tab`)?.focus();
               }}
             >
-              Ukuran gambar
+              {t("Ukuran gambar")}
             </button>
           </div>
           {activeCreatorGuideTab === "publishing" ? (
             <div id="creator-publishing-panel" className="account-creator-tab-panel" role="tabpanel" aria-labelledby="creator-publishing-tab" tabIndex={0}>
               <details>
-                <summary>Bagaimana cara mulai menerbitkan komik?</summary>
-                <p>Buka Ruang Kreator, pilih <strong>Komik baru</strong>, lalu lengkapi judul, genre, sinopsis, kredit kreator, bahasa, target pembaca, dan detail lainnya. Komik yang dibuat akan tersimpan sebagai draf.</p>
+                <summary>{t("Bagaimana cara mulai menerbitkan komik?")}</summary>
+                <p>{t("Buka Ruang Kreator, pilih")} <strong>{t("Komik baru")}</strong>, {t("lalu lengkapi judul, genre, sinopsis, kredit kreator, bahasa, target pembaca, dan detail lainnya. Komik yang dibuat akan tersimpan sebagai draf.")}</p>
               </details>
               <details>
-                <summary>Bagaimana cara menerbitkan bab?</summary>
-                <p>Pilih komik di Ruang Kreator, buat bab dengan judul dan nomor bab, lalu unggah halaman-halamannya. Aktifkan opsi <strong>Publish chapter</strong> saat membuat atau mengedit bab agar bab dapat dibaca.</p>
+                <summary>{t("Bagaimana cara menerbitkan bab?")}</summary>
+                <p>{t("Pilih komik di Ruang Kreator, buat bab dengan judul dan nomor bab, lalu unggah halaman-halamannya. Aktifkan opsi")} <strong>{t("Terbitkan bab")}</strong> {t("saat membuat atau mengedit bab agar bab dapat dibaca.")}</p>
               </details>
               <details>
-                <summary>Bagaimana komik bisa tampil untuk pembaca?</summary>
-                <p>Dari daftar komik, pilih <strong>Ajukan kurasi</strong>. Komik akan berstatus menunggu kurasi sampai admin meninjaunya. Setelah disetujui dan berstatus terbit, komik dapat ditemukan pembaca.</p>
+                <summary>{t("Bagaimana komik bisa tampil untuk pembaca?")}</summary>
+                <p>{t("Dari daftar komik, pilih")} <strong>{t("Ajukan kurasi")}</strong>. {t("Komik akan berstatus menunggu kurasi sampai admin meninjaunya. Setelah disetujui dan berstatus terbit, komik dapat ditemukan pembaca.")}</p>
               </details>
             </div>
           ) : activeCreatorGuideTab === "rules" ? (
             <div id="creator-rules-panel" className="account-creator-tab-panel" role="tabpanel" aria-labelledby="creator-rules-tab" tabIndex={0}>
               <details>
-                <summary>Apa aturan publikasi komik di MU Komik?</summary>
-                <p>Komik di MU Komik gratis untuk dibaca. Cantumkan kredit kreator yang terlibat. Jika komik merupakan adaptasi, isi judul dan pencipta karya sumbernya.</p>
+                <summary>{t("Apa aturan publikasi komik di MU Komik?")}</summary>
+                <p>{t("Komik di MU Komik gratis untuk dibaca. Cantumkan kredit kreator yang terlibat. Jika komik merupakan adaptasi, isi judul dan pencipta karya sumbernya.")}</p>
               </details>
               <details>
-                <summary>Informasi apa yang perlu diisi dengan benar?</summary>
-                <p>Pilih target pembaca dan teknik produksi yang sesuai dengan karyamu, termasuk jika karya dibantu atau dibuat dengan AI.</p>
+                <summary>{t("Informasi apa yang perlu diisi dengan benar?")}</summary>
+                <p>{t("Pilih target pembaca dan teknik produksi yang sesuai dengan karyamu, termasuk jika karya dibantu atau dibuat dengan AI.")}</p>
               </details>
-              <Link className="account-manifesto-link" href="/manifesto">Baca Manifesto AI MU-KOMIK <ArrowUpRight size={15} /></Link>
+              <Link className="account-manifesto-link" href="/manifesto">{t("Baca Manifesto AI MU-KOMIK")} <ArrowUpRight size={15} /></Link>
             </div>
           ) : (
             <div id="creator-images-panel" className="account-creator-tab-panel account-creator-image-guide" role="tabpanel" aria-labelledby="creator-images-tab" tabIndex={0}>
-              <p className="account-creator-image-intro">Gunakan ukuran berikut sebagai rekomendasi agar halaman dan sampul komik tetap tajam di berbagai perangkat. Ini bukan batas minimum atau rasio wajib.</p>
-              <div className="account-creator-image-table-wrap" role="region" aria-label="Rekomendasi ukuran gambar komik" tabIndex={0}>
+              <p className="account-creator-image-intro">{t("Gunakan ukuran berikut sebagai rekomendasi agar halaman dan sampul komik tetap tajam di berbagai perangkat. Ini bukan batas minimum atau rasio wajib.")}</p>
+              <div className="account-creator-image-table-wrap" role="region" aria-label={t("Rekomendasi ukuran gambar komik")} tabIndex={0}>
                 <table className="account-creator-image-table">
                   <thead>
-                    <tr><th scope="col">Gambar</th><th scope="col">Ukuran rekomendasi</th><th scope="col">Rasio</th><th scope="col">Panduan tampilan</th></tr>
+                    <tr><th scope="col">{t("Gambar")}</th><th scope="col">{t("Ukuran rekomendasi")}</th><th scope="col">{t("Rasio")}</th><th scope="col">{t("Panduan tampilan")}</th></tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <th scope="row">Halaman komik · ponsel</th><td>720 × 1280 px</td><td>9:16 (potret)</td><td>Rekomendasi jika komik ditargetkan khusus untuk ponsel; unggah satu gambar per halaman.</td>
+                      <th scope="row">{t("Halaman komik · ponsel")}</th><td>720 × 1280 px</td><td>9:16 (potret)</td><td>{t("Rekomendasi jika komik ditargetkan khusus untuk ponsel; unggah satu gambar per halaman.")}</td>
                     </tr>
                     <tr>
-                      <th scope="row">Halaman komik · tablet</th><td>900 × 1200 px</td><td>3:4 (potret)</td><td>Rekomendasi jika komik ditargetkan khusus untuk tablet; unggah satu gambar per halaman.</td>
+                      <th scope="row">{t("Halaman komik · tablet")}</th><td>900 × 1200 px</td><td>3:4 (potret)</td><td>{t("Rekomendasi jika komik ditargetkan khusus untuk tablet; unggah satu gambar per halaman.")}</td>
                     </tr>
                     <tr>
-                      <th scope="row">Halaman komik · desktop</th><td>1200 × 1800 px per halaman</td><td>2:3 (potret)</td><td>Dua halaman terpisah membentuk spread desktop 4:3; jangan gabungkan halaman kiri dan kanan.</td>
+                      <th scope="row">{t("Halaman komik · desktop")}</th><td>1200 × 1800 px per halaman</td><td>2:3 (potret)</td><td>{t("Dua halaman terpisah membentuk spread desktop 4:3; jangan gabungkan halaman kiri dan kanan.")}</td>
                     </tr>
                     <tr>
-                      <th scope="row">Satu berkas untuk semua perangkat</th><td>1200 × 1800 px per halaman</td><td>2:3 (potret)</td><td>Gunakan satu berkas yang sama di ponsel, tablet, dan desktop jika komik tersedia untuk semua perangkat.</td>
+                      <th scope="row">{t("Satu berkas untuk semua perangkat")}</th><td>1200 × 1800 px per halaman</td><td>2:3 (potret)</td><td>{t("Gunakan satu berkas yang sama di ponsel, tablet, dan desktop jika komik tersedia untuk semua perangkat.")}</td>
                     </tr>
                     <tr>
-                      <th scope="row">Sampul komik</th><td>1200 × 1600 px</td><td>3:4 (potret)</td><td>Sampul ditampilkan utuh. Sisakan ruang tepi untuk teks dan elemen penting.</td>
+                      <th scope="row">{t("Sampul komik")}</th><td>1200 × 1600 px</td><td>3:4 (potret)</td><td>{t("Sampul ditampilkan utuh. Sisakan ruang tepi untuk teks dan elemen penting.")}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
               <ul>
-                <li>Rasio perangkat di atas adalah rekomendasi komposisi, bukan crop wajib. Reader menampilkan gambar utuh tanpa memotongnya; rasio yang berbeda dapat menyisakan ruang kosong.</li>
-                <li>Uploader menyimpan satu gambar untuk setiap halaman, bukan varian terpisah per perangkat. Jika komik tersedia di semua perangkat, gunakan master 1200 × 1800 px (2:3) agar dua halaman cocok menjadi spread desktop 4:3; jangan membuat versi ponsel/tablet terpisah karena belum ada slot varian halaman.</li>
-                <li>Target perangkat mengatur ketersediaan komik: jika memilih ponsel, tablet, atau desktop, komik hanya tampil dan bisa dibaca pada target tersebut, serta tidak tampil di perangkat lain. Pilih “Semua perangkat” agar tersedia di semuanya.</li>
-                <li>Letakkan balon dialog, teks, wajah, dan detail penting setidaknya 3–5% dari tepi gambar.</li>
-                <li>Ukuran file, format yang diizinkan, dan jumlah halaman mengikuti batas yang tampil di uploader saat mengunggah.</li>
+                <li>{t("Rasio perangkat di atas adalah rekomendasi komposisi, bukan crop wajib. Reader menampilkan gambar utuh tanpa memotongnya; rasio yang berbeda dapat menyisakan ruang kosong.")}</li>
+                <li>{t("Uploader menyimpan satu gambar untuk setiap halaman, bukan varian terpisah per perangkat. Jika komik tersedia di semua perangkat, gunakan master 1200 × 1800 px (2:3) agar dua halaman cocok menjadi spread desktop 4:3; jangan membuat versi ponsel/tablet terpisah karena belum ada slot varian halaman.")}</li>
+                <li>{t("Target perangkat mengatur ketersediaan komik: jika memilih ponsel, tablet, atau desktop, komik hanya tampil dan bisa dibaca pada target tersebut, serta tidak tampil di perangkat lain. Pilih “Semua perangkat” agar tersedia di semuanya.")}</li>
+                <li>{t("Letakkan balon dialog, teks, wajah, dan detail penting setidaknya 3–5% dari tepi gambar.")}</li>
+                <li>{t("Ukuran file, format yang diizinkan, dan jumlah halaman mengikuti batas yang tampil di uploader saat mengunggah.")}</li>
               </ul>
             </div>
           )}

@@ -4,10 +4,14 @@ create table if not exists public.homepage_promos (
   eyebrow text not null default '' check (length(eyebrow) <= 80),
   title text not null check (length(btrim(title)) between 1 and 120),
   description text not null default '' check (length(description) <= 500),
+  eyebrow_en text not null default '' check (length(eyebrow_en) <= 80),
+  title_en text not null default '' check (length(title_en) <= 120),
+  description_en text not null default '' check (length(description_en) <= 500),
   image_url text not null check (image_url ~* '^https?://[^[:space:]]+$'),
   image_url_tablet text check (image_url_tablet is null or image_url_tablet ~* '^https?://[^[:space:]]+$'),
   image_url_mobile text check (image_url_mobile is null or image_url_mobile ~* '^https?://[^[:space:]]+$'),
   cta_label text not null default '' check (length(cta_label) <= 40),
+  cta_label_en text not null default '' check (length(cta_label_en) <= 40),
   destination_url text not null check (destination_url ~* '^(https?://[^[:space:]]+|/[^/[:space:]]*|/)$'),
   sort_order integer not null default 0 check (sort_order between 0 and 10000),
   starts_on date not null default (statement_timestamp() at time zone 'Asia/Jakarta')::date,
@@ -17,6 +21,12 @@ create table if not exists public.homepage_promos (
   updated_at timestamptz not null default now(),
   constraint homepage_promo_dates_valid check (ends_on >= starts_on)
 );
+
+alter table public.homepage_promos
+  add column if not exists eyebrow_en text not null default '',
+  add column if not exists title_en text not null default '',
+  add column if not exists description_en text not null default '',
+  add column if not exists cta_label_en text not null default '';
 
 create index if not exists homepage_promos_public_order_idx
   on public.homepage_promos(status, sort_order, starts_on, ends_on);

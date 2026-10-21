@@ -6,6 +6,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useReaderMembership } from "@/app/membership-runtime";
 import { useKidsMode } from "@/app/platform-runtime";
+import { useLocale } from "@/components/locale-provider";
 
 type SponsoredCampaign = {
   campaign_id: string;
@@ -24,6 +25,7 @@ const supabase = createClient();
 export default function SponsoredAd({ slotKey, placement, comicId, matchPageIndex, readerStopId, onCampaignAvailability, fallback, ctaOnly = false }: { slotKey: string; placement: "home" | "comic" | "reader" | "catalog" | "transition"; comicId?: string; matchPageIndex?: number; readerStopId?: string; onCampaignAvailability?: (available: boolean) => void; fallback?: ReactNode; ctaOnly?: boolean }) {
   const membership = useReaderMembership();
   const { kidsMode } = useKidsMode();
+  const { t } = useLocale();
   const [campaign, setCampaign] = useState<SponsoredCampaign | null>(null);
   const [matchedPageHeight, setMatchedPageHeight] = useState<number | null>(null);
 
@@ -109,7 +111,7 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
 
   if (kidsMode) return null;
   if (!membership.ready || membership.tier !== "free" || !campaign) return fallback ?? null;
-  const sponsorLabel = campaign.format === "sponsor" ? "Sponsor" : "Iklan";
+  const sponsorLabel = t(campaign.format === "sponsor" ? "Sponsor" : "Iklan");
   const nativeReaderAd = (placement === "reader" || placement === "transition") && campaign.format === "native";
   const fallbackImage = campaign.image_url || campaign.image_url_tablet || campaign.image_url_mobile;
   const adStyle = nativeReaderAd && matchedPageHeight
@@ -127,8 +129,8 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
         <strong>{campaign.title}</strong>
         {campaign.description && <span className="reader-sponsored-ad-description">{campaign.description}</span>}
         {ctaOnly
-          ? <a className="reader-sponsored-ad-cta" href={campaign.destination_url} target="_blank" rel="noreferrer noopener sponsored" onClick={(event) => event.stopPropagation()}>Kunjungi <ExternalLink size={14} /></a>
-          : <span className="reader-sponsored-ad-cta">Kunjungi <ExternalLink size={14} /></span>}
+          ? <a className="reader-sponsored-ad-cta" href={campaign.destination_url} target="_blank" rel="noreferrer noopener sponsored" onClick={(event) => event.stopPropagation()}>{t("Kunjungi")} <ExternalLink size={14} /></a>
+          : <span className="reader-sponsored-ad-cta">{t("Kunjungi")} <ExternalLink size={14} /></span>}
       </span>
     </>
   );

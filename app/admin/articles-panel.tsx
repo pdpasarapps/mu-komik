@@ -5,6 +5,8 @@ import { Eye, FileText, LoaderCircle, Plus, Save, Upload, X } from "lucide-react
 import { createClient } from "@/lib/supabase/client";
 import MarkdownContent from "@/components/markdown-content";
 import { getArticleCoverUrl } from "@/lib/article-cover";
+import ContentLanguageTabs from "@/components/content-language-tabs";
+import type { Locale } from "@/lib/locale";
 
 type ArticleStatus = "draft" | "published";
 type ArticleRow = {
@@ -14,9 +16,15 @@ type ArticleRow = {
   excerpt: string;
   content_markdown: string;
   category: string;
+  title_en: string;
+  excerpt_en: string;
+  content_markdown_en: string;
+  category_en: string;
   cover_key: string | null;
   seo_title: string | null;
   seo_description: string | null;
+  seo_title_en: string | null;
+  seo_description_en: string | null;
   author_name: string;
   status: ArticleStatus;
   author_id: string;
@@ -33,9 +41,15 @@ const emptyArticle: ArticleForm = {
   excerpt: "",
   content_markdown: "",
   category: "Komik",
+  title_en: "",
+  excerpt_en: "",
+  content_markdown_en: "",
+  category_en: "",
   cover_key: null,
   seo_title: "",
   seo_description: "",
+  seo_title_en: "",
+  seo_description_en: "",
   author_name: "Tim MU-Komik",
   status: "draft",
   author_id: "",
@@ -60,6 +74,7 @@ function formatArticleDate(value: string | null): string {
 export default function ArticlesPanel() {
   const [articles, setArticles] = useState<ArticleRow[]>([]);
   const [form, setForm] = useState<ArticleForm>(emptyArticle);
+  const [editingLocale, setEditingLocale] = useState<Locale>("id");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -75,7 +90,7 @@ export default function ArticlesPanel() {
     setError("");
     const { data, error: loadError } = await supabase
       .from("articles")
-      .select("id, title, slug, excerpt, content_markdown, category, cover_key, seo_title, seo_description, author_name, status, author_id, published_at, updated_at")
+      .select("id, title, slug, excerpt, content_markdown, category, title_en, excerpt_en, content_markdown_en, category_en, cover_key, seo_title, seo_description, seo_title_en, seo_description_en, author_name, status, author_id, published_at, updated_at")
       .order("updated_at", { ascending: false })
       .limit(100);
     if (loadError) {
@@ -94,6 +109,7 @@ export default function ArticlesPanel() {
 
   function startNewArticle() {
     setForm(emptyArticle);
+    setEditingLocale("id");
     setSlugManuallyEdited(false);
     setPreview(false);
     setMessage("");
@@ -102,6 +118,7 @@ export default function ArticlesPanel() {
 
   function editArticle(article: ArticleRow) {
     setForm({ ...article, seo_title: article.seo_title ?? "", seo_description: article.seo_description ?? "" });
+    setEditingLocale("id");
     setSlugManuallyEdited(true);
     setPreview(false);
     setMessage("");
@@ -138,9 +155,15 @@ export default function ArticlesPanel() {
       excerpt: form.excerpt.trim(),
       content_markdown: form.content_markdown,
       category: form.category.trim() || "Komik",
+      title_en: form.title_en.trim(),
+      excerpt_en: form.excerpt_en.trim(),
+      content_markdown_en: form.content_markdown_en,
+      category_en: form.category_en.trim(),
       cover_key: form.cover_key,
       seo_title: form.seo_title?.trim() || null,
       seo_description: form.seo_description?.trim() || null,
+      seo_title_en: form.seo_title_en?.trim() || null,
+      seo_description_en: form.seo_description_en?.trim() || null,
       author_name: form.author_name.trim() || "Tim MU-Komik",
       status: form.status,
       author_id: form.author_id || userData.user.id,
@@ -260,10 +283,13 @@ export default function ArticlesPanel() {
         {error && <p className="admin-message article-admin-error" role="alert">{error}</p>}
         {message && <p className="admin-message" role="status">{message}</p>}
         <form className="article-admin-form" onSubmit={(event) => void saveArticle(event)}>
-          <label className="admin-setting-field">Judul
-            <input required maxLength={180} value={form.title} onChange={(event) => {
+          <ContentLanguageTabs value={editingLocale} onChange={setEditingLocale} />
+          <label className="admin-setting-field">Judul{editingLocale === "en" ? " (English, opsional)" : ""}
+            <input required={editingLocale === "id"} maxLength={180} value={editingLocale === "id" ? form.title : form.title_en} onChange={(event) => {
               const title = event.target.value;
-              setForm((current) => ({ ...current, title, slug: slugManuallyEdited ? current.slug : slugify(title) }));
+              setForm((current) => editingLocale === "id"
+                ? { ...current, title, slug: slugManuallyEdited ? current.slug : slugify(title) }
+                : { ...current, title_en: title });
             }} />
           </label>
           <label className="admin-setting-field">Slug URL
@@ -272,18 +298,37 @@ export default function ArticlesPanel() {
               setForm((current) => ({ ...current, slug: slugify(event.target.value) }));
             }} />
           </label>
-          <label className="admin-setting-field">Ringkasan
-            <textarea required maxLength={320} rows={3} value={form.excerpt} onChange={(event) => setForm((current) => ({ ...current, excerpt: event.target.value }))} />
-          </label>
-          <div className="article-admin-two-fields">
+          {editingLocale === "id" ? <>
+            <label className="admin-setting-field">Ringkasan
+              <textarea required maxLength={320} rows={3} value={form.excerpt} onChange={(event) => setForm((current) => ({ ...current, excerpt: event.target.value }))} />
+            </label>
             <label className="admin-setting-field">Kategori
               <input maxLength={60} value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} />
             </label>
+            <label className="admin-setting-field">Judul SEO <small>Opsional; jika kosong, judul artikel digunakan.</small>
+              <input maxLength={180} value={form.seo_title ?? ""} onChange={(event) => setForm((current) => ({ ...current, seo_title: event.target.value }))} />
+            </label>
+            <label className="admin-setting-field">Deskripsi SEO <small>Opsional; jika kosong, ringkasan artikel digunakan.</small>
+              <textarea maxLength={320} rows={2} value={form.seo_description ?? ""} onChange={(event) => setForm((current) => ({ ...current, seo_description: event.target.value }))} />
+            </label>
+          </> : <>
+            <label className="admin-setting-field">Ringkasan (English)
+              <textarea maxLength={320} rows={3} value={form.excerpt_en} onChange={(event) => setForm((current) => ({ ...current, excerpt_en: event.target.value }))} />
+            </label>
+            <label className="admin-setting-field">Kategori (English)
+              <input maxLength={60} value={form.category_en} onChange={(event) => setForm((current) => ({ ...current, category_en: event.target.value }))} />
+            </label>
+            <label className="admin-setting-field">Judul SEO (English) <small>Opsional; jika kosong, judul English atau judul Indonesia digunakan.</small>
+              <input maxLength={180} value={form.seo_title_en ?? ""} onChange={(event) => setForm((current) => ({ ...current, seo_title_en: event.target.value }))} />
+            </label>
+            <label className="admin-setting-field">Deskripsi SEO (English) <small>Opsional; jika kosong, ringkasan English atau ringkasan Indonesia digunakan.</small>
+              <textarea maxLength={320} rows={2} value={form.seo_description_en ?? ""} onChange={(event) => setForm((current) => ({ ...current, seo_description_en: event.target.value }))} />
+            </label>
+          </>}
+          <div className="article-admin-two-fields">
             <label className="admin-setting-field">Nama penulis
               <input maxLength={100} value={form.author_name} onChange={(event) => setForm((current) => ({ ...current, author_name: event.target.value }))} />
             </label>
-          </div>
-          <div className="article-admin-two-fields">
             <label className="admin-setting-field">Status
               <select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as ArticleStatus }))}>
                 <option value="draft">Draf</option>
@@ -291,12 +336,6 @@ export default function ArticlesPanel() {
               </select>
             </label>
           </div>
-          <label className="admin-setting-field">Judul SEO <small>Opsional; jika kosong, judul artikel digunakan.</small>
-            <input maxLength={180} value={form.seo_title ?? ""} onChange={(event) => setForm((current) => ({ ...current, seo_title: event.target.value }))} />
-          </label>
-          <label className="admin-setting-field">Deskripsi SEO <small>Opsional; jika kosong, ringkasan artikel digunakan.</small>
-            <textarea maxLength={320} rows={2} value={form.seo_description ?? ""} onChange={(event) => setForm((current) => ({ ...current, seo_description: event.target.value }))} />
-          </label>
           <div className="admin-setting-field">
             <span>Cover artikel</span>
             {coverUrl && <img className="article-admin-cover-preview" src={coverUrl} alt="Pratinjau cover artikel" />}
@@ -310,13 +349,13 @@ export default function ArticlesPanel() {
             {!form.id && <small>Simpan draf terlebih dahulu untuk mengunggah cover.</small>}
           </div>
           <div className="article-admin-markdown-heading">
-            <span>Isi artikel <small>Markdown, tanpa HTML mentah</small></span>
+            <span>Isi artikel{editingLocale === "en" ? " (English)" : ""} <small>Markdown, tanpa HTML mentah</small></span>
             <button type="button" className="article-admin-preview-toggle" onClick={() => setPreview((current) => !current)}><FileText size={15} /> {preview ? "Edit Markdown" : "Pratinjau"}</button>
           </div>
           {preview
-            ? <div className="article-admin-markdown-preview"><MarkdownContent content={form.content_markdown || "_Pratinjau artikel akan muncul di sini._"} /></div>
-            : <label className="reader-sr-only" htmlFor="article-markdown">Isi artikel dalam Markdown</label>}
-          {!preview && <textarea id="article-markdown" className="article-admin-markdown-input" required rows={18} value={form.content_markdown} onChange={(event) => setForm((current) => ({ ...current, content_markdown: event.target.value }))} />}
+            ? <div className="article-admin-markdown-preview"><MarkdownContent content={(editingLocale === "id" ? form.content_markdown : form.content_markdown_en) || "_Pratinjau artikel akan muncul di sini._"} /></div>
+            : <label className="reader-sr-only" htmlFor={`article-markdown-${editingLocale}`}>Isi artikel dalam Markdown ({editingLocale === "id" ? "Indonesia" : "English"})</label>}
+          {!preview && <textarea id={`article-markdown-${editingLocale}`} className="article-admin-markdown-input" required={editingLocale === "id"} rows={18} value={editingLocale === "id" ? form.content_markdown : form.content_markdown_en} onChange={(event) => setForm((current) => ({ ...current, [editingLocale === "id" ? "content_markdown" : "content_markdown_en"]: event.target.value }))} />}
           <div className="article-admin-form-actions">
             {form.id && <button className="article-admin-secondary-button" type="button" onClick={startNewArticle}><X size={16} /> Batal edit</button>}
             <button className="reader-primary-button" type="submit" disabled={saving || uploading}>{saving ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{form.status === "published" ? "Simpan & terbitkan" : "Simpan draf"}</button>
