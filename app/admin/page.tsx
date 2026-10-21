@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useState } from "react";
-import { ArrowLeft, Archive, Ban, Baby, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, FileText, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Megaphone, Pencil, Search, Settings2, ShieldCheck, Trash2, UserRound, UserRoundCheck, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Archive, Ban, Baby, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, FileText, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Megaphone, Pencil, Search, Settings2, ShieldCheck, Trash2, UserRound, UserRoundCheck, Users, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -22,7 +22,7 @@ type CreatorRequest = { id: string; user_id: string; note: string; portfolio_url
 type ComicReview = { id: string; title: string; slug: string; synopsis: string; contributor: string; created_at: string; creator_id: string; creator: string };
 type KidsCurationReview = { comic_id: string; age_range: "4_6" | "7_9" | "10_12"; submitted_at: string; review_note: string; title: string; slug: string; creator: string };
 type AdminAccountStatus = "active" | "blocked" | "deleted";
-type AdminUser = { id: string; display_name: string; email: string | null; role: "reader" | "creator" | "admin" | "staff"; staffTitle: string; staffPermissions: AdminSection[]; canUploadAudio: boolean; membershipTier: ReaderMembershipTier; accountStatus: AdminAccountStatus; created_at: string };
+type AdminUser = { id: string; display_name: string; email: string | null; role: "reader" | "creator" | "admin"; isStaff: boolean; staffTitle: string; staffPermissions: AdminSection[]; canUploadAudio: boolean; membershipTier: ReaderMembershipTier; accountStatus: AdminAccountStatus; created_at: string };
 type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string; kids_curation_status: "pending" | "approved" | "rejected" | null; kids_age_range: "4_6" | "7_9" | "10_12" | null };
 type SettingsAuditEntry = { id: number; changed_by: string | null; changed_at: string; previous_values: Record<string, unknown>; new_values: Record<string, unknown> };
 type AdminSection = "overview" | "analytics" | "comic-review" | "kids-review" | "creator-requests" | "users" | "admins" | "staf" | "readers" | "kreator" | "comics" | "articles" | "share-previews" | "ad-requests" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "homepage-promos" | "platform-settings";
@@ -50,7 +50,7 @@ const adminSections: Record<AdminSection, { label: string; description: string }
   "homepage-promos": { label: "Hero & promo beranda", description: "Kelola slide hero, gambar responsif, tautan, urutan, dan jadwal promo beranda." },
   "platform-settings": { label: "Pengaturan platform", description: "Atur status operasional dan fitur yang tersedia di MU-Komik." },
 };
-const roleLabels: Record<AdminUser["role"], string> = { reader: "Pembaca", creator: "Kreator", admin: "Admin", staff: "Staf" };
+const roleLabels: Record<AdminUser["role"], string> = { reader: "Pembaca", creator: "Kreator", admin: "Admin" };
 const staffPermissionOptions: { value: AdminSection; label: string }[] = [
   { value: "overview", label: "Ringkasan" },
   { value: "analytics", label: "Analitik" },
@@ -127,7 +127,9 @@ export default function AdminPage() {
   const [userRoleFilter, setUserRoleFilter] = useState<"all" | AdminUser["role"]>("all");
   const [message, setMessage] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<CreatorRequest | null>(null);
-  const [userEditRole, setUserEditRole] = useState<"reader" | "creator" | "staff">("reader");
+  const [selectedComicDetail, setSelectedComicDetail] = useState<AdminComic | null>(null);
+  const [userEditRole, setUserEditRole] = useState<"reader" | "creator">("reader");
+  const [userEditIsStaff, setUserEditIsStaff] = useState(false);
   const [userEditStaffTitle, setUserEditStaffTitle] = useState("Staf");
   const [userEditStaffPermissions, setUserEditStaffPermissions] = useState<AdminSection[]>(defaultStaffPermissions);
   const [generatingSharePreviews, setGeneratingSharePreviews] = useState(false);
@@ -157,16 +159,18 @@ export default function AdminPage() {
       setLoading(false);
       return;
     }
-    if (roleProfile?.role !== "admin" && roleProfile?.role !== "staff") {
+    if (roleProfile?.role !== "admin" && roleProfile?.role !== "staff"
+      && roleProfile?.role !== "reader" && roleProfile?.role !== "creator") {
       router.replace("/account");
       return;
     }
     let staffTitle = "";
     let staffPermissionData: unknown[] = [];
-    if (roleProfile.role === "staff") {
+    let staffAssigned = roleProfile.role === "staff";
+    if (roleProfile.role !== "admin") {
       const { data: staffProfile, error: staffProfileError } = await supabase
         .from("profiles")
-        .select("staff_title, staff_permissions")
+        .select("is_staff, staff_title, staff_permissions")
         .eq("id", userData.user.id)
         .single();
       if (staffProfileError) {
@@ -175,11 +179,16 @@ export default function AdminPage() {
         setLoading(false);
         return;
       }
-      staffTitle = staffProfile.staff_title;
+      staffAssigned = staffAssigned || staffProfile.is_staff === true;
+      staffTitle = staffProfile.staff_title || "";
       staffPermissionData = Array.isArray(staffProfile.staff_permissions) ? staffProfile.staff_permissions : [];
     }
-    const profile = { ...roleProfile, staff_title: staffTitle, staff_permissions: staffPermissionData };
-    const userIsStaff = profile.role === "staff";
+    const profile = { ...roleProfile, is_staff: staffAssigned, staff_title: staffTitle, staff_permissions: staffPermissionData };
+    if (profile.role !== "admin" && !profile.is_staff) {
+      router.replace("/account");
+      return;
+    }
+    const userIsStaff = profile.role !== "admin" && profile.is_staff;
     const userStaffPermissions = userIsStaff && Array.isArray(profile.staff_permissions)
       ? profile.staff_permissions.filter((permission): permission is AdminSection =>
         typeof permission === "string" && permission in adminSections)
@@ -216,14 +225,15 @@ export default function AdminPage() {
         : supabase.from("comic_kids_curation").select("comic_id, age_range, review_status, submitted_at, review_note").order("submitted_at", { ascending: true }),
     ]);
     const staffProfilesQuery = supabase.from("profiles")
-      .select("id, display_name, role, staff_title, staff_permissions, created_at")
+      .select("id, display_name, role, is_staff, staff_title, staff_permissions, created_at")
       .order("created_at", { ascending: false })
       .or(staffCanSeeProfiles ? "id.not.is.null" : `id.eq.${emptyUuid}`);
     const { data: staffProfileRows, error: staffProfilesError } = await staffProfilesQuery;
     let profileRows: {
       id: string;
       display_name: string;
-      role: AdminUser["role"];
+      role: AdminUser["role"] | "staff";
+      is_staff?: boolean;
       staff_title?: string;
       staff_permissions?: string[];
       created_at: string;
@@ -297,8 +307,10 @@ export default function AdminPage() {
     }
     const profiles = loadedProfiles.map((profile) => ({
       ...profile,
+      role: profile.role === "staff" ? "reader" : profile.role,
       email: emailsByUser.get(profile.id) ?? null,
       staffTitle: profile.staff_title || "",
+      isStaff: profile.role !== "admin" && (profile.role === "staff" || profile.is_staff === true),
       staffPermissions: Array.isArray(profile.staff_permissions)
         ? profile.staff_permissions.filter((permission): permission is AdminSection => typeof permission === "string" && permission in adminSections)
         : [],
@@ -570,7 +582,7 @@ export default function AdminPage() {
   const performAdminUserAction = async (
     user: AdminUser,
     action: "edit" | "block" | "unblock" | "deactivate",
-    values?: { displayName: string; role: "reader" | "creator" | "staff"; staffTitle: string; staffPermissions: AdminSection[] },
+    values?: { displayName: string; role: "reader" | "creator"; isStaff: boolean; staffTitle: string; staffPermissions: AdminSection[] },
   ) => {
     setActionId(user.id);
     setMessage("");
@@ -599,8 +611,9 @@ export default function AdminPage() {
           ...user,
           display_name: values.displayName,
           role: values.role,
-          staffTitle: values.role === "staff" ? values.staffTitle : "",
-          staffPermissions: values.role === "staff" ? values.staffPermissions : [],
+          isStaff: values.isStaff,
+          staffTitle: values.isStaff ? values.staffTitle : "",
+          staffPermissions: values.isStaff ? values.staffPermissions : [],
           canUploadAudio: values.role === "reader" ? false : user.canUploadAudio,
         };
         setUsers((current) => current.map((item) => item.id === user.id ? updatedUser : item));
@@ -663,6 +676,7 @@ export default function AdminPage() {
 
   const openUserEdit = (user: AdminUser) => {
     setUserEditRole(user.role === "admin" ? "reader" : user.role);
+    setUserEditIsStaff(user.isStaff);
     setUserEditStaffTitle(user.staffTitle || "Staf");
     setUserEditStaffPermissions(user.staffPermissions.length ? user.staffPermissions : defaultStaffPermissions);
     setSelectedUserDialog({ user, mode: "edit" });
@@ -768,7 +782,7 @@ export default function AdminPage() {
     .filter((user) => section === "readers" ? user.role === "reader"
       : section === "kreator" ? user.role === "creator"
         : section === "admins" ? user.role === "admin"
-          : section === "staf" ? user.role === "staff"
+          : section === "staf" ? user.isStaff
             : true)
     .filter((user) => `${user.display_name} ${user.email ?? ""} ${user.id}`.toLowerCase().includes(userSearch.toLowerCase()))
     .filter((user) => section !== "users" || userRoleFilter === "all" || user.role === userRoleFilter)
@@ -1120,7 +1134,6 @@ export default function AdminPage() {
               <select value={userRoleFilter} onChange={(event) => setUserRoleFilter(event.target.value as typeof userRoleFilter)}>
                 <option value="all">Semua peran</option>
                 <option value="admin">Admin</option>
-                <option value="staff">Staf</option>
                 <option value="creator">Kreator</option>
                 <option value="reader">Pembaca</option>
               </select>
@@ -1140,7 +1153,10 @@ export default function AdminPage() {
                     <td><strong>{user.display_name || "Tanpa nama"}</strong><code>{user.id.slice(0, 12)}...</code></td>
                     <td>{user.email || "Tidak tersedia"}</td>
                     <td>{new Date(user.created_at).toLocaleDateString("id-ID")}</td>
-                    <td><span className={`request-status request-${user.role === "admin" ? "approved" : user.role === "creator" || user.role === "staff" ? "pending" : "draft"}`}>{roleLabels[user.role]}</span></td>
+                    <td>
+                      <span className={`request-status request-${user.role === "admin" ? "approved" : user.role === "creator" ? "pending" : "draft"}`}>{roleLabels[user.role]}</span>
+                      {user.isStaff && <span className="request-status request-pending">{user.staffTitle || "Staf"}</span>}
+                    </td>
                     {section === "staf" && <td className="admin-staff-title-cell">{user.staffTitle || "Belum diatur"}</td>}
                     <td><span className={`request-status request-${user.accountStatus === "active" ? "approved" : "rejected"}`}>
                       {user.accountStatus === "active" ? "Aktif" : user.accountStatus === "blocked" ? "Diblokir" : "Dinonaktifkan"}
@@ -1240,6 +1256,7 @@ export default function AdminPage() {
                     <td>{comic.genre}</td>
                     <td><span className={`request-status request-${comic.status === "published" ? "approved" : comic.status === "pending_review" ? "pending" : comic.status}`}>{comicStatusLabels[comic.status]}</span></td>
                     <td className="admin-comic-actions">
+                      <button className="admin-action-link" onClick={() => setSelectedComicDetail(comic)}>Detail</button>
                       {!isStaff && <>
                         <Link className="admin-manage-link" href={`/account/komik/${comic.id}`}>Kelola</Link>
                         {comic.status === "draft" && <button className="admin-action-link" onClick={() => updateComicStatus(comic, "pending_review")} disabled={comicActionId === comic.id}>Ajukan kurasi</button>}
@@ -1271,6 +1288,40 @@ export default function AdminPage() {
           </section>
         </div>
       )}
+      {selectedComicDetail && (
+        <div className="request-modal-backdrop" role="presentation" onClick={() => setSelectedComicDetail(null)}>
+          <section className="request-modal admin-comic-detail-modal" role="dialog" aria-modal="true" aria-labelledby="admin-comic-detail-title" onClick={(event) => event.stopPropagation()}>
+            <div className="request-modal-header">
+              <div><p className="eyebrow">Detail komik</p><h2 id="admin-comic-detail-title">{selectedComicDetail.title}</h2></div>
+              <button className="modal-close" onClick={() => setSelectedComicDetail(null)} aria-label="Tutup detail komik">×</button>
+            </div>
+            {selectedComicDetail.cover_key && publicUrl && <Image
+              className="admin-comic-detail-cover"
+              src={`${publicUrl.replace(/\/$/, "")}/${selectedComicDetail.cover_key}`}
+              alt={`Sampul ${selectedComicDetail.title}`}
+              width={240}
+              height={320}
+              unoptimized
+            />}
+            <dl className="admin-user-details">
+              <div><dt>Slug</dt><dd><code>{selectedComicDetail.slug}</code></dd></div>
+              <div><dt>Kreator</dt><dd>{selectedComicDetail.creator}</dd></div>
+              <div><dt>Genre</dt><dd>{selectedComicDetail.genre || "Belum diatur"}</dd></div>
+              <div><dt>Kontributor</dt><dd>{selectedComicDetail.contributor || "Belum diatur"}</dd></div>
+              <div><dt>Status</dt><dd>{comicStatusLabels[selectedComicDetail.status]}</dd></div>
+              <div><dt>Dibuat</dt><dd>{new Date(selectedComicDetail.created_at).toLocaleDateString("id-ID")}</dd></div>
+            </dl>
+            <div className="admin-comic-detail-synopsis">
+              <strong>Sinopsis</strong>
+              <p>{selectedComicDetail.synopsis || "Belum ada sinopsis."}</p>
+            </div>
+            <div className="request-actions modal-actions">
+              {selectedComicDetail.status === "published" && <Link className="approve-button" href={`/comic/${encodeURIComponent(selectedComicDetail.slug)}`} target="_blank" rel="noreferrer">Lihat komik <ArrowUpRight size={15} /></Link>}
+              <button className="reject-button" onClick={() => setSelectedComicDetail(null)}>Tutup</button>
+            </div>
+          </section>
+        </div>
+      )}
       {selectedUserDialog && (
         <div className="request-modal-backdrop" role="presentation" onClick={() => setSelectedUserDialog(null)}>
           <section className="request-modal admin-user-modal" role="dialog" aria-modal="true" aria-labelledby="admin-user-modal-title" onClick={(event) => event.stopPropagation()}>
@@ -1286,28 +1337,32 @@ export default function AdminPage() {
                 event.preventDefault();
                 const formData = new FormData(event.currentTarget);
                 const displayName = String(formData.get("displayName") ?? "").trim();
-                if (userEditRole === "staff" && (!userEditStaffTitle.trim() || !userEditStaffPermissions.length)) {
+                if (userEditIsStaff && (!userEditStaffTitle.trim() || !userEditStaffPermissions.length)) {
                   setMessage("Isi nama jabatan staf dan pilih minimal satu menu akses.");
                   return;
                 }
                 void performAdminUserAction(selectedUserDialog.user, "edit", {
                   displayName,
                   role: userEditRole,
-                  staffTitle: userEditRole === "staff" ? userEditStaffTitle.trim() : "",
-                  staffPermissions: userEditRole === "staff" ? userEditStaffPermissions : [],
+                  isStaff: userEditIsStaff,
+                  staffTitle: userEditIsStaff ? userEditStaffTitle.trim() : "",
+                  staffPermissions: userEditIsStaff ? userEditStaffPermissions : [],
                 });
               }}>
                 <label>Nama tampilan<input name="displayName" required maxLength={80} defaultValue={selectedUserDialog.user.display_name} /></label>
                 <label>Peran<select value={userEditRole} onChange={(event) => {
-                  if (event.target.value === "reader" || event.target.value === "creator" || event.target.value === "staff") {
+                  if (event.target.value === "reader" || event.target.value === "creator") {
                     setUserEditRole(event.target.value);
                   }
                 }}>
                   <option value="reader">Pembaca</option>
                   <option value="creator">Kreator</option>
-                  <option value="staff">Staf</option>
                 </select></label>
-                {userEditRole === "staff" && <>
+                <label className="admin-staff-assignment-toggle">
+                  <input type="checkbox" checked={userEditIsStaff} onChange={(event) => setUserEditIsStaff(event.target.checked)} />
+                  <span>Tugaskan sebagai Staf tanpa mengubah peran utama</span>
+                </label>
+                {userEditIsStaff && <>
                   <label>Nama jabatan<input value={userEditStaffTitle} onChange={(event) => setUserEditStaffTitle(event.target.value)} required maxLength={60} placeholder="Contoh: Ads Manager, Editor, Customer Service" /></label>
                   <fieldset className="admin-staff-permissions">
                     <legend>Menu yang dapat diakses staf</legend>
@@ -1337,7 +1392,7 @@ export default function AdminPage() {
                   <div><dt>Email</dt><dd>{selectedUserDialog.user.email || "Tidak tersedia"}</dd></div>
                   <div><dt>ID pengguna</dt><dd><code>{selectedUserDialog.user.id}</code></dd></div>
                   <div><dt>Peran</dt><dd>{roleLabels[selectedUserDialog.user.role]}</dd></div>
-                  {selectedUserDialog.user.role === "staff" && <>
+                  {selectedUserDialog.user.isStaff && <>
                     <div><dt>Nama jabatan</dt><dd>{selectedUserDialog.user.staffTitle || "Staf"}</dd></div>
                     <div><dt>Menu akses</dt><dd>{selectedUserDialog.user.staffPermissions.map((permission) => staffPermissionOptions.find((option) => option.value === permission)?.label ?? permission).join(", ") || "Tidak ada akses khusus"}</dd></div>
                   </>}

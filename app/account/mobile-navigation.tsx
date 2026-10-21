@@ -6,13 +6,14 @@ import { BarChart3, BookOpen, Bookmark, CircleHelp, Home, LayoutDashboard, Libra
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-type AccountRole = "reader" | "creator" | "admin" | "staff";
+type AccountRole = "reader" | "creator" | "admin";
 
 const supabase = createClient();
 
 export default function AccountMobileNavigation() {
   const pathname = usePathname();
   const [role, setRole] = useState<AccountRole | null>(null);
+  const [isStaff, setIsStaff] = useState(false);
   const [creatorMobileNavOpen, setCreatorMobileNavOpen] = useState(false);
 
   useEffect(() => {
@@ -34,7 +35,7 @@ export default function AccountMobileNavigation() {
       if (!userData.user) return;
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, is_staff")
         .eq("id", userData.user.id)
         .maybeSingle();
       if (profileError) {
@@ -42,7 +43,8 @@ export default function AccountMobileNavigation() {
         return;
       }
       if (active && (profile?.role === "reader" || profile?.role === "creator" || profile?.role === "admin" || profile?.role === "staff")) {
-        setRole(profile.role);
+        setRole(profile.role === "staff" ? "reader" : profile.role);
+        setIsStaff(profile.is_staff === true || profile.role === "staff");
       }
     };
     void loadRole();
@@ -71,6 +73,7 @@ export default function AccountMobileNavigation() {
           <Link href="/account/reading" className={current("reading") ? "active" : ""} aria-current={current("reading") ? "page" : undefined}><BookOpen size={19} /><span>Baca</span></Link>
           <Link href="/account/favorites" className={current("favorites") ? "active" : ""} aria-current={current("favorites") ? "page" : undefined}><Bookmark size={19} /><span>Favorit</span></Link>
           <Link href="/account/account-settings" className={current("account-settings") ? "active" : ""} aria-current={current("account-settings") ? "page" : undefined}><Settings2 size={19} /><span>Akun</span></Link>
+          {isStaff && <Link href="/admin"><Settings2 size={19} /><span>Staf</span></Link>}
         </> : <>
         <Link href="/account" className={current("overview") ? "active" : ""} aria-current={current("overview") ? "page" : undefined}><LayoutDashboard size={19} /><span>Ringkasan</span></Link>
         <Link href="/"><Home size={19} /><span>Beranda</span></Link>
@@ -88,7 +91,7 @@ export default function AccountMobileNavigation() {
           <Link href="/account/creator-guide" className={current("creator-guide") ? "active" : ""} aria-current={current("creator-guide") ? "page" : undefined}><CircleHelp size={19} /><span>Panduan</span></Link>
         </>}
         {role === "admin" && <Link href="/admin"><Settings2 size={19} /><span>Admin</span></Link>}
-        {role === "staff" && <Link href="/admin"><Settings2 size={19} /><span>Staf</span></Link>}
+        {role !== "admin" && isStaff && <Link href="/admin"><Settings2 size={19} /><span>Staf</span></Link>}
         </>}
       </nav>
       {role === "creator" && (

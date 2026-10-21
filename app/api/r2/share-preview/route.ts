@@ -29,13 +29,13 @@ async function authorize(request: NextRequest, comicId: string, coverKey?: strin
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("role, staff_permissions")
+    .select("role, is_staff, staff_permissions")
     .eq("id", userData.user.id)
     .maybeSingle();
   if (profileError) {
     return { response: NextResponse.json({ error: "Could not read user profile" }, { status: 500 }) };
   }
-  const isStaff = profile?.role === "staff"
+  const isStaff = profile?.role !== "admin" && profile?.is_staff === true
     && Array.isArray(profile.staff_permissions)
     && profile.staff_permissions.includes("share-previews");
   if (profile?.role !== "creator" && profile?.role !== "admin" && !isStaff) {

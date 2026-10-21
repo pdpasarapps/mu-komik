@@ -19,12 +19,12 @@ async function authorize(request: NextRequest) {
   if (userError || !userData.user) return { response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("role, staff_permissions")
+    .select("role, is_staff, staff_permissions")
     .eq("id", userData.user.id)
     .maybeSingle();
   if (profileError) return { response: NextResponse.json({ error: "Could not read user profile" }, { status: 500 }) };
   if (profile?.role !== "admin"
-    && !(profile?.role === "staff" && Array.isArray(profile.staff_permissions) && profile.staff_permissions.includes("articles"))) {
+    && !(profile?.is_staff === true && Array.isArray(profile.staff_permissions) && profile.staff_permissions.includes("articles"))) {
     return { response: NextResponse.json({ error: "Article management access required" }, { status: 403 }) };
   }
   return { supabase };

@@ -23,7 +23,7 @@ export type AccountSection = "overview" | "reading" | "favorites" | "account-set
 const isCreatorArea = (section: AccountSection): section is CreatorArea =>
   section === "creator" || section === "komiku" || section === "terbitkan-komik";
 
-type Profile = { id: string; display_name: string; public_handle: string | null; role: "reader" | "creator" | "admin" | "staff"; public_profile: boolean; bio: string; avatar_key: string | null; banner_key: string | null; social_links: CreatorSocialLink[] };
+type Profile = { id: string; display_name: string; public_handle: string | null; role: "reader" | "creator" | "admin"; is_staff: boolean; staff_title: string; staff_permissions: string[]; public_profile: boolean; bio: string; avatar_key: string | null; banner_key: string | null; social_links: CreatorSocialLink[] };
 type CreatorRequest = { status: "pending" | "approved" | "rejected" };
 type BookmarkedComic = { id: string; title: string; slug: string; genre: string; cover_key: string | null };
 type ContinueReading = {
@@ -46,8 +46,27 @@ const roleLabels: Record<Profile["role"], string> = {
   reader: "Pembaca",
   creator: "Kreator",
   admin: "Admin",
-  staff: "Staf",
 };
+const staffAccessLinks = [
+  { permission: "overview", label: "Ringkasan", href: "/admin/overview" },
+  { permission: "analytics", label: "Analitik", href: "/admin/analytics" },
+  { permission: "comic-review", label: "Kurasi komik", href: "/admin/comic-review" },
+  { permission: "kids-review", label: "Kurasi Kids Mode", href: "/admin/kids-review" },
+  { permission: "creator-requests", label: "Pengajuan kreator", href: "/admin/creator-requests" },
+  { permission: "users", label: "Manajemen pengguna", href: "/admin/users" },
+  { permission: "admins", label: "Daftar admin", href: "/admin/admins" },
+  { permission: "staf", label: "Daftar staf", href: "/admin/staf" },
+  { permission: "readers", label: "Daftar pembaca", href: "/admin/readers" },
+  { permission: "kreator", label: "Daftar kreator", href: "/admin/kreator" },
+  { permission: "comics", label: "Katalog komik", href: "/admin/comics" },
+  { permission: "articles", label: "Artikel", href: "/admin/articles" },
+  { permission: "share-previews", label: "Pratinjau berbagi komik", href: "/admin/share-previews" },
+  { permission: "ad-requests", label: "Pengajuan iklan", href: "/admin/ad-requests" },
+  { permission: "sponsor-campaigns", label: "Kampanye sponsor", href: "/admin/sponsor-campaigns" },
+  { permission: "ad-slots", label: "Slot iklan", href: "/admin/ad-slots" },
+  { permission: "homepage-promos", label: "Hero & promo beranda", href: "/admin/homepage-promos" },
+  { permission: "platform-settings", label: "Pengaturan platform", href: "/admin/platform-settings" },
+] as const;
 const requestStatusLabels: Record<CreatorRequest["status"], string> = {
   pending: "Menunggu peninjauan",
   approved: "Disetujui",
@@ -98,6 +117,9 @@ export default function AccountContent({ section, children }: { section: Account
       let profileData: {
         display_name: string;
         role: Profile["role"];
+        is_staff: boolean;
+        staff_title: string;
+        staff_permissions: string[];
         public_profile: boolean;
         bio: string;
         avatar_key: string | null;
@@ -117,7 +139,12 @@ export default function AccountContent({ section, children }: { section: Account
         const row = profileResult.data;
         profileData = {
           display_name: row.display_name,
-          role: row.role,
+          role: row.role === "staff" ? "reader" : row.role,
+          is_staff: row.is_staff === true || row.role === "staff",
+          staff_title: typeof row.staff_title === "string" ? row.staff_title : "",
+          staff_permissions: Array.isArray(row.staff_permissions)
+            ? row.staff_permissions.filter((permission: unknown): permission is string => typeof permission === "string")
+            : [],
           public_profile: "public_profile" in row ? row.public_profile : false,
           bio: "bio" in row ? row.bio : "",
           avatar_key: "avatar_key" in row ? row.avatar_key : null,
@@ -455,7 +482,7 @@ export default function AccountContent({ section, children }: { section: Account
             <Link className={`account-nav-link${section === "creator-profile" ? " active" : ""}`} href="/account/creator-profile" aria-current={section === "creator-profile" ? "page" : undefined}><UserRound size={18} /><span>Profil kreator</span></Link>
             <Link className={`account-nav-link${section === "creator-guide" ? " active" : ""}`} href="/account/creator-guide" aria-current={section === "creator-guide" ? "page" : undefined}><CircleHelp size={18} /><span>Panduan</span></Link>
           </>}
-          {(profile?.role === "admin" || profile?.role === "staff") && <Link className="account-nav-link" href="/admin"><Settings2 size={18} /><span>{profile.role === "admin" ? "Buka panel admin" : "Buka panel staf"}</span><ArrowUpRight size={15} /></Link>}
+          {(profile?.role === "admin" || profile?.is_staff) && <Link className="account-nav-link" href="/admin"><Settings2 size={18} /><span>{profile.role === "admin" ? "Buka panel admin" : "Buka panel staf"}</span><ArrowUpRight size={15} /></Link>}
         </nav>
         <div className="account-sidebar-user">
           <span className="account-user-avatar">{accountAvatar}</span>
@@ -483,6 +510,19 @@ export default function AccountContent({ section, children }: { section: Account
             <div><dt>Paket</dt><dd>{membership.ready ? READER_MEMBERSHIP_TIERS.find((item) => item.value === membership.tier)?.label || "Free" : "Memuat..."}</dd></div>
           </dl>
           <Link className="account-reader-info-settings" href="/account/account-settings">Pengaturan akun <ArrowRight size={15} /></Link>
+        </article>}
+        {section === "overview" && profile?.is_staff && <article className="account-panel account-staff-access-panel">
+          <div className="panel-heading"><div><p className="eyebrow">Penugasan tambahan</p><h2>Akses staf</h2></div><Settings2 size={22} /></div>
+          <div className="settings-row"><span>Jabatan</span><strong>{profile.staff_title || "Staf"}</strong></div>
+          <div className="settings-row"><span>Peran utama</span><strong>{roleLabels[profile.role]}</strong></div>
+          <div className="account-staff-access-links">
+            <strong>Menu yang dapat diakses</strong>
+            {staffAccessLinks.filter((item) => profile.staff_permissions.includes(item.permission)).length
+              ? <div>{staffAccessLinks
+                .filter((item) => profile.staff_permissions.includes(item.permission))
+                .map((item) => <Link key={item.permission} href={item.href}>{item.label}<ArrowUpRight size={15} /></Link>)}</div>
+              : <p>Belum ada menu staf yang ditetapkan. Hubungi admin untuk mengatur akses.</p>}
+          </div>
         </article>}
         {(section === "overview" || section === "reading") && <article className="account-panel account-panel-wide account-reading-panel" id="reading">
           <div className="panel-heading"><div><p className="eyebrow">Lanjutkan dari sini</p><h2>Lanjutkan membaca</h2></div><BookOpen size={22} /></div>
@@ -673,7 +713,7 @@ export default function AccountContent({ section, children }: { section: Account
               {creatorProfileMessage && <p className="creator-profile-message" role="status">{creatorProfileMessage}</p>}
             </form>
           )}
-          {(profile?.role === "admin" || profile?.role === "staff") && <Link className="account-creator-link" href="/admin"><Settings2 size={16} /> {profile.role === "admin" ? "Buka panel admin" : "Buka panel staf"} <ArrowUpRight size={15} /></Link>}
+          {(profile?.role === "admin" || profile?.is_staff) && <Link className="account-creator-link" href="/admin"><Settings2 size={16} /> {profile.role === "admin" ? "Buka panel admin" : "Buka panel staf"} <ArrowUpRight size={15} /></Link>}
         </article>}
         {section === "creator-application" && profile?.role === "reader" && settings.feature_flags.creators && (
           <>

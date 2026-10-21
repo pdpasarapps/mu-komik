@@ -1,5 +1,5 @@
 do $$ begin
-  create type public.user_role as enum ('reader', 'creator', 'staff', 'admin');
+  create type public.user_role as enum ('reader', 'creator', 'admin');
 exception when duplicate_object then null;
 end $$;
 
@@ -17,6 +17,7 @@ create table if not exists public.profiles (
   bio text not null default '',
   social_links jsonb not null default '[]'::jsonb check (jsonb_typeof(social_links) = 'array'),
   role public.user_role not null default 'reader',
+  is_staff boolean not null default false,
   staff_title text not null default '',
   staff_permissions text[] not null default '{}'
     check (staff_permissions <@ array[
@@ -31,7 +32,10 @@ create table if not exists public.profiles (
 );
 
 alter table public.profiles
-  add column if not exists can_upload_audio boolean not null default false;
+  add column if not exists can_upload_audio boolean not null default false,
+  add column if not exists is_staff boolean not null default false,
+  add column if not exists staff_title text not null default '',
+  add column if not exists staff_permissions text[] not null default '{}';
 
 create table if not exists public.reader_memberships (
   user_id uuid primary key references public.profiles(id) on delete cascade,
@@ -307,6 +311,23 @@ begin
 end;
 $$;
 
+create or replace function public.protect_profile_staff_access() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is not null
+    and (
+      old.is_staff is distinct from new.is_staff
+      or old.staff_title is distinct from new.staff_title
+      or old.staff_permissions is distinct from new.staff_permissions
+    )
+    and not exists (
+      select 1 from public.profiles where id = auth.uid() and role = 'admin'
+    ) then
+    raise exception 'Only an admin can change staff access settings';
+  end if;
+  return new;
+end;
+$$;
+
 create or replace function public.protect_profile_audio_access() returns trigger language plpgsql security definer set search_path = public as $$
 begin
   if auth.uid() is not null and old.can_upload_audio is distinct from new.can_upload_audio and not exists (
@@ -325,5 +346,7 @@ create trigger create_reader_membership_on_profile after insert on public.profil
 insert into public.reader_memberships (user_id) select id from public.profiles on conflict (user_id) do nothing;
 drop trigger if exists protect_profile_role on public.profiles;
 create trigger protect_profile_role before update on public.profiles for each row execute procedure public.protect_profile_role();
+drop trigger if exists protect_profile_staff_access on public.profiles;
+create trigger protect_profile_staff_access before update on public.profiles for each row execute procedure public.protect_profile_staff_access();
 drop trigger if exists protect_profile_audio_access on public.profiles;
 create trigger protect_profile_audio_access before update on public.profiles for each row execute procedure public.protect_profile_audio_access();

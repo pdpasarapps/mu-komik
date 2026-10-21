@@ -4,6 +4,7 @@
 alter type public.user_role add value if not exists 'staff' after 'creator';
 
 alter table public.profiles
+  add column if not exists is_staff boolean not null default false,
   add column if not exists staff_title text not null default '',
   add column if not exists staff_permissions text[] not null default '{}';
 
@@ -20,12 +21,13 @@ alter table public.profiles
   );
 
 update public.profiles
-set staff_title = 'Staf',
-    staff_permissions = array[
+set role = 'reader',
+    is_staff = true,
+    staff_title = coalesce(nullif(staff_title, ''), 'Staf'),
+    staff_permissions = case when cardinality(staff_permissions) = 0 then array[
       'overview', 'comic-review', 'creator-requests', 'kreator', 'comics', 'articles'
-    ]::text[]
-where role::text = 'staff'
-  and cardinality(staff_permissions) = 0;
+    ]::text[] else staff_permissions end
+where role::text = 'staff';
 
 create or replace function public.has_admin_section_access(p_section text)
 returns boolean
@@ -40,7 +42,7 @@ as $$
     where id = auth.uid()
     and (
       role = 'admin'
-      or (role::text = 'staff' and
+      or (is_staff and
         case p_section
           when 'ads-management' then 'sponsor-campaigns'
           when 'ads-list' then 'ad-slots'
@@ -59,7 +61,7 @@ on public.profiles for select
 using (
   public.has_admin_section_access('users')
   or (role = 'admin' and public.has_admin_section_access('admins'))
-  or (role::text = 'staff' and public.has_admin_section_access('staf'))
+  or (is_staff and public.has_admin_section_access('staf'))
   or (role = 'reader' and public.has_admin_section_access('readers'))
   or (role = 'creator' and public.has_admin_section_access('kreator'))
   or (
@@ -257,6 +259,33 @@ begin
   return new;
 end;
 $$;
+
+create or replace function public.protect_profile_staff_access()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is not null
+    and (
+      old.is_staff is distinct from new.is_staff
+      or old.staff_title is distinct from new.staff_title
+      or old.staff_permissions is distinct from new.staff_permissions
+    )
+    and not exists (
+      select 1 from public.profiles where id = auth.uid() and role = 'admin'
+    ) then
+    raise exception 'Only an admin can change staff access settings';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_profile_staff_access on public.profiles;
+create trigger protect_profile_staff_access
+before update on public.profiles
+for each row execute procedure public.protect_profile_staff_access();
 
 drop policy if exists "Staff view comic submissions" on public.comics;
 create policy "Staff view comic submissions"

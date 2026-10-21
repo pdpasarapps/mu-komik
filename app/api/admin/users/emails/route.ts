@@ -45,18 +45,19 @@ export async function POST(request: NextRequest) {
   });
   const { data: profile, error: profileError } = await serviceClient
     .from("profiles")
-    .select("role, staff_permissions")
+    .select("role, is_staff, staff_permissions")
     .eq("id", userData.user.id)
     .maybeSingle();
   if (profileError) {
     console.error("Unable to verify admin access for user email lookup:", profileError);
     return errorResponse("Could not verify admin access", 500);
   }
-  if (profile?.role !== "admin" && profile?.role !== "staff") return errorResponse("Admin access required", 403);
-  const staffPermissions = profile.role === "staff" && Array.isArray(profile.staff_permissions)
+  if (profile?.role !== "admin" && profile?.is_staff !== true) return errorResponse("Admin access required", 403);
+  const isStaff = profile.role !== "admin" && profile.is_staff === true;
+  const staffPermissions = isStaff && Array.isArray(profile.staff_permissions)
     ? profile.staff_permissions.filter((permission): permission is string => typeof permission === "string")
     : [];
-  if (profile.role === "staff" && !["users", "admins", "staf", "readers", "kreator", "creator-requests"].some((permission) => staffPermissions.includes(permission))) {
+  if (isStaff && !["users", "admins", "staf", "readers", "kreator", "creator-requests"].some((permission) => staffPermissions.includes(permission))) {
     return errorResponse("Staff access to user emails is not permitted", 403);
   }
 
@@ -76,9 +77,9 @@ export async function POST(request: NextRequest) {
   }
 
   const requestedIds = new Set(body.userIds as string[]);
-  if (profile.role === "staff" && requestedIds.size && !staffPermissions.includes("users")) {
+  if (isStaff && requestedIds.size && !staffPermissions.includes("users")) {
     const [{ data: requestedProfiles, error: requestedProfilesError }, { data: pendingRequests, error: pendingRequestError }] = await Promise.all([
-      serviceClient.from("profiles").select("id, role").in("id", [...requestedIds]),
+      serviceClient.from("profiles").select("id, role, is_staff").in("id", [...requestedIds]),
       staffPermissions.includes("creator-requests")
         ? serviceClient.from("creator_requests").select("user_id").in("user_id", [...requestedIds]).eq("status", "pending")
         : Promise.resolve({ data: [], error: null }),
@@ -89,18 +90,20 @@ export async function POST(request: NextRequest) {
     }
     const rolePermissions = new Map<string, string>([
       ["admins", "admin"],
-      ["staf", "staff"],
       ["readers", "reader"],
       ["kreator", "creator"],
     ]);
     const allowedIds = new Set([
       ...(requestedProfiles ?? [])
-        .filter((user) => [...rolePermissions].some(([permission, role]) => staffPermissions.includes(permission) && user.role === role))
+        .filter((user) => (
+          (staffPermissions.includes("staf") && user.is_staff)
+          || [...rolePermissions].some(([permission, role]) => staffPermissions.includes(permission) && user.role === role)
+        ))
         .map((user) => user.id),
       ...(pendingRequests ?? []).map((request) => request.user_id),
     ]);
-    if ([...requestedIds].some((id) => !allowedIds.has(id))) {
-      return errorResponse("Staff may only view emails within their permitted user groups", 403);
+    for (const id of requestedIds) {
+      if (!allowedIds.has(id)) requestedIds.delete(id);
     }
   }
   const emails: Record<string, string | null> = {};

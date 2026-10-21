@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const allowedRoles = ["reader", "creator", "staff"] as const;
+const allowedRoles = ["reader", "creator"] as const;
 const allowedStaffPermissions = new Set([
   "overview", "analytics", "comic-review", "kids-review", "creator-requests",
   "users", "admins", "staf", "readers", "kreator", "comics", "articles",
@@ -17,6 +17,7 @@ type ActionBody = {
   userId: string;
   displayName?: string;
   role?: (typeof allowedRoles)[number];
+  isStaff?: boolean;
   staffTitle?: string;
   staffPermissions?: string[];
 };
@@ -99,12 +100,13 @@ export async function POST(request: NextRequest) {
 
   if (body.action === "edit") {
     const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
-    if (!displayName || displayName.length > 80 || !allowedRoles.includes(body.role as (typeof allowedRoles)[number])) {
+    if (!displayName || displayName.length > 80 || !allowedRoles.includes(body.role as (typeof allowedRoles)[number])
+      || typeof body.isStaff !== "boolean") {
       return errorResponse("A valid display name and role are required", 400);
     }
     const staffTitle = typeof body.staffTitle === "string" ? body.staffTitle.trim() : "";
     const staffPermissions = body.staffPermissions;
-    if (body.role === "staff" && (
+    if (body.isStaff && (
       !staffTitle
       || staffTitle.length > 60
       || !Array.isArray(staffPermissions)
@@ -120,8 +122,9 @@ export async function POST(request: NextRequest) {
       .update({
         display_name: displayName,
         role: body.role,
-        staff_title: body.role === "staff" ? staffTitle : "",
-        staff_permissions: body.role === "staff" ? staffPermissions : [],
+        is_staff: body.isStaff,
+        staff_title: body.isStaff ? staffTitle : "",
+        staff_permissions: body.isStaff ? staffPermissions : [],
         ...(body.role === "reader" ? { can_upload_audio: false } : {}),
       })
       .eq("id", body.userId);
@@ -134,8 +137,9 @@ export async function POST(request: NextRequest) {
         id: body.userId,
         displayName,
         role: body.role,
-        staffTitle: body.role === "staff" ? staffTitle : "",
-        staffPermissions: body.role === "staff" ? staffPermissions : [],
+        isStaff: body.isStaff,
+        staffTitle: body.isStaff ? staffTitle : "",
+        staffPermissions: body.isStaff ? staffPermissions : [],
       },
     }, { headers: { "Cache-Control": "no-store" } });
   }
