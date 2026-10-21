@@ -1100,7 +1100,21 @@ html[data-theme="dark"] .admin-kids-comic-badge { border-color: #41644a; backgro
 .admin-action-danger { color: #bc4936; }
 .admin-action-link:disabled { cursor: wait; opacity: .55; }
 .admin-comic-table { min-width: 850px; }
-.admin-user-table { min-width: 820px; }
+.admin-user-table { min-width: 1120px; }.admin-user-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; min-width: 160px; white-space: nowrap; }.admin-user-actions .reviewed-label { margin-top: 0; }.admin-user-actions .admin-action-link { white-space: nowrap; }.admin-user-actions .admin-user-icon-action { flex: 0 0 34px; display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: transparent; cursor: pointer; }.admin-user-actions .admin-user-icon-action:hover:not(:disabled) { color: var(--orange); border-color: var(--orange); }.admin-user-actions .admin-user-icon-action:disabled { cursor: wait; opacity: .55; }.admin-user-modal { width: min(620px, 100%); }.admin-user-edit-form { display: grid; gap: 16px; margin-top: 22px; }.admin-user-edit-form label { display: grid; gap: 7px; color: #77827b; font-size: .75rem; font-weight: 700; }.admin-user-edit-form input, .admin-user-edit-form select { width: 100%; min-height: 42px; border: 1px solid var(--line); padding: 9px 11px; background: #fffdf8; color: var(--ink); font: inherit; }.admin-user-edit-form > p { margin: 0; color: #77827b; font-size: .72rem; }.admin-user-details { display: grid; gap: 0; margin: 24px 0 0; }.admin-user-details > div { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 14px; border-top: 1px solid var(--line); padding: 12px 0; font-size: .78rem; }.admin-user-details dt { color: #77827b; }.admin-user-details dd { margin: 0; overflow-wrap: anywhere; }.admin-user-details code { font-size: .68rem; }
+html[data-theme="dark"] .admin-user-edit-form :is(input, select) { background: #222825; color: var(--ink); }
+.admin-staff-permissions { display: grid; gap: 10px; max-height: 280px; overflow-y: auto; border: 1px solid var(--line); padding: 14px; }
+.admin-staff-title-cell { min-width: 150px; font-weight: 650; }
+.admin-user-actions-column { position: sticky; right: 0; z-index: 1; min-width: 184px; background: #fffdf8; box-shadow: -8px 0 12px rgba(30, 37, 36, .06); }
+html[data-theme="dark"] .admin-user-actions-column { background: #222825; box-shadow: -8px 0 12px rgba(0, 0, 0, .2); }
+.admin-staff-permissions legend { padding: 0 6px; color: var(--ink); font-size: .8rem; font-weight: 700; }
+.admin-staff-permissions > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.admin-user-edit-form .admin-staff-permissions label { display: flex; grid-template-columns: none; align-items: center; gap: 9px; color: var(--ink); font-size: .75rem; font-weight: 500; cursor: pointer; }
+.admin-user-edit-form .admin-staff-permissions input { flex: 0 0 16px; width: 16px; min-height: 16px; accent-color: var(--orange); }
+html[data-theme="dark"] .admin-staff-permissions { background: #222825; }
+@media (max-width: 540px) { .admin-staff-permissions > div { grid-template-columns: 1fr; } }
+.admin-user-filters { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; }.admin-user-filters .admin-search { flex: 1; }.admin-user-role-filter { display: flex; align-items: center; gap: 8px; color: #77827b; font-size: .76rem; }.admin-user-role-filter select { min-height: 42px; border: 1px solid var(--line); padding: 9px 11px; background: #fffdf8; color: var(--ink); font: inherit; font-size: .76rem; }
+html[data-theme="dark"] .admin-user-role-filter select { background: #222825; color: var(--ink); }
+@media (max-width: 760px) { .admin-user-filters { align-items: stretch; flex-direction: column; }.admin-user-role-filter { align-items: stretch; flex-direction: column; }.admin-user-role-filter select { width: 100%; } }
 .admin-message[role="status"] { border-left: 3px solid #3b7965; padding: 8px 12px; }
 @media (max-width: 760px) {
   .comic-review-card { align-items: stretch; flex-direction: column; }

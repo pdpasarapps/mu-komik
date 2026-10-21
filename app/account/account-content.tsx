@@ -23,7 +23,7 @@ export type AccountSection = "overview" | "reading" | "favorites" | "account-set
 const isCreatorArea = (section: AccountSection): section is CreatorArea =>
   section === "creator" || section === "komiku" || section === "terbitkan-komik";
 
-type Profile = { id: string; display_name: string; public_handle: string | null; role: "reader" | "creator" | "admin"; public_profile: boolean; bio: string; avatar_key: string | null; banner_key: string | null; social_links: CreatorSocialLink[] };
+type Profile = { id: string; display_name: string; public_handle: string | null; role: "reader" | "creator" | "admin" | "staff"; public_profile: boolean; bio: string; avatar_key: string | null; banner_key: string | null; social_links: CreatorSocialLink[] };
 type CreatorRequest = { status: "pending" | "approved" | "rejected" };
 type BookmarkedComic = { id: string; title: string; slug: string; genre: string; cover_key: string | null };
 type ContinueReading = {
@@ -46,6 +46,7 @@ const roleLabels: Record<Profile["role"], string> = {
   reader: "Pembaca",
   creator: "Kreator",
   admin: "Admin",
+  staff: "Staf",
 };
 const requestStatusLabels: Record<CreatorRequest["status"], string> = {
   pending: "Menunggu peninjauan",
@@ -454,7 +455,7 @@ export default function AccountContent({ section, children }: { section: Account
             <Link className={`account-nav-link${section === "creator-profile" ? " active" : ""}`} href="/account/creator-profile" aria-current={section === "creator-profile" ? "page" : undefined}><UserRound size={18} /><span>Profil kreator</span></Link>
             <Link className={`account-nav-link${section === "creator-guide" ? " active" : ""}`} href="/account/creator-guide" aria-current={section === "creator-guide" ? "page" : undefined}><CircleHelp size={18} /><span>Panduan</span></Link>
           </>}
-          {profile?.role === "admin" && <Link className="account-nav-link" href="/admin"><Settings2 size={18} /><span>Buka panel admin</span><ArrowUpRight size={15} /></Link>}
+          {(profile?.role === "admin" || profile?.role === "staff") && <Link className="account-nav-link" href="/admin"><Settings2 size={18} /><span>{profile.role === "admin" ? "Buka panel admin" : "Buka panel staf"}</span><ArrowUpRight size={15} /></Link>}
         </nav>
         <div className="account-sidebar-user">
           <span className="account-user-avatar">{accountAvatar}</span>
@@ -672,7 +673,7 @@ export default function AccountContent({ section, children }: { section: Account
               {creatorProfileMessage && <p className="creator-profile-message" role="status">{creatorProfileMessage}</p>}
             </form>
           )}
-          {profile?.role === "admin" && <Link className="account-creator-link" href="/admin"><Settings2 size={16} /> Buka panel admin <ArrowUpRight size={15} /></Link>}
+          {(profile?.role === "admin" || profile?.role === "staff") && <Link className="account-creator-link" href="/admin"><Settings2 size={16} /> {profile.role === "admin" ? "Buka panel admin" : "Buka panel staf"} <ArrowUpRight size={15} /></Link>}
         </article>}
         {section === "creator-application" && profile?.role === "reader" && settings.feature_flags.creators && (
           <>

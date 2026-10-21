@@ -6,7 +6,7 @@ import { BarChart3, BookOpen, Bookmark, CircleHelp, Home, LayoutDashboard, Libra
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-type AccountRole = "reader" | "creator" | "admin";
+type AccountRole = "reader" | "creator" | "admin" | "staff";
 
 const supabase = createClient();
 
@@ -41,7 +41,7 @@ export default function AccountMobileNavigation() {
         console.error("Could not load role for account navigation:", profileError);
         return;
       }
-      if (active && (profile?.role === "reader" || profile?.role === "creator" || profile?.role === "admin")) {
+      if (active && (profile?.role === "reader" || profile?.role === "creator" || profile?.role === "admin" || profile?.role === "staff")) {
         setRole(profile.role);
       }
     };
@@ -88,6 +88,7 @@ export default function AccountMobileNavigation() {
           <Link href="/account/creator-guide" className={current("creator-guide") ? "active" : ""} aria-current={current("creator-guide") ? "page" : undefined}><CircleHelp size={19} /><span>Panduan</span></Link>
         </>}
         {role === "admin" && <Link href="/admin"><Settings2 size={19} /><span>Admin</span></Link>}
+        {role === "staff" && <Link href="/admin"><Settings2 size={19} /><span>Staf</span></Link>}
         </>}
       </nav>
       {role === "creator" && (

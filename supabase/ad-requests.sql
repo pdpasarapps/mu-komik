@@ -63,11 +63,8 @@ declare
   active_slots integer;
   published_campaigns integer;
 begin
-  if not exists (
-    select 1 from public.profiles
-    where profiles.id = auth.uid() and profiles.role = 'admin'
-  ) then
-    raise exception 'Only administrators can approve advertiser requests'
+  if not public.has_admin_section_access('ad-requests') then
+    raise exception 'Insufficient permission to approve advertiser requests'
       using errcode = '42501';
   end if;
 

@@ -69,7 +69,7 @@ declare
   v_start timestamptz;
   v_result jsonb;
 begin
-  if auth.uid() is null or not public.is_admin() then
+  if auth.uid() is null or not public.has_admin_section_access('analytics') then
     raise exception 'Admin access required' using errcode = '42501';
   end if;
   if p_days is null or p_days not in (7, 30, 90) then

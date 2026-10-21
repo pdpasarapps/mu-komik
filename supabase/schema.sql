@@ -1,5 +1,5 @@
 do $$ begin
-  create type public.user_role as enum ('reader', 'creator', 'admin');
+  create type public.user_role as enum ('reader', 'creator', 'staff', 'admin');
 exception when duplicate_object then null;
 end $$;
 
@@ -17,6 +17,14 @@ create table if not exists public.profiles (
   bio text not null default '',
   social_links jsonb not null default '[]'::jsonb check (jsonb_typeof(social_links) = 'array'),
   role public.user_role not null default 'reader',
+  staff_title text not null default '',
+  staff_permissions text[] not null default '{}'
+    check (staff_permissions <@ array[
+      'overview', 'analytics', 'comic-review', 'kids-review', 'creator-requests',
+      'users', 'admins', 'staf', 'readers', 'kreator', 'comics', 'articles',
+      'share-previews', 'ad-requests', 'sponsor-campaigns', 'ad-slots',
+      'homepage-promos', 'platform-settings'
+    ]::text[]),
   can_upload_audio boolean not null default false,
   public_profile boolean not null default false,
   created_at timestamptz not null default now()

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useState } from "react";
-import { ArrowLeft, Archive, Baby, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, FileText, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Megaphone, Search, Settings2, ShieldCheck, UserRound, Users, X } from "lucide-react";
+import { ArrowLeft, Archive, Ban, Baby, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, FileText, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Megaphone, Pencil, Search, Settings2, ShieldCheck, Trash2, UserRound, UserRoundCheck, Users, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -21,10 +21,11 @@ type RequestStatus = "pending" | "approved" | "rejected";
 type CreatorRequest = { id: string; user_id: string; note: string; portfolio_url: string | null; instagram_url: string | null; other_url: string | null; status: RequestStatus; created_at: string; applicant: string; role: string };
 type ComicReview = { id: string; title: string; slug: string; synopsis: string; contributor: string; created_at: string; creator_id: string; creator: string };
 type KidsCurationReview = { comic_id: string; age_range: "4_6" | "7_9" | "10_12"; submitted_at: string; review_note: string; title: string; slug: string; creator: string };
-type AdminUser = { id: string; display_name: string; role: "reader" | "creator" | "admin"; canUploadAudio: boolean; membershipTier: ReaderMembershipTier; created_at: string };
+type AdminAccountStatus = "active" | "blocked" | "deleted";
+type AdminUser = { id: string; display_name: string; email: string | null; role: "reader" | "creator" | "admin" | "staff"; staffTitle: string; staffPermissions: AdminSection[]; canUploadAudio: boolean; membershipTier: ReaderMembershipTier; accountStatus: AdminAccountStatus; created_at: string };
 type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string; kids_curation_status: "pending" | "approved" | "rejected" | null; kids_age_range: "4_6" | "7_9" | "10_12" | null };
 type SettingsAuditEntry = { id: number; changed_by: string | null; changed_at: string; previous_values: Record<string, unknown>; new_values: Record<string, unknown> };
-type AdminSection = "overview" | "analytics" | "comic-review" | "kids-review" | "creator-requests" | "users" | "comics" | "articles" | "share-previews" | "ad-requests" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "homepage-promos" | "platform-settings";
+type AdminSection = "overview" | "analytics" | "comic-review" | "kids-review" | "creator-requests" | "users" | "admins" | "staf" | "readers" | "kreator" | "comics" | "articles" | "share-previews" | "ad-requests" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "homepage-promos" | "platform-settings";
 
 const supabase = createClient();
 const adminSections: Record<AdminSection, { label: string; description: string }> = {
@@ -34,6 +35,10 @@ const adminSections: Record<AdminSection, { label: string; description: string }
   "kids-review": { label: "Kurasi Kids Mode", description: "Tinjau komik dan rentang usia yang diajukan untuk library anak." },
   "creator-requests": { label: "Pengajuan kreator", description: "Tinjau permohonan akses kreator." },
   users: { label: "Manajemen pengguna", description: "Kelola akun dan peran pengguna." },
+  admins: { label: "Daftar admin", description: "Lihat akun administrator platform." },
+  staf: { label: "Daftar staf", description: "Kelola akun staf dengan akses terbatas." },
+  readers: { label: "Daftar pembaca", description: "Lihat dan kelola akun dengan peran pembaca." },
+  kreator: { label: "Daftar kreator", description: "Lihat dan kelola akun dengan peran kreator." },
   comics: { label: "Katalog komik", description: "Cari komik dan kelola status publikasinya." },
   articles: { label: "Artikel", description: "Tulis, pratinjau, dan terbitkan artikel seputar komik." },
   "share-previews": { label: "Pratinjau berbagi komik", description: "Buat gambar pratinjau statis di R2 agar dapat ditampilkan di WhatsApp dan platform sosial." },
@@ -45,7 +50,33 @@ const adminSections: Record<AdminSection, { label: string; description: string }
   "homepage-promos": { label: "Hero & promo beranda", description: "Kelola slide hero, gambar responsif, tautan, urutan, dan jadwal promo beranda." },
   "platform-settings": { label: "Pengaturan platform", description: "Atur status operasional dan fitur yang tersedia di MU-Komik." },
 };
-const roleLabels = { reader: "Pembaca", creator: "Kreator", admin: "Admin" };
+const roleLabels: Record<AdminUser["role"], string> = { reader: "Pembaca", creator: "Kreator", admin: "Admin", staff: "Staf" };
+const staffPermissionOptions: { value: AdminSection; label: string }[] = [
+  { value: "overview", label: "Ringkasan" },
+  { value: "analytics", label: "Analitik" },
+  { value: "comic-review", label: "Kurasi komik" },
+  { value: "kids-review", label: "Kurasi Kids Mode" },
+  { value: "creator-requests", label: "Pengajuan kreator" },
+  { value: "users", label: "Manajemen pengguna" },
+  { value: "admins", label: "Daftar admin" },
+  { value: "staf", label: "Daftar staf" },
+  { value: "readers", label: "Daftar pembaca" },
+  { value: "kreator", label: "Daftar kreator" },
+  { value: "comics", label: "Katalog komik" },
+  { value: "articles", label: "Artikel" },
+  { value: "share-previews", label: "Pratinjau berbagi komik" },
+  { value: "ad-requests", label: "Pengajuan iklan" },
+  { value: "sponsor-campaigns", label: "Kampanye sponsor" },
+  { value: "ad-slots", label: "Slot iklan" },
+  { value: "homepage-promos", label: "Hero & promo beranda" },
+  { value: "platform-settings", label: "Pengaturan platform" },
+];
+const defaultStaffPermissions: AdminSection[] = ["overview", "comic-review", "creator-requests", "kreator", "comics", "articles"];
+const emptyUuid = "00000000-0000-0000-0000-000000000000";
+const staffSectionAliases: Partial<Record<AdminSection, AdminSection>> = {
+  "ads-management": "sponsor-campaigns",
+  "ads-list": "ad-slots",
+};
 const comicStatusLabels = { draft: "Draf", pending_review: "Menunggu kurasi", published: "Terbit", archived: "Diarsipkan" };
 const requestStatusLabels = { pending: "Menunggu", approved: "Disetujui", rejected: "Ditolak" };
 const platformSettingLabels: Record<string, string> = {
@@ -79,6 +110,10 @@ export default function AdminPage() {
   const [kidsCurationSetupError, setKidsCurationSetupError] = useState("");
   const [kidsReviewNotes, setKidsReviewNotes] = useState<Record<string, string>>({});
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [isStaff, setIsStaff] = useState(false);
+  const [staffPermissions, setStaffPermissions] = useState<AdminSection[]>([]);
+  const [adminStaffTitle, setAdminStaffTitle] = useState("");
+  const [userEmailSetupError, setUserEmailSetupError] = useState("");
   const [audioPermissionSetupError, setAudioPermissionSetupError] = useState("");
   const [comics, setComics] = useState<AdminComic[]>([]);
   const [adminUserId, setAdminUserId] = useState("");
@@ -89,8 +124,12 @@ export default function AdminPage() {
   const [comicSearch, setComicSearch] = useState("");
   const [comicStatusFilter, setComicStatusFilter] = useState("all");
   const [kidsCurationFilter, setKidsCurationFilter] = useState("all");
+  const [userRoleFilter, setUserRoleFilter] = useState<"all" | AdminUser["role"]>("all");
   const [message, setMessage] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<CreatorRequest | null>(null);
+  const [userEditRole, setUserEditRole] = useState<"reader" | "creator" | "staff">("reader");
+  const [userEditStaffTitle, setUserEditStaffTitle] = useState("Staf");
+  const [userEditStaffPermissions, setUserEditStaffPermissions] = useState<AdminSection[]>(defaultStaffPermissions);
   const [generatingSharePreviews, setGeneratingSharePreviews] = useState(false);
   const [sharePreviewProgress, setSharePreviewProgress] = useState("");
   const [platformSettings, setPlatformSettings] = useState<PlatformSettings>(defaultPlatformSettings);
@@ -98,6 +137,7 @@ export default function AdminPage() {
   const [savingPlatformSettings, setSavingPlatformSettings] = useState(false);
   const [platformSettingsMessage, setPlatformSettingsMessage] = useState("");
   const [settingsAudit, setSettingsAudit] = useState<SettingsAuditEntry[]>([]);
+  const [selectedUserDialog, setSelectedUserDialog] = useState<{ user: AdminUser; mode: "view" | "edit" } | null>(null);
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
 
   const loadRequests = useEffectEvent(async () => {
@@ -106,21 +146,101 @@ export default function AdminPage() {
       router.replace("/login");
       return;
     }
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userData.user.id).single();
-    if (profile?.role !== "admin") {
+    const { data: roleProfile, error: roleProfileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userData.user.id)
+      .single();
+    if (roleProfileError) {
+      console.error("Unable to load admin role:", roleProfileError);
+      setMessage("Peran akun gagal diverifikasi. Pastikan sesi masih aktif dan coba muat ulang.");
+      setLoading(false);
+      return;
+    }
+    if (roleProfile?.role !== "admin" && roleProfile?.role !== "staff") {
       router.replace("/account");
       return;
     }
+    let staffTitle = "";
+    let staffPermissionData: unknown[] = [];
+    if (roleProfile.role === "staff") {
+      const { data: staffProfile, error: staffProfileError } = await supabase
+        .from("profiles")
+        .select("staff_title, staff_permissions")
+        .eq("id", userData.user.id)
+        .single();
+      if (staffProfileError) {
+        console.error("Unable to load staff access settings:", staffProfileError);
+        setMessage("Hak akses Staf belum tersedia. Jalankan supabase/staff-access.sql di Supabase SQL Editor, lalu muat ulang.");
+        setLoading(false);
+        return;
+      }
+      staffTitle = staffProfile.staff_title;
+      staffPermissionData = Array.isArray(staffProfile.staff_permissions) ? staffProfile.staff_permissions : [];
+    }
+    const profile = { ...roleProfile, staff_title: staffTitle, staff_permissions: staffPermissionData };
+    const userIsStaff = profile.role === "staff";
+    const userStaffPermissions = userIsStaff && Array.isArray(profile.staff_permissions)
+      ? profile.staff_permissions.filter((permission): permission is AdminSection =>
+        typeof permission === "string" && permission in adminSections)
+      : [];
+    const staffCanSeeProfiles = !userIsStaff || ["users", "admins", "staf", "readers", "kreator", "creator-requests"]
+      .some((permission) => userStaffPermissions.includes(permission as AdminSection));
+    const resolvedSection = staffSectionAliases[section] ?? section;
+    if (userIsStaff && !userStaffPermissions.includes(resolvedSection)) {
+      setLoading(false);
+      const firstAllowed = staffPermissionOptions.find((option) => userStaffPermissions.includes(option.value));
+      router.replace(firstAllowed ? `/admin/${firstAllowed.value}` : "/account");
+      return;
+    }
+    setIsStaff(userIsStaff);
+    setStaffPermissions(userStaffPermissions);
+    setAdminStaffTitle(userIsStaff ? profile.staff_title || "Staf" : "");
     setAdminUserId(userData.user.id);
-    const [requestResult, profileResult, audioPermissionResult, membershipResult, comicResult, kidsCurationResult] = await Promise.all([
-      supabase.from("creator_requests").select("id, user_id, note, portfolio_url, instagram_url, other_url, status, created_at").eq("status", "pending").order("created_at", { ascending: false }),
-      supabase.from("profiles").select("id, display_name, role, created_at").order("created_at", { ascending: false }),
-      supabase.from("profiles").select("id, can_upload_audio"),
-      supabase.from("reader_memberships").select("user_id, tier"),
-      supabase.from("comics").select("id, title, slug, synopsis, contributor, genre, cover_key, share_preview_key, status, created_at, creator_id").order("created_at", { ascending: false }),
-      supabase.from("comic_kids_curation").select("comic_id, age_range, review_status, submitted_at, review_note").order("submitted_at", { ascending: true }),
+    const staffHasAccess = (permission: AdminSection) => !userIsStaff || userStaffPermissions.includes(permission);
+    const [requestResult, audioPermissionResult, membershipResult, comicResult, kidsCurationResult] = await Promise.all([
+      supabase.from("creator_requests").select("id, user_id, note, portfolio_url, instagram_url, other_url, status, created_at")
+        .eq("status", "pending").order("created_at", { ascending: false })
+        .or(staffHasAccess("creator-requests") ? "id.not.is.null" : `id.eq.${emptyUuid}`),
+      supabase.from("profiles").select("id, can_upload_audio")
+        .or(userIsStaff ? `id.eq.${userData.user.id}` : "id.not.is.null"),
+      userIsStaff
+        ? supabase.from("reader_memberships").select("user_id, tier").eq("user_id", userData.user.id)
+        : supabase.from("reader_memberships").select("user_id, tier"),
+      supabase.from("comics").select("id, title, slug, synopsis, contributor, genre, cover_key, share_preview_key, status, created_at, creator_id")
+        .order("created_at", { ascending: false })
+        .or(userIsStaff && !staffHasAccess("comic-review") && !staffHasAccess("comics")
+          && !staffHasAccess("kids-review") && !staffHasAccess("share-previews") ? `id.eq.${emptyUuid}` : "id.not.is.null"),
+      userIsStaff && !staffHasAccess("kids-review")
+        ? supabase.from("comic_kids_curation").select("comic_id, age_range, review_status, submitted_at, review_note").eq("comic_id", emptyUuid)
+        : supabase.from("comic_kids_curation").select("comic_id, age_range, review_status, submitted_at, review_note").order("submitted_at", { ascending: true }),
     ]);
-    const loadErrors = [requestResult.error, profileResult.error, membershipResult.error, comicResult.error].filter(Boolean);
+    const staffProfilesQuery = supabase.from("profiles")
+      .select("id, display_name, role, staff_title, staff_permissions, created_at")
+      .order("created_at", { ascending: false })
+      .or(staffCanSeeProfiles ? "id.not.is.null" : `id.eq.${emptyUuid}`);
+    const { data: staffProfileRows, error: staffProfilesError } = await staffProfilesQuery;
+    let profileRows: {
+      id: string;
+      display_name: string;
+      role: AdminUser["role"];
+      staff_title?: string;
+      staff_permissions?: string[];
+      created_at: string;
+    }[] | null = staffProfileRows;
+    let profileRowsError = staffProfilesError;
+    if (staffProfilesError && (staffProfilesError.code === "42703" || staffProfilesError.code === "PGRST204")) {
+      const legacyProfilesResult = await supabase.from("profiles")
+        .select("id, display_name, role, created_at")
+        .order("created_at", { ascending: false })
+        .or(staffCanSeeProfiles ? "id.not.is.null" : `id.eq.${emptyUuid}`);
+      profileRowsError = legacyProfilesResult.error;
+      profileRows = legacyProfilesResult.data;
+      if (!legacyProfilesResult.error) {
+        setMessage("Kolom hak akses Staf belum tersedia. Jalankan supabase/staff-access.sql untuk mengaktifkan pengaturan Staf.");
+      }
+    }
+    const loadErrors = [requestResult.error, profileRowsError, membershipResult.error, comicResult.error].filter(Boolean);
     if (loadErrors.length) {
       const missingMembershipTable = membershipResult.error?.code === "42P01" || membershipResult.error?.code === "PGRST205";
       setMessage(missingMembershipTable
@@ -143,8 +263,46 @@ export default function AdminPage() {
       profile.id,
       profile.can_upload_audio === true,
     ]));
-    const profiles = (profileResult.data ?? []).map((profile) => ({
+    const loadedProfiles = profileRows ?? [];
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    let emailsByUser = new Map<string, string | null>();
+    let accountStatusByUser = new Map<string, AdminAccountStatus>();
+    if (!sessionError && sessionData.session?.access_token) {
+      try {
+        const emailResponse = await fetch("/api/admin/users/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${sessionData.session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ userIds: loadedProfiles.map((profile) => profile.id) }),
+        });
+        if (!emailResponse.ok) throw new Error(`Email lookup failed with status ${emailResponse.status}`);
+        const emailData: unknown = await emailResponse.json();
+        if (!emailData || typeof emailData !== "object" || !("emails" in emailData)
+          || !emailData.emails || typeof emailData.emails !== "object"
+          || !("accountStatuses" in emailData) || !emailData.accountStatuses || typeof emailData.accountStatuses !== "object") {
+          throw new Error("Email lookup returned an invalid response");
+        }
+        emailsByUser = new Map(Object.entries(emailData.emails as Record<string, string | null>));
+        accountStatusByUser = new Map(Object.entries(emailData.accountStatuses as Record<string, AdminAccountStatus>));
+        setUserEmailSetupError("");
+      } catch (error) {
+        console.error("Unable to load user emails:", error);
+        setUserEmailSetupError("Email pengguna gagal dimuat. Muat ulang halaman untuk mencoba kembali.");
+      }
+    } else {
+      console.error("Unable to load user emails: authenticated session is unavailable.", sessionError);
+      setUserEmailSetupError("Email pengguna gagal dimuat. Muat ulang halaman untuk mencoba kembali.");
+    }
+    const profiles = loadedProfiles.map((profile) => ({
       ...profile,
+      email: emailsByUser.get(profile.id) ?? null,
+      staffTitle: profile.staff_title || "",
+      staffPermissions: Array.isArray(profile.staff_permissions)
+        ? profile.staff_permissions.filter((permission): permission is AdminSection => typeof permission === "string" && permission in adminSections)
+        : [],
+      accountStatus: accountStatusByUser.get(profile.id) ?? "active",
       canUploadAudio: audioPermissionByUser.get(profile.id) ?? false,
       membershipTier: membershipByUser.get(profile.id) || "free",
     })) as AdminUser[];
@@ -247,7 +405,7 @@ export default function AdminPage() {
   useEffect(() => {
     const timer = window.setTimeout(() => loadRequests(), 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [section]);
 
   useEffect(() => {
     if (section !== "platform-settings") return;
@@ -292,16 +450,21 @@ export default function AdminPage() {
             headers: { Authorization: `Bearer ${token}` },
             body: previewForm,
           });
-          const signResult = await signResponse.json() as { objectKey?: string; error?: string };
+          const signResult = await signResponse.json() as { objectKey?: string; linked?: boolean; error?: string };
           if (!signResponse.ok || !signResult.objectKey) {
             throw new Error(signResult.error || "Pratinjau berbagi gagal diunggah.");
           }
-          const { error: savePreviewError } = await supabase
-            .from("comics")
-            .update({ share_preview_key: signResult.objectKey })
-            .eq("id", comic.id)
-            .eq("status", "published");
-          if (savePreviewError) throw new Error("Pratinjau berhasil diunggah, tetapi belum tertaut ke komik.");
+          if (isStaff && !signResult.linked) {
+            throw new Error("Pratinjau berhasil diunggah, tetapi belum tertaut ke komik.");
+          }
+          if (!isStaff) {
+            const { error: savePreviewError } = await supabase
+              .from("comics")
+              .update({ share_preview_key: signResult.objectKey })
+              .eq("id", comic.id)
+              .eq("status", "published");
+            if (savePreviewError) throw new Error("Pratinjau berhasil diunggah, tetapi belum tertaut ke komik.");
+          }
           setComics((current) => current.map((item) => item.id === comic.id
             ? { ...item, share_preview_key: signResult.objectKey! }
             : item));
@@ -404,27 +567,66 @@ export default function AdminPage() {
     setActionId(null);
   };
 
-  const updateUserRole = async (user: AdminUser, role: "reader" | "creator") => {
-    if (user.id === adminUserId) {
-      setMessage("Peran akun admin yang sedang digunakan tidak dapat diubah dari sini.");
-      return;
-    }
+  const performAdminUserAction = async (
+    user: AdminUser,
+    action: "edit" | "block" | "unblock" | "deactivate",
+    values?: { displayName: string; role: "reader" | "creator" | "staff"; staffTitle: string; staffPermissions: AdminSection[] },
+  ) => {
     setActionId(user.id);
     setMessage("");
-    const { error } = await supabase.from("profiles").update({
-      role,
-      ...(role === "reader" ? { can_upload_audio: false } : {}),
-    }).eq("id", user.id);
-    if (error) {
-      console.error("Unable to update user role:", error);
-      setMessage("Peran pengguna gagal diperbarui. Periksa koneksi dan coba lagi.");
-    } else {
-      setUsers((current) => current.map((item) => item.id === user.id
-        ? { ...item, role, canUploadAudio: role === "reader" ? false : item.canUploadAudio }
-        : item));
-      setMessage(`Peran ${user.display_name} diubah menjadi ${roleLabels[role]}.`);
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sesi admin berakhir. Silakan masuk kembali.");
+      const response = await fetch("/api/admin/users/actions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action, userId: user.id, ...values }),
+      });
+      const result: unknown = await response.json();
+      if (!response.ok) {
+        const errorMessage = result && typeof result === "object" && "error" in result && typeof result.error === "string"
+          ? result.error
+          : `Permintaan gagal (${response.status}).`;
+        throw new Error(errorMessage);
+      }
+      if (action === "edit" && values) {
+        const updatedUser = {
+          ...user,
+          display_name: values.displayName,
+          role: values.role,
+          staffTitle: values.role === "staff" ? values.staffTitle : "",
+          staffPermissions: values.role === "staff" ? values.staffPermissions : [],
+          canUploadAudio: values.role === "reader" ? false : user.canUploadAudio,
+        };
+        setUsers((current) => current.map((item) => item.id === user.id ? updatedUser : item));
+        setSelectedUserDialog({ user: updatedUser, mode: "view" });
+        setMessage("Data pengguna berhasil diperbarui.");
+      } else {
+        const accountStatus: AdminAccountStatus = action === "block"
+          ? "blocked"
+          : action === "deactivate"
+            ? "deleted"
+            : "active";
+        const updatedUser = { ...user, accountStatus };
+        setUsers((current) => current.map((item) => item.id === user.id ? updatedUser : item));
+        setSelectedUserDialog((current) => current?.user.id === user.id ? { ...current, user: updatedUser } : current);
+        setMessage(action === "block"
+          ? `Akun ${user.display_name} berhasil diblokir.`
+          : action === "deactivate"
+            ? `Akun ${user.display_name} dinonaktifkan. Data dan kontennya tetap tersimpan.`
+            : `Akun ${user.display_name} berhasil diaktifkan kembali.`);
+      }
+    } catch (error) {
+      console.error("Unable to manage admin user:", error);
+      setMessage(error instanceof Error ? error.message : "Tindakan pada pengguna gagal. Periksa koneksi dan coba lagi.");
+    } finally {
+      setActionId(null);
     }
-    setActionId(null);
   };
 
   const updateReaderMembership = async (user: AdminUser, tier: ReaderMembershipTier) => {
@@ -459,6 +661,18 @@ export default function AdminPage() {
     setActionId(null);
   };
 
+  const openUserEdit = (user: AdminUser) => {
+    setUserEditRole(user.role === "admin" ? "reader" : user.role);
+    setUserEditStaffTitle(user.staffTitle || "Staf");
+    setUserEditStaffPermissions(user.staffPermissions.length ? user.staffPermissions : defaultStaffPermissions);
+    setSelectedUserDialog({ user, mode: "edit" });
+  };
+
+  const canAccessSection = (target: AdminSection) => {
+    const resolvedSection = staffSectionAliases[target] ?? target;
+    return !isStaff || staffPermissions.includes(resolvedSection);
+  };
+
   const updateComicStatus = async (comic: AdminComic, status: "pending_review" | "archived" | "draft") => {
     setComicActionId(comic.id);
     setMessage("");
@@ -490,18 +704,15 @@ export default function AdminPage() {
   const reviewComic = async (comic: ComicReview, decision: "published" | "draft") => {
     setComicActionId(comic.id);
     setMessage("");
-    const { data, error } = await supabase
-      .from("comics")
-      .update({ status: decision })
-      .eq("id", comic.id)
-      .eq("status", "pending_review")
-      .select("id")
-      .maybeSingle();
-    if (error || !data) {
-      if (error) console.error("Unable to review comic:", error);
-      setMessage(error
-        ? "Kurasi komik gagal diperbarui. Periksa koneksi dan coba lagi."
-        : "Komik ini sudah dikurasi admin lain. Muat ulang halaman.");
+    const { error } = await supabase.rpc("review_comic_submission", {
+      p_comic_id: comic.id,
+      p_decision: decision,
+    });
+    if (error) {
+      console.error("Unable to review comic:", error);
+      setMessage(error.message.includes("no longer pending")
+        ? "Komik ini sudah dikurasi admin atau staf lain. Muat ulang halaman."
+        : "Kurasi komik gagal diperbarui. Periksa koneksi dan pastikan supabase/staff-access.sql sudah dijalankan.");
       setComicActionId(null);
       return;
     }
@@ -553,7 +764,15 @@ export default function AdminPage() {
     setComicActionId(null);
   };
 
-  const filteredUsers = users.filter((user) => `${user.display_name} ${user.id}`.toLowerCase().includes(userSearch.toLowerCase()));
+  const filteredUsers = users
+    .filter((user) => section === "readers" ? user.role === "reader"
+      : section === "kreator" ? user.role === "creator"
+        : section === "admins" ? user.role === "admin"
+          : section === "staf" ? user.role === "staff"
+            : true)
+    .filter((user) => `${user.display_name} ${user.email ?? ""} ${user.id}`.toLowerCase().includes(userSearch.toLowerCase()))
+    .filter((user) => section !== "users" || userRoleFilter === "all" || user.role === userRoleFilter)
+    .sort((first, second) => Number(second.role === "admin") - Number(first.role === "admin"));
   const filteredComics = comics.filter((comic) => {
     const matchesSearch = `${comic.title} ${comic.creator} ${comic.genre}`.toLowerCase().includes(comicSearch.toLowerCase());
     const matchesPublicationStatus = comicStatusFilter === "all" || comic.status === comicStatusFilter;
@@ -566,6 +785,9 @@ export default function AdminPage() {
   const generatedSharePreviews = comics.filter((comic) => comic.status === "published" && comic.share_preview_key);
 
   if (loading) return <main className="admin-shell"><LoaderCircle className="spin" size={24} /></main>;
+  if (isStaff && !canAccessSection(section)) {
+    return <main className="admin-shell"><LoaderCircle className="spin" size={24} /></main>;
+  }
 
   return (
     <main className="admin-shell">
@@ -574,39 +796,46 @@ export default function AdminPage() {
           <BrandLogo className="admin-brand" showName />
           <nav className="admin-sidebar-links" aria-label="Navigasi dashboard admin">
             <p className="admin-sidebar-label">Administrasi</p>
-            <div className="admin-sidebar-group" aria-label="Dasbor">
+            {(["overview", "analytics"] as AdminSection[]).some(canAccessSection) && <div className="admin-sidebar-group" aria-label="Dasbor">
               <p className="admin-sidebar-group-label">Dasbor</p>
-              <Link href="/admin/overview" aria-current={section === "overview" ? "page" : undefined}><LayoutDashboard size={18} /><span>Ringkasan</span></Link>
-              <Link href="/admin/analytics" aria-current={section === "analytics" ? "page" : undefined}><ChartNoAxesColumn size={18} /><span>Analitik</span></Link>
-            </div>
-            <div className="admin-sidebar-group" aria-label="Moderasi">
+              {canAccessSection("overview") && <Link href="/admin/overview" aria-current={section === "overview" ? "page" : undefined}><LayoutDashboard size={18} /><span>Ringkasan</span></Link>}
+              {canAccessSection("analytics") && <Link href="/admin/analytics" aria-current={section === "analytics" ? "page" : undefined}><ChartNoAxesColumn size={18} /><span>Analitik</span></Link>}
+            </div>}
+            {(["comic-review", "kids-review", "creator-requests"] as AdminSection[]).some(canAccessSection) && <div className="admin-sidebar-group" aria-label="Moderasi">
               <p className="admin-sidebar-group-label">Moderasi</p>
-              <Link href="/admin/comic-review" aria-current={section === "comic-review" ? "page" : undefined}><BookOpen size={18} /><span>Kurasi komik</span>{comicReviews.length > 0 && <small>{comicReviews.length}</small>}</Link>
-              <Link href="/admin/kids-review" aria-current={section === "kids-review" ? "page" : undefined}><ShieldCheck size={18} /><span>Kurasi Kids Mode</span>{kidsCurationReviews.length > 0 && <small>{kidsCurationReviews.length}</small>}</Link>
-              <Link href="/admin/creator-requests" aria-current={section === "creator-requests" ? "page" : undefined}><ClipboardList size={18} /><span>Pengajuan kreator</span>{requests.length > 0 && <small>{requests.length}</small>}</Link>
-            </div>
-            <div className="admin-sidebar-group" aria-label="Kelola konten">
+              {canAccessSection("comic-review") && <Link href="/admin/comic-review" aria-current={section === "comic-review" ? "page" : undefined}><BookOpen size={18} /><span>Kurasi komik</span>{comicReviews.length > 0 && <small>{comicReviews.length}</small>}</Link>}
+              {canAccessSection("kids-review") && <Link href="/admin/kids-review" aria-current={section === "kids-review" ? "page" : undefined}><ShieldCheck size={18} /><span>Kurasi Kids Mode</span>{kidsCurationReviews.length > 0 && <small>{kidsCurationReviews.length}</small>}</Link>}
+              {canAccessSection("creator-requests") && <Link href="/admin/creator-requests" aria-current={section === "creator-requests" ? "page" : undefined}><ClipboardList size={18} /><span>Pengajuan kreator</span>{requests.length > 0 && <small>{requests.length}</small>}</Link>}
+            </div>}
+            {(["users", "admins", "staf", "readers", "kreator"] as AdminSection[]).some(canAccessSection) && <div className="admin-sidebar-group" aria-label="Pengguna">
+              <p className="admin-sidebar-group-label">Pengguna</p>
+              {canAccessSection("users") && <Link href="/admin/users" aria-current={section === "users" ? "page" : undefined}><Users size={18} /><span>Semua pengguna</span></Link>}
+              {canAccessSection("admins") && <Link href="/admin/admins" aria-current={section === "admins" ? "page" : undefined}><ShieldCheck size={18} /><span>Admin</span></Link>}
+              {canAccessSection("staf") && <Link href="/admin/staf" aria-current={section === "staf" ? "page" : undefined}><UserRound size={18} /><span>Staf</span></Link>}
+              {canAccessSection("readers") && <Link href="/admin/readers" aria-current={section === "readers" ? "page" : undefined}><UserRound size={18} /><span>Pembaca</span></Link>}
+              {canAccessSection("kreator") && <Link href="/admin/kreator" aria-current={section === "kreator" ? "page" : undefined}><Users size={18} /><span>Kreator</span></Link>}
+            </div>}
+            {(["comics", "articles", "share-previews", "homepage-promos"] as AdminSection[]).some(canAccessSection) && <div className="admin-sidebar-group" aria-label="Kelola konten">
               <p className="admin-sidebar-group-label">Kelola konten</p>
-              <Link href="/admin/users" aria-current={section === "users" ? "page" : undefined}><Users size={18} /><span>Pengguna</span></Link>
-              <Link href="/admin/comics" aria-current={section === "comics" ? "page" : undefined}><BookOpen size={18} /><span>Katalog komik</span></Link>
-              <Link href="/admin/articles" aria-current={section === "articles" ? "page" : undefined}><FileText size={18} /><span>Artikel</span></Link>
-              <Link href="/admin/share-previews" aria-current={section === "share-previews" ? "page" : undefined}><ImageIcon size={18} /><span>Pratinjau berbagi</span></Link>
-              <Link href="/admin/homepage-promos" aria-current={section === "homepage-promos" ? "page" : undefined}><ImageIcon size={18} /><span>Hero & promo beranda</span></Link>
-            </div>
-            <div className="admin-sidebar-group" aria-label="Manajemen iklan">
+              {canAccessSection("comics") && <Link href="/admin/comics" aria-current={section === "comics" ? "page" : undefined}><BookOpen size={18} /><span>Katalog komik</span></Link>}
+              {canAccessSection("articles") && <Link href="/admin/articles" aria-current={section === "articles" ? "page" : undefined}><FileText size={18} /><span>Artikel</span></Link>}
+              {canAccessSection("share-previews") && <Link href="/admin/share-previews" aria-current={section === "share-previews" ? "page" : undefined}><ImageIcon size={18} /><span>Pratinjau berbagi</span></Link>}
+              {canAccessSection("homepage-promos") && <Link href="/admin/homepage-promos" aria-current={section === "homepage-promos" ? "page" : undefined}><ImageIcon size={18} /><span>Hero & promo beranda</span></Link>}
+            </div>}
+            {(["sponsor-campaigns", "ad-requests", "ad-slots"] as AdminSection[]).some(canAccessSection) && <div className="admin-sidebar-group" aria-label="Manajemen iklan">
               <p className="admin-sidebar-group-label">Manajemen iklan</p>
-              <Link href="/admin/sponsor-campaigns" aria-current={section === "sponsor-campaigns" || section === "ads-management" ? "page" : undefined}><Megaphone size={18} /><span>Kampanye sponsor</span></Link>
-              <Link href="/admin/ad-requests" aria-current={section === "ad-requests" ? "page" : undefined}><ClipboardList size={18} /><span>Pengajuan iklan</span></Link>
-              <Link href="/admin/ad-slots" aria-current={section === "ad-slots" || section === "ads-list" ? "page" : undefined}><List size={18} /><span>Slot iklan</span></Link>
-            </div>
-            <div className="admin-sidebar-group" aria-label="Pengaturan">
+              {canAccessSection("sponsor-campaigns") && <Link href="/admin/sponsor-campaigns" aria-current={section === "sponsor-campaigns" || section === "ads-management" ? "page" : undefined}><Megaphone size={18} /><span>Kampanye sponsor</span></Link>}
+              {canAccessSection("ad-requests") && <Link href="/admin/ad-requests" aria-current={section === "ad-requests" ? "page" : undefined}><ClipboardList size={18} /><span>Pengajuan iklan</span></Link>}
+              {canAccessSection("ad-slots") && <Link href="/admin/ad-slots" aria-current={section === "ad-slots" || section === "ads-list" ? "page" : undefined}><List size={18} /><span>Slot iklan</span></Link>}
+            </div>}
+            {canAccessSection("platform-settings") && <div className="admin-sidebar-group" aria-label="Pengaturan">
               <p className="admin-sidebar-group-label">Pengaturan</p>
               <Link href="/admin/platform-settings" aria-current={section === "platform-settings" ? "page" : undefined}><Settings2 size={18} /><span>Pengaturan platform</span></Link>
-            </div>
+            </div>}
           </nav>
           <div className="admin-sidebar-user">
             <span className="admin-user-avatar"><ShieldCheck size={18} /></span>
-            <span><strong>Administrator</strong><small>Akses penuh</small></span>
+            <span><strong>{isStaff ? adminStaffTitle : "Administrator"}</strong><small>{isStaff ? "Akses staf" : "Akses penuh"}</small></span>
             <Link href="/account" aria-label="Kembali ke Akun"><ArrowLeft size={17} /></Link>
           </div>
         </aside>
@@ -621,7 +850,7 @@ export default function AdminPage() {
           <section className="admin-content">
         {message && <p className="admin-message" role="status">{message}</p>}
         {section === "overview" && <section className="admin-dashboard" id="overview" aria-label="Ringkasan">
-          <article className="admin-stat"><span>Total pengguna</span><strong>{users.length}</strong><UserRound size={20} /></article>
+          <article className="admin-stat"><span>{isStaff ? "Kreator" : "Total pengguna"}</span><strong>{isStaff ? users.filter((user) => user.role === "creator").length : users.length}</strong><UserRound size={20} /></article>
           <article className="admin-stat"><span>Total komik</span><strong>{comics.length}</strong><BookOpen size={20} /></article>
           <article className="admin-stat"><span>Komik terbit</span><strong>{publishedComics}</strong><Eye size={20} /></article>
           <article className="admin-stat"><span>Perlu ditinjau</span><strong>{comicReviews.length + pendingRequests}</strong><ShieldCheck size={20} /></article>
@@ -880,32 +1109,43 @@ export default function AdminPage() {
             </div>
           )}
         </section>}
-        {section === "users" && <section className="admin-management-section" id="user-management">
+        {(section === "users" || section === "admins" || section === "staf" || section === "readers" || section === "kreator") && <section className="admin-management-section" id="user-management">
           <div className="admin-section-heading">
-            <div><p className="eyebrow">Akun dan akses</p><h2>Manajemen pengguna</h2></div>
-            <span>{users.length} pengguna</span>
+            <div><p className="eyebrow">Akun dan akses</p><h2>{adminSections[section].label}</h2></div>
+            <span>{filteredUsers.length} {section === "readers" ? "pembaca" : section === "kreator" ? "kreator" : section === "admins" ? "admin" : section === "staf" ? "staf" : "pengguna"}</span>
           </div>
-          <label className="admin-search"><Search size={17} /><input value={userSearch} onChange={(event) => setUserSearch(event.target.value)} placeholder="Cari nama atau ID pengguna" /></label>
+          <div className="admin-user-filters">
+            <label className="admin-search"><Search size={17} /><input value={userSearch} onChange={(event) => setUserSearch(event.target.value)} placeholder="Cari nama, email, atau ID pengguna" /></label>
+            {section === "users" && <label className="admin-user-role-filter">Peran
+              <select value={userRoleFilter} onChange={(event) => setUserRoleFilter(event.target.value as typeof userRoleFilter)}>
+                <option value="all">Semua peran</option>
+                <option value="admin">Admin</option>
+                <option value="staff">Staf</option>
+                <option value="creator">Kreator</option>
+                <option value="reader">Pembaca</option>
+              </select>
+            </label>}
+          </div>
           <p className="admin-setting-note">Hanya kreator dengan akses khusus ini yang dapat mengelola audio episode. Admin dapat memberikan atau mencabut akses kapan saja.</p>
           {audioPermissionSetupError && <p className="admin-settings-error" role="alert">{audioPermissionSetupError}</p>}
+          {userEmailSetupError && <p className="admin-settings-error" role="alert">{userEmailSetupError}</p>}
           {filteredUsers.length === 0 ? (
             <div className="admin-empty"><Users size={26} /><h2>Pengguna tidak ditemukan.</h2><p>Coba kata kunci lain.</p></div>
           ) : (
             <div className="request-table-wrap">
               <table className="request-table admin-user-table">
-                <thead><tr><th>Pengguna</th><th>Bergabung</th><th>Peran</th><th>Kelola peran</th><th>Akses kreator audio</th><th>Paket reader</th></tr></thead>
+                <thead><tr><th>Pengguna</th><th>Email</th><th>Bergabung</th><th>Peran</th>{section === "staf" && <th>Nama jabatan</th>}<th>Status akun</th>{!isStaff && <><th>Akses kreator audio</th><th>Paket reader</th></>}<th className="admin-user-actions-column">Tindakan</th></tr></thead>
                 <tbody>{filteredUsers.map((user) => (
                   <tr key={user.id}>
                     <td><strong>{user.display_name || "Tanpa nama"}</strong><code>{user.id.slice(0, 12)}...</code></td>
+                    <td>{user.email || "Tidak tersedia"}</td>
                     <td>{new Date(user.created_at).toLocaleDateString("id-ID")}</td>
-                    <td><span className={`request-status request-${user.role === "admin" ? "approved" : user.role === "creator" ? "pending" : "draft"}`}>{roleLabels[user.role]}</span></td>
-                    <td>{user.role === "admin"
-                      ? <span className="reviewed-label">Akses admin dilindungi</span>
-                      : user.id === adminUserId
-                        ? <span className="reviewed-label">Akun yang sedang digunakan</span>
-                        : <select className="admin-role-select" aria-label={`Ubah peran ${user.display_name}`} value={user.role} onChange={(event) => updateUserRole(user, event.target.value as "reader" | "creator")} disabled={actionId === user.id}><option value="reader">Pembaca</option><option value="creator">Kreator</option></select>}
-                    </td>
-                    <td>{user.role === "creator"
+                    <td><span className={`request-status request-${user.role === "admin" ? "approved" : user.role === "creator" || user.role === "staff" ? "pending" : "draft"}`}>{roleLabels[user.role]}</span></td>
+                    {section === "staf" && <td className="admin-staff-title-cell">{user.staffTitle || "Belum diatur"}</td>}
+                    <td><span className={`request-status request-${user.accountStatus === "active" ? "approved" : "rejected"}`}>
+                      {user.accountStatus === "active" ? "Aktif" : user.accountStatus === "blocked" ? "Diblokir" : "Dinonaktifkan"}
+                    </span></td>
+                    {!isStaff && <td>{user.role === "creator"
                       ? <label className="admin-switch" aria-label={`Akses kreator audio ${user.display_name}`}>
                         <input
                           type="checkbox"
@@ -915,13 +1155,36 @@ export default function AdminPage() {
                         />
                         <span />
                       </label>
-                      : <span className="reviewed-label">Khusus kreator</span>}</td>
-                    <td><select className="admin-role-select" aria-label={`Ubah paket reader ${user.display_name}`} value={user.membershipTier} onChange={(event) => {
+                      : <span className="reviewed-label">Khusus kreator</span>}</td>}
+                    {!isStaff && <td><select className="admin-role-select" aria-label={`Ubah paket reader ${user.display_name}`} value={user.membershipTier} onChange={(event) => {
                       const selectedTier = READER_MEMBERSHIP_TIERS.find((tier) => tier.value === event.target.value)?.value;
                       if (selectedTier) void updateReaderMembership(user, selectedTier);
                     }} disabled={actionId === user.id}>
                       {READER_MEMBERSHIP_TIERS.map((tier) => <option key={tier.value} value={tier.value}>{tier.label}</option>)}
-                    </select></td>
+                    </select></td>}
+                    <td className="admin-user-actions admin-user-actions-column">
+                      <button className="admin-action-link admin-user-icon-action" onClick={() => setSelectedUserDialog({ user, mode: "view" })} aria-label={`Lihat detail ${user.display_name}`} title="Lihat detail"><Eye size={16} aria-hidden="true" /></button>
+                      {!isStaff && user.role !== "admin" && <>
+                        <button className="admin-action-link admin-user-icon-action" onClick={() => openUserEdit(user)} disabled={actionId === user.id} aria-label={`Edit ${user.display_name}`} title="Edit"><Pencil size={16} aria-hidden="true" /></button>
+                        {user.accountStatus === "active" ? (
+                          <button onClick={() => {
+                            if (window.confirm(`Blokir akun ${user.display_name}? Pengguna tidak dapat masuk sampai admin mengaktifkannya kembali.`)) {
+                              void performAdminUserAction(user, "block");
+                            }
+                          }} disabled={actionId === user.id} className="admin-action-link admin-action-danger admin-user-icon-action" aria-label={`Blokir ${user.display_name}`} title="Blokir"><Ban size={16} aria-hidden="true" /></button>
+                        ) : (
+                          <button className="admin-action-link admin-user-icon-action" onClick={() => void performAdminUserAction(user, "unblock")} disabled={actionId === user.id} aria-label={`Aktifkan ${user.display_name}`} title="Aktifkan"><UserRoundCheck size={16} aria-hidden="true" /></button>
+                        )}
+                        {user.accountStatus !== "deleted" && (
+                          <button onClick={() => {
+                            if (window.confirm(`Nonaktifkan akun ${user.display_name}? Akun tidak dapat masuk, tetapi profil, komik, dan riwayat tetap disimpan.`)) {
+                              void performAdminUserAction(user, "deactivate");
+                            }
+                          }} disabled={actionId === user.id} className="admin-action-link admin-action-danger admin-user-icon-action" aria-label={`Nonaktifkan ${user.display_name}`} title="Nonaktifkan"><Trash2 size={16} aria-hidden="true" /></button>
+                        )}
+                      </>}
+                      {!isStaff && user.role === "admin" && <span className="reviewed-label">Akun admin dilindungi</span>}
+                    </td>
                   </tr>
                 ))}</tbody>
               </table>
@@ -977,11 +1240,13 @@ export default function AdminPage() {
                     <td>{comic.genre}</td>
                     <td><span className={`request-status request-${comic.status === "published" ? "approved" : comic.status === "pending_review" ? "pending" : comic.status}`}>{comicStatusLabels[comic.status]}</span></td>
                     <td className="admin-comic-actions">
-                      <Link className="admin-manage-link" href={`/account/komik/${comic.id}`}>Kelola</Link>
-                      {comic.status === "draft" && <button className="admin-action-link" onClick={() => updateComicStatus(comic, "pending_review")} disabled={comicActionId === comic.id}>Ajukan kurasi</button>}
-                      {comic.status === "published" && <button className="admin-action-link admin-action-danger" onClick={() => updateComicStatus(comic, "archived")} disabled={comicActionId === comic.id}><Archive size={14} /> Arsipkan</button>}
-                      {comic.status === "archived" && <button className="admin-action-link" onClick={() => updateComicStatus(comic, "draft")} disabled={comicActionId === comic.id}>Pulihkan ke draf</button>}
-                      {comic.status === "pending_review" && <a className="admin-action-link" href="#comic-review">Lihat antrean</a>}
+                      {!isStaff && <>
+                        <Link className="admin-manage-link" href={`/account/komik/${comic.id}`}>Kelola</Link>
+                        {comic.status === "draft" && <button className="admin-action-link" onClick={() => updateComicStatus(comic, "pending_review")} disabled={comicActionId === comic.id}>Ajukan kurasi</button>}
+                        {comic.status === "published" && <button className="admin-action-link admin-action-danger" onClick={() => updateComicStatus(comic, "archived")} disabled={comicActionId === comic.id}><Archive size={14} /> Arsipkan</button>}
+                        {comic.status === "archived" && <button className="admin-action-link" onClick={() => updateComicStatus(comic, "draft")} disabled={comicActionId === comic.id}>Pulihkan ke draf</button>}
+                        {comic.status === "pending_review" && <a className="admin-action-link" href="#comic-review">Lihat antrean</a>}
+                      </>}
                     </td>
                   </tr>
                 ))}</tbody>
@@ -1003,6 +1268,90 @@ export default function AdminPage() {
             <p className="modal-note">{selectedRequest.note || "Tidak ada catatan."}</p>
             <div className="modal-links">{selectedRequest.portfolio_url && <a href={selectedRequest.portfolio_url} target="_blank" rel="noreferrer">Portofolio ↗</a>}{selectedRequest.instagram_url && <a href={selectedRequest.instagram_url} target="_blank" rel="noreferrer">Instagram ↗</a>}{selectedRequest.other_url && <a href={selectedRequest.other_url} target="_blank" rel="noreferrer">Tautan lain ↗</a>}</div>
             {selectedRequest.status === "pending" && <div className="request-actions modal-actions"><button className="approve-button" onClick={() => { reviewRequest(selectedRequest, "approved"); setSelectedRequest(null); }} disabled={actionId === selectedRequest.id}><Check size={16} /> Setujui</button><button className="reject-button" onClick={() => { reviewRequest(selectedRequest, "rejected"); setSelectedRequest(null); }} disabled={actionId === selectedRequest.id}><X size={16} /> Tolak</button></div>}
+          </section>
+        </div>
+      )}
+      {selectedUserDialog && (
+        <div className="request-modal-backdrop" role="presentation" onClick={() => setSelectedUserDialog(null)}>
+          <section className="request-modal admin-user-modal" role="dialog" aria-modal="true" aria-labelledby="admin-user-modal-title" onClick={(event) => event.stopPropagation()}>
+            <div className="request-modal-header">
+              <div>
+                <p className="eyebrow">{selectedUserDialog.mode === "edit" ? "Ubah akun" : "Detail akun"}</p>
+                <h2 id="admin-user-modal-title">{selectedUserDialog.user.display_name || "Tanpa nama"}</h2>
+              </div>
+              <button className="modal-close" onClick={() => setSelectedUserDialog(null)} aria-label="Tutup detail pengguna">×</button>
+            </div>
+            {selectedUserDialog.mode === "edit" ? (
+              <form className="admin-user-edit-form" onSubmit={(event) => {
+                event.preventDefault();
+                const formData = new FormData(event.currentTarget);
+                const displayName = String(formData.get("displayName") ?? "").trim();
+                if (userEditRole === "staff" && (!userEditStaffTitle.trim() || !userEditStaffPermissions.length)) {
+                  setMessage("Isi nama jabatan staf dan pilih minimal satu menu akses.");
+                  return;
+                }
+                void performAdminUserAction(selectedUserDialog.user, "edit", {
+                  displayName,
+                  role: userEditRole,
+                  staffTitle: userEditRole === "staff" ? userEditStaffTitle.trim() : "",
+                  staffPermissions: userEditRole === "staff" ? userEditStaffPermissions : [],
+                });
+              }}>
+                <label>Nama tampilan<input name="displayName" required maxLength={80} defaultValue={selectedUserDialog.user.display_name} /></label>
+                <label>Peran<select value={userEditRole} onChange={(event) => {
+                  if (event.target.value === "reader" || event.target.value === "creator" || event.target.value === "staff") {
+                    setUserEditRole(event.target.value);
+                  }
+                }}>
+                  <option value="reader">Pembaca</option>
+                  <option value="creator">Kreator</option>
+                  <option value="staff">Staf</option>
+                </select></label>
+                {userEditRole === "staff" && <>
+                  <label>Nama jabatan<input value={userEditStaffTitle} onChange={(event) => setUserEditStaffTitle(event.target.value)} required maxLength={60} placeholder="Contoh: Ads Manager, Editor, Customer Service" /></label>
+                  <fieldset className="admin-staff-permissions">
+                    <legend>Menu yang dapat diakses staf</legend>
+                    <div>{staffPermissionOptions.map((option) => (
+                      <label key={option.value}>
+                        <input
+                          type="checkbox"
+                          checked={userEditStaffPermissions.includes(option.value)}
+                          onChange={(event) => setUserEditStaffPermissions((current) => event.target.checked
+                            ? [...current, option.value]
+                            : current.filter((permission) => permission !== option.value))}
+                        />
+                        <span>{option.label}</span>
+                      </label>
+                    ))}</div>
+                  </fieldset>
+                </>}
+                <p>Email tidak dapat diubah dari panel ini.</p>
+                <div className="request-actions modal-actions">
+                  <button className="approve-button" type="submit" disabled={actionId === selectedUserDialog.user.id}><Check size={16} /> Simpan</button>
+                  <button className="reject-button" type="button" onClick={() => setSelectedUserDialog({ ...selectedUserDialog, mode: "view" })}>Batal</button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <dl className="admin-user-details">
+                  <div><dt>Email</dt><dd>{selectedUserDialog.user.email || "Tidak tersedia"}</dd></div>
+                  <div><dt>ID pengguna</dt><dd><code>{selectedUserDialog.user.id}</code></dd></div>
+                  <div><dt>Peran</dt><dd>{roleLabels[selectedUserDialog.user.role]}</dd></div>
+                  {selectedUserDialog.user.role === "staff" && <>
+                    <div><dt>Nama jabatan</dt><dd>{selectedUserDialog.user.staffTitle || "Staf"}</dd></div>
+                    <div><dt>Menu akses</dt><dd>{selectedUserDialog.user.staffPermissions.map((permission) => staffPermissionOptions.find((option) => option.value === permission)?.label ?? permission).join(", ") || "Tidak ada akses khusus"}</dd></div>
+                  </>}
+                  <div><dt>Status akun</dt><dd>{selectedUserDialog.user.accountStatus === "active" ? "Aktif" : selectedUserDialog.user.accountStatus === "blocked" ? "Diblokir" : "Dinonaktifkan"}</dd></div>
+                  <div><dt>Bergabung</dt><dd>{new Date(selectedUserDialog.user.created_at).toLocaleDateString("id-ID")}</dd></div>
+                  <div><dt>Paket reader</dt><dd>{READER_MEMBERSHIP_TIERS.find((tier) => tier.value === selectedUserDialog.user.membershipTier)?.label ?? "Free"}</dd></div>
+                  <div><dt>Akses kreator audio</dt><dd>{selectedUserDialog.user.canUploadAudio ? "Diizinkan" : "Tidak diizinkan"}</dd></div>
+                </dl>
+                <div className="request-actions modal-actions">
+                  {!isStaff && selectedUserDialog.user.role !== "admin" && <button className="approve-button" onClick={() => openUserEdit(selectedUserDialog.user)}><Pencil size={16} /> Edit</button>}
+                  <button className="reject-button" onClick={() => setSelectedUserDialog(null)}>Tutup</button>
+                </div>
+              </>
+            )}
           </section>
         </div>
       )}
