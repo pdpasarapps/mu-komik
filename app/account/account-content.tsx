@@ -67,6 +67,7 @@ const staffAccessLinks = [
   { permission: "ad-slots", label: "Slot iklan", href: "/admin/ad-slots" },
   { permission: "homepage-promos", label: "Hero & promo beranda", href: "/admin/homepage-promos" },
   { permission: "platform-settings", label: "Pengaturan platform", href: "/admin/platform-settings" },
+  { permission: "contact-messages", label: "Pesan kontak", href: "/admin/contact-messages" },
 ] as const;
 const requestStatusLabels: Record<CreatorRequest["status"], string> = {
   pending: "Menunggu peninjauan",

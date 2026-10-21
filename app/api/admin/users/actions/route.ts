@@ -7,7 +7,7 @@ const allowedStaffPermissions = new Set([
   "overview", "analytics", "comic-review", "kids-review", "creator-requests",
   "users", "admins", "staf", "readers", "kreator", "comics", "articles",
   "share-previews", "ad-requests", "sponsor-campaigns", "ad-slots",
-  "homepage-promos", "platform-settings",
+  "homepage-promos", "platform-settings", "contact-messages",
 ]);
 const indefiniteBanDuration = "876000h";
 

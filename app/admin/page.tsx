@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { ArrowLeft, ArrowUpRight, Archive, Ban, Baby, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, FileText, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Megaphone, Pencil, Search, Settings2, ShieldCheck, Trash2, UserRound, UserRoundCheck, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Archive, Ban, Baby, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, FileText, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Mail, Megaphone, Pencil, Search, Settings2, ShieldCheck, Trash2, UserRound, UserRoundCheck, Users, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -11,6 +11,7 @@ import AdminAnalyticsPanel from "./analytics-panel";
 import AdsManagementPanel from "./ads-management-panel";
 import HomepagePromosPanel from "./homepage-promos-panel";
 import AdRequestsPanel from "./ad-requests-panel";
+import ContactMessagesPanel from "./contact-messages-panel";
 import ArticlesPanel from "./articles-panel";
 import { createComicSharePreview } from "@/lib/comic-share-preview";
 import { defaultPlatformSettings, type PlatformSettings } from "@/lib/platform-settings";
@@ -25,7 +26,7 @@ type AdminAccountStatus = "active" | "blocked" | "deleted";
 type AdminUser = { id: string; display_name: string; email: string | null; role: "reader" | "creator" | "admin"; isStaff: boolean; staffTitle: string; staffPermissions: AdminSection[]; canUploadAudio: boolean; membershipTier: ReaderMembershipTier; accountStatus: AdminAccountStatus; created_at: string };
 type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string; kids_curation_status: "pending" | "approved" | "rejected" | null; kids_age_range: "4_6" | "7_9" | "10_12" | null };
 type SettingsAuditEntry = { id: number; changed_by: string | null; changed_at: string; previous_values: Record<string, unknown>; new_values: Record<string, unknown> };
-type AdminSection = "overview" | "analytics" | "comic-review" | "kids-review" | "creator-requests" | "users" | "admins" | "staf" | "readers" | "kreator" | "comics" | "articles" | "share-previews" | "ad-requests" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "homepage-promos" | "platform-settings";
+type AdminSection = "overview" | "analytics" | "comic-review" | "kids-review" | "creator-requests" | "users" | "admins" | "staf" | "readers" | "kreator" | "comics" | "articles" | "share-previews" | "ad-requests" | "contact-messages" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "homepage-promos" | "platform-settings";
 
 const supabase = createClient();
 const adminSections: Record<AdminSection, { label: string; description: string }> = {
@@ -43,6 +44,7 @@ const adminSections: Record<AdminSection, { label: string; description: string }
   articles: { label: "Artikel", description: "Tulis, pratinjau, dan terbitkan artikel seputar komik." },
   "share-previews": { label: "Pratinjau berbagi komik", description: "Buat gambar pratinjau statis di R2 agar dapat ditampilkan di WhatsApp dan platform sosial." },
   "ad-requests": { label: "Pengajuan iklan", description: "Tinjau kebutuhan kampanye iklan dari calon pengiklan." },
+  "contact-messages": { label: "Pesan kontak", description: "Tinjau pesan dan pertanyaan dari pengunjung MU-Komik." },
   "ads-management": { label: "Kampanye sponsor", description: "Kelola kampanye, materi, target, dan periode tayang sponsor." },
   "ads-list": { label: "Slot iklan", description: "Kelola inventaris penempatan iklan di MU-Komik." },
   "sponsor-campaigns": { label: "Kampanye sponsor", description: "Kelola kampanye, materi, target, dan periode tayang sponsor." },
@@ -66,6 +68,7 @@ const staffPermissionOptions: { value: AdminSection; label: string }[] = [
   { value: "articles", label: "Artikel" },
   { value: "share-previews", label: "Pratinjau berbagi komik" },
   { value: "ad-requests", label: "Pengajuan iklan" },
+  { value: "contact-messages", label: "Pesan kontak" },
   { value: "sponsor-campaigns", label: "Kampanye sponsor" },
   { value: "ad-slots", label: "Slot iklan" },
   { value: "homepage-promos", label: "Hero & promo beranda" },
@@ -854,6 +857,10 @@ export default function AdminPage() {
               {canAccessSection("ad-requests") && <Link href="/admin/ad-requests" aria-current={section === "ad-requests" ? "page" : undefined}><ClipboardList size={18} /><span>Pengajuan iklan</span></Link>}
               {canAccessSection("ad-slots") && <Link href="/admin/ad-slots" aria-current={section === "ad-slots" || section === "ads-list" ? "page" : undefined}><List size={18} /><span>Slot iklan</span></Link>}
             </div>}
+            {canAccessSection("contact-messages") && <div className="admin-sidebar-group" aria-label="Komunikasi">
+              <p className="admin-sidebar-group-label">Komunikasi</p>
+              <Link href="/admin/contact-messages" aria-current={section === "contact-messages" ? "page" : undefined}><Mail size={18} /><span>Pesan kontak</span></Link>
+            </div>}
             {canAccessSection("platform-settings") && <div className="admin-sidebar-group" aria-label="Pengaturan">
               <p className="admin-sidebar-group-label">Pengaturan</p>
               <Link href="/admin/platform-settings" aria-current={section === "platform-settings" ? "page" : undefined}><Settings2 size={18} /><span>Pengaturan platform</span></Link>
@@ -910,6 +917,12 @@ export default function AdminPage() {
             <div><p className="eyebrow">Monetisasi platform</p><h2>Pengajuan iklan</h2><p>Persetujuan mengaktifkan kampanye di sistem iklan publik untuk setiap slot yang dipilih. Pastikan materi, jadwal, dan ketersediaan slot sudah dikonfirmasi.</p></div>
           </div>
           <AdRequestsPanel />
+        </section>}
+        {section === "contact-messages" && <section className="admin-management-section">
+          <div className="admin-section-heading">
+            <div><p className="eyebrow">Komunikasi pengunjung</p><h2>Pesan kontak</h2><p>Baca pertanyaan dari pengunjung, hubungi mereka melalui email, dan perbarui status tindak lanjut.</p></div>
+          </div>
+          <ContactMessagesPanel />
         </section>}
         {section === "platform-settings" && <section className="admin-management-section admin-platform-settings">
           <div className="admin-section-heading">
