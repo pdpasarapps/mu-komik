@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { ArrowLeft, ArrowUpRight, Archive, Ban, Baby, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, FileText, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Megaphone, Pencil, Search, Settings2, ShieldCheck, Trash2, UserRound, UserRoundCheck, Users, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -128,6 +128,7 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<CreatorRequest | null>(null);
   const [selectedComicDetail, setSelectedComicDetail] = useState<AdminComic | null>(null);
+  const sidebarNavigationRef = useRef<HTMLElement>(null);
   const [userEditRole, setUserEditRole] = useState<"reader" | "creator">("reader");
   const [userEditIsStaff, setUserEditIsStaff] = useState(false);
   const [userEditStaffTitle, setUserEditStaffTitle] = useState("Staf");
@@ -418,6 +419,17 @@ export default function AdminPage() {
     const timer = window.setTimeout(() => loadRequests(), 0);
     return () => window.clearTimeout(timer);
   }, [section]);
+
+  useEffect(() => {
+    const navigation = sidebarNavigationRef.current;
+    const activeLink = navigation?.querySelector<HTMLElement>('a[aria-current="page"]');
+    if (!navigation || !activeLink || window.innerWidth > 900) return;
+    const navigationBounds = navigation.getBoundingClientRect();
+    const linkBounds = activeLink.getBoundingClientRect();
+    const nextScrollLeft = navigation.scrollLeft + linkBounds.left - navigationBounds.left
+      - (navigation.clientWidth - activeLink.clientWidth) / 2;
+    navigation.scrollLeft = nextScrollLeft;
+  }, [section, loading]);
 
   useEffect(() => {
     if (section !== "platform-settings") return;
@@ -808,7 +820,7 @@ export default function AdminPage() {
       <div className="admin-layout">
         <aside className="admin-sidebar">
           <BrandLogo className="admin-brand" showName />
-          <nav className="admin-sidebar-links" aria-label="Navigasi dashboard admin">
+          <nav ref={sidebarNavigationRef} className="admin-sidebar-links" aria-label="Navigasi dashboard admin">
             <p className="admin-sidebar-label">Administrasi</p>
             {(["overview", "analytics"] as AdminSection[]).some(canAccessSection) && <div className="admin-sidebar-group" aria-label="Dasbor">
               <p className="admin-sidebar-group-label">Dasbor</p>
