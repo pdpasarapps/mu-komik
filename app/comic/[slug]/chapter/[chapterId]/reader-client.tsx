@@ -23,6 +23,7 @@ const READER_LOAD_TIMEOUT_MS = 8000;
 const BOOK_TURN_SPREAD_COMMIT_DELAY_MS = 340;
 const GUEST_READ_CHAPTERS_STORAGE_KEY = "mu-komik:guest-read-chapters";
 const GUEST_READ_CHAPTER_LIMIT = 2;
+const PENDING_GUEST_READING_STORAGE_KEY = "mu-komik:pending-guest-reading";
 
 type Page = { id: string; page_number: number; object_key: string; text_overlays: PageTextOverlay[]; interactive_markers: PageInteractiveMarker[]; image_vertical_align: PageTextImageVerticalAlign };
 type Chapter = {
@@ -900,7 +901,25 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
           <p className="reader-section-kicker">LANJUTKAN MEMBACA</p>
           <h1>Batas baca tamu sudah tercapai.</h1>
           <p>Kamu sudah membaca 2 episode tanpa masuk. Masuk atau daftar untuk melanjutkan membaca.</p>
-          <Link className="reader-primary-button" href={`/login?next=${encodeURIComponent(nextPath)}`}>Masuk untuk lanjut membaca <ArrowRight size={17} /></Link>
+          <Link
+            className="reader-primary-button"
+            href={`/login?next=${encodeURIComponent(nextPath)}`}
+            onClick={(event) => {
+              try {
+                localStorage.setItem(PENDING_GUEST_READING_STORAGE_KEY, JSON.stringify({
+                  href: nextPath,
+                  comicTitle: seed.comic.title,
+                  chapterNumber: seed.chapter.chapter_number,
+                  chapterTitle: seed.chapter.title,
+                }));
+              } catch (storageError) {
+                console.error("Unable to save the guest reading continuation:", storageError);
+                event.preventDefault();
+                setGuestLoginRequired(false);
+                setErrorMessage("Tujuan melanjutkan bacaan belum dapat disimpan. Aktifkan penyimpanan browser lalu coba lagi.");
+              }
+            }}
+          >Masuk untuk lanjut membaca <ArrowRight size={17} /></Link>
           <Link className="reader-detail-secondary-link" href={`/comic/${encodeURIComponent(slug)}`}>Kembali ke komik</Link>
         </div>
       </main>

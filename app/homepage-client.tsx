@@ -17,6 +17,7 @@ import { getKidsAgeLabel } from "@/lib/kids-curation";
 import type { ContinueReading, HomepageArticle, HomepageCatalog, HomepageComic } from "@/lib/homepage-data";
 
 const supabase = createClient();
+const PENDING_GUEST_READING_STORAGE_KEY = "mu-komik:pending-guest-reading";
 
 const KIDS_GENRE_ICONS: Record<string, LucideIcon> = {
   all: Grid2X2,
@@ -36,6 +37,45 @@ type HomepagePromo = {
   cta_label: string;
   destination_url: string;
 };
+
+type PendingGuestReading = {
+  href: string;
+  comicTitle: string;
+  chapterNumber: number;
+  chapterTitle: string;
+};
+
+function readPendingGuestReading(): PendingGuestReading | null {
+  try {
+    const storedReading = localStorage.getItem(PENDING_GUEST_READING_STORAGE_KEY);
+    if (!storedReading) return null;
+    const parsedReading: unknown = JSON.parse(storedReading);
+    if (!parsedReading || typeof parsedReading !== "object") {
+      throw new Error("Stored guest reading continuation has an invalid format.");
+    }
+    const reading = parsedReading as Partial<PendingGuestReading>;
+    if (
+      typeof reading.href !== "string"
+      || !reading.href.startsWith("/comic/")
+      || reading.href.startsWith("//")
+      || reading.href.includes("\\")
+      || typeof reading.comicTitle !== "string"
+      || typeof reading.chapterNumber !== "number"
+      || typeof reading.chapterTitle !== "string"
+    ) {
+      throw new Error("Stored guest reading continuation has invalid values.");
+    }
+    return {
+      href: reading.href,
+      comicTitle: reading.comicTitle,
+      chapterNumber: reading.chapterNumber,
+      chapterTitle: reading.chapterTitle,
+    };
+  } catch (storageError) {
+    console.error("Unable to read the guest reading continuation:", storageError);
+    return null;
+  }
+}
 
 function comicGenre(genre: string) {
   return getComicGenreLabel(genre);
@@ -147,6 +187,7 @@ export default function HomePageClient({
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [continueReading, setContinueReading] = useState<ContinueReading | null>(null);
+  const [pendingGuestReading, setPendingGuestReading] = useState<PendingGuestReading | null>(null);
   const [authMessage, setAuthMessage] = useState("");
   const [authRetry, setAuthRetry] = useState(0);
   const [homepagePromos, setHomepagePromos] = useState<HomepagePromo[]>([]);
@@ -186,6 +227,7 @@ export default function HomePageClient({
       }
       const session = sessionData.session;
       if (active) setSignedIn(Boolean(session?.user));
+      if (active) setPendingGuestReading(session?.user ? readPendingGuestReading() : null);
 
       if (session?.user) {
         const { data: history, error: historyError } = await supabase
@@ -293,11 +335,24 @@ export default function HomePageClient({
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSignedIn(Boolean(session?.user));
-      if (!session?.user) setContinueReading(null);
+      if (session?.user) setPendingGuestReading(readPendingGuestReading());
+      else {
+        setContinueReading(null);
+        setPendingGuestReading(null);
+      }
       setAuthMessage("");
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  const clearPendingGuestReading = () => {
+    try {
+      localStorage.removeItem(PENDING_GUEST_READING_STORAGE_KEY);
+    } catch (storageError) {
+      console.error("Unable to clear the guest reading continuation:", storageError);
+    }
+    setPendingGuestReading(null);
+  };
 
   const visibleComics = useMemo(
     () => comics.filter((comic) => isComicAvailableOnDevice(comic.target_device, currentDevice)
@@ -348,6 +403,18 @@ export default function HomePageClient({
 
   return (
     <main className="reader-home">
+    {signedIn && pendingGuestReading && (
+      <aside className="reader-pending-reading" role="dialog" aria-labelledby="reader-pending-reading-title">
+        <button className="reader-pending-reading-close" type="button" aria-label="Tutup dialog" onClick={clearPendingGuestReading}><X size={17} /></button>
+        <p className="reader-section-kicker">BACAANMU MENUNGGU</p>
+        <h2 id="reader-pending-reading-title">Lanjutkan komik yang tadi kamu baca?</h2>
+        <p>{pendingGuestReading.comicTitle} · {kidsMode ? "Cerita" : "Episode"} {pendingGuestReading.chapterNumber}: {pendingGuestReading.chapterTitle}</p>
+        <div className="reader-pending-reading-actions">
+          <button className="reader-pending-reading-dismiss" type="button" onClick={clearPendingGuestReading}>Nanti saja</button>
+          <Link className="reader-primary-button" href={pendingGuestReading.href} onClick={clearPendingGuestReading}>Lanjutkan membaca <ArrowRight size={16} /></Link>
+        </div>
+      </aside>
+    )}
     <h1 className="reader-sr-only">Baca komik Indonesia dari kreator lokal</h1>
     <header className={`reader-header${kidsMode ? " reader-header-kids-mode" : ""}`}>
       <BrandLogo className="wordmark reader-wordmark" showName />
@@ -357,7 +424,6 @@ export default function HomePageClient({
         {!kidsMode && <Link href="/artikel">Artikel</Link>}
         {!kidsMode && signedIn && settings.feature_flags.creators && <a href="#creator">Kreator</a>}
         {!kidsMode && signedIn && <Link href="/account">Koleksi saya</Link>}
-        {!kidsMode && !signedIn && <Link href="/login">Masuk</Link>}
         <KidsModeToggle />
         </nav>
         {settings.feature_flags.search && <form className={`reader-header-search${mobileSearchOpen ? " reader-header-search-open" : ""}`} onSubmit={(event) => { event.preventDefault(); document.querySelector("#jelajah")?.scrollIntoView({ behavior: "smooth" }); }}>
