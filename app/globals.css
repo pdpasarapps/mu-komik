@@ -2101,10 +2101,11 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
   .reader-sticky-read { animation: none; }
 }
 
-.admin-shell { padding: 0 4% 7%; }
+.admin-shell { padding: 0 2% 7%; }
 .admin-nav { position: relative; z-index: 2; }
-.admin-layout { width: min(100%, 1440px); display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: start; gap: clamp(26px, 4vw, 58px); margin: 0 auto; }
-.admin-sidebar { position: sticky; top: 24px; min-height: calc(100vh - 110px); display: flex; flex-direction: column; padding: 25px 0 18px; }
+.admin-layout { width: min(100%, 1600px); display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: start; gap: clamp(22px, 3vw, 42px); margin: 0 auto; }
+.admin-shell .admin-sidebar { position: sticky; top: 24px; min-height: calc(100vh - 110px); display: flex; flex-direction: column; padding: 25px 12px 18px; border: 1px solid rgba(30,37,36,.08); border-radius: 14px; background: linear-gradient(155deg, #e7e9e8 0%, #f3f5f4 48%, #dcebe7 100%); }
+html[data-theme="dark"] .admin-shell .admin-sidebar { border-color: var(--line); background: linear-gradient(155deg, #303735 0%, #222825 50%, #20322e 100%); }
 .admin-sidebar-label { margin: 0 0 14px 11px; color: #929c95; font-size: .61rem; font-weight: 850; letter-spacing: .13em; }
 .admin-sidebar-links { display: grid; gap: 5px; }
 .admin-sidebar-links a { min-height: 43px; display: flex; align-items: center; gap: 11px; padding: 0 11px; border-radius: 7px; color: #59665f; font-size: .77rem; font-weight: 750; transition: color .16s ease, background .16s ease; }
@@ -2129,7 +2130,8 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 @media (max-width: 900px) {
   .admin-shell { padding: 0 4% 10%; }
   .admin-layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .admin-sidebar { position: sticky; z-index: 5; top: 0; min-height: 0; margin: 0 -4vw; padding: 10px 4vw; border-bottom: 1px solid var(--line); background: var(--paper); }
+  .admin-shell .admin-sidebar { position: sticky; z-index: 5; top: 0; min-height: 0; margin: 0 -4vw; padding: 10px 4vw; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: linear-gradient(100deg, #e7e9e8 0%, #f3f5f4 55%, #dcebe7 100%); }
+  html[data-theme="dark"] .admin-shell .admin-sidebar { background: linear-gradient(100deg, #303735 0%, #222825 55%, #20322e 100%); }
   .admin-sidebar-label, .admin-sidebar-footer { display: none; }
   .admin-sidebar-links { display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none; }
   .admin-sidebar-links::-webkit-scrollbar { display: none; }
@@ -2155,9 +2157,8 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .creator-profile-share-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 @media (max-width: 520px) { .creator-public-identity-copy { align-items: center; flex-direction: row; justify-content: space-between; gap: 8px; }.creator-public-identity-copy h1 { min-width: 0; flex: 1; font-size: clamp(1.45rem, 6vw, 1.9rem); }.creator-profile-share { flex: 0 0 auto; }.creator-profile-share .reader-detail-action { min-height: 40px; padding: 0 10px; font-size: .7rem; } }
 
-.admin-shell { min-height: 100vh; padding: 0; }
-.admin-layout { width: 100%; max-width: none; display: block; margin: 0; }
-.admin-sidebar { position: fixed; z-index: 20; inset: 0 auto 0 0; width: 254px; min-height: 100vh; padding: 26px 18px 18px; border-right: 1px solid var(--line); background: #f8f6f0; }
+.admin-shell { min-height: 100vh; padding: 0 2% 7%; }
+.admin-sidebar { z-index: 20; padding: 26px 18px 18px; }
 .admin-brand { display: flex; align-items: center; min-height: 52px; margin: 0 9px 34px; }
 .admin-brand .wordmark-image { width: 46px; height: 46px; }
 .admin-sidebar-label { margin: 0 10px 8px; color: #8a918b; font-size: .62rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
@@ -2182,7 +2183,7 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .admin-sidebar-user small { color: #78827b; font-size: .64rem; }
 .admin-sidebar-user > a { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 7px; color: #6d7770; }
 .admin-sidebar-user > a:hover { background: #efede6; color: #a8492f; }
-.admin-main { width: calc(100% - 254px); min-width: 0; min-height: 100vh; margin-left: 254px; padding: 46px clamp(30px, 5vw, 76px) 70px; }
+.admin-main { min-width: 0; min-height: 100vh; padding: 46px clamp(22px, 2.5vw, 40px) 70px; }
 .admin-main .admin-header, .admin-main .admin-content { width: 100%; max-width: 1200px; margin-right: auto; margin-left: auto; }
 .admin-main .admin-header { padding: 4px 0 30px; }
 .admin-main .admin-header > .eyebrow { margin-bottom: 10px; }
@@ -2192,11 +2193,8 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .admin-main .admin-content { padding-bottom: 30px; }
 .admin-main .admin-dashboard { scroll-margin-top: 26px; }
 .admin-mobile-header { display: none; }
-@media (max-width: 1050px) and (min-width: 901px) {
-  .admin-sidebar { width: 224px; padding-right: 14px; padding-left: 14px; }
-  .admin-main { width: calc(100% - 224px); margin-left: 224px; padding-right: 32px; padding-left: 32px; }
-}
 @media (max-width: 900px) {
+  .admin-shell { padding: 0 4% 10%; }
   .admin-sidebar { position: sticky; inset: auto; width: 100%; min-height: 0; padding: 10px 4vw; border-right: 0; border-bottom: 1px solid var(--line); }
   .admin-brand, .admin-sidebar-user { display: none; }
   .admin-sidebar-label, .admin-sidebar-group-label { display: none; }
@@ -2214,6 +2212,7 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
   .admin-main .admin-header { padding: 0 0 24px; }
 }
 @media (max-width: 600px) {
+  .admin-shell { padding: 0 16px 13%; }
   .admin-sidebar { padding-right: 16px; padding-left: 16px; }
   .admin-sidebar-links a { min-height: 38px; font-size: .67rem; }
   .admin-main { padding: 24px 16px 90px; }
