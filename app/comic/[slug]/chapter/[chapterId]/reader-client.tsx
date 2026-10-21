@@ -21,6 +21,8 @@ const supabase = createClient();
 const TRANSITION_AD_LOAD_TIMEOUT_MS = 2000;
 const READER_LOAD_TIMEOUT_MS = 8000;
 const BOOK_TURN_SPREAD_COMMIT_DELAY_MS = 340;
+const GUEST_READ_CHAPTERS_STORAGE_KEY = "mu-komik:guest-read-chapters";
+const GUEST_READ_CHAPTER_LIMIT = 2;
 
 type Page = { id: string; page_number: number; object_key: string; text_overlays: PageTextOverlay[]; interactive_markers: PageInteractiveMarker[]; image_vertical_align: PageTextImageVerticalAlign };
 type Chapter = {
@@ -91,6 +93,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const [historyReady, setHistoryReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [guestLoginRequired, setGuestLoginRequired] = useState(false);
   const [pageLoadError, setPageLoadError] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [bookTurn, setBookTurn] = useState<BookTurn | null>(null);
@@ -217,6 +220,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       }
       setLoading(true);
       setErrorMessage("");
+      setGuestLoginRequired(false);
       if (bookTurnSpreadCommitTimeoutRef.current !== null) {
         window.clearTimeout(bookTurnSpreadCommitTimeoutRef.current);
         bookTurnSpreadCommitTimeoutRef.current = null;
@@ -312,6 +316,30 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
 
       const chapterIds = chapters.map((item) => item.id);
       const currentUserId = sessionData.session?.user.id ?? null;
+      let guestReadChapterIds: string[] | null = null;
+      if (!currentUserId) {
+        try {
+          const storedChapterIds = localStorage.getItem(GUEST_READ_CHAPTERS_STORAGE_KEY);
+          const parsedChapterIds: unknown = storedChapterIds ? JSON.parse(storedChapterIds) : [];
+          if (!Array.isArray(parsedChapterIds) || parsedChapterIds.some((id) => typeof id !== "string")) {
+            throw new Error("Stored guest episode history has an invalid format.");
+          }
+          guestReadChapterIds = [...new Set(parsedChapterIds)];
+        } catch (storageError) {
+          console.error("Unable to read guest episode access history:", storageError);
+          setComic(comicData);
+          setErrorMessage("Batas baca tamu belum dapat diverifikasi. Aktifkan penyimpanan browser atau masuk untuk melanjutkan.");
+          setLoading(false);
+          return;
+        }
+        if (!guestReadChapterIds.includes(chapterId) && guestReadChapterIds.length >= GUEST_READ_CHAPTER_LIMIT) {
+          setComic(comicData);
+          setGuestLoginRequired(true);
+          setLoading(false);
+          return;
+        }
+      }
+
       const [{ data: allPageData, error: allPagesError }, { data: history, error: historyError }, { data: profile, error: profileError }] = await Promise.all([
         supabase.from("pages").select("id, chapter_id, page_number, object_key, text_overlays").in("chapter_id", chapterIds).order("page_number").abortSignal(requestController.signal),
         currentUserId
@@ -391,6 +419,21 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         const firstIncompleteChapter = chapters[firstIncompleteIndex];
         router.replace(`/comic/${comicData.slug}/chapter/${firstIncompleteChapter.id}`);
         return;
+      }
+
+      if (guestReadChapterIds && !guestReadChapterIds.includes(chapterId)) {
+        try {
+          localStorage.setItem(
+            GUEST_READ_CHAPTERS_STORAGE_KEY,
+            JSON.stringify([...guestReadChapterIds, chapterId]),
+          );
+        } catch (storageError) {
+          console.error("Unable to save guest episode access history:", storageError);
+          setComic(comicData);
+          setErrorMessage("Batas baca tamu belum dapat disimpan. Aktifkan penyimpanan browser atau masuk untuk melanjutkan.");
+          setLoading(false);
+          return;
+        }
       }
 
       const pageData = pagesByChapter.get(chapterId) ?? [];
@@ -848,6 +891,21 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       <span>Menyiapkan halaman komik...</span>
     </main>
   );
+  if (guestLoginRequired) {
+    const nextPath = `/comic/${encodeURIComponent(slug)}/chapter/${encodeURIComponent(chapterId)}`;
+    return (
+      <main className="reader-detail-page">
+        <nav className="reader-subnav"><BrandLogo className="wordmark reader-wordmark" showName /><Link className="reader-back-link" href={`/comic/${encodeURIComponent(slug)}`}><ArrowLeft size={17} /> Kembali ke komik</Link></nav>
+        <div className="reader-detail-not-found">
+          <p className="reader-section-kicker">LANJUTKAN MEMBACA</p>
+          <h1>Batas baca tamu sudah tercapai.</h1>
+          <p>Kamu sudah membaca 2 episode tanpa masuk. Masuk atau daftar untuk melanjutkan membaca.</p>
+          <Link className="reader-primary-button" href={`/login?next=${encodeURIComponent(nextPath)}`}>Masuk untuk lanjut membaca <ArrowRight size={17} /></Link>
+          <Link className="reader-detail-secondary-link" href={`/comic/${encodeURIComponent(slug)}`}>Kembali ke komik</Link>
+        </div>
+      </main>
+    );
+  }
   if (!chapter || !comic) {
     return <main className="reader-loading reader-error"><p>{errorMessage || "Episode tidak dapat dibuka."}</p><Link href={comic ? `/comic/${comic.slug}` : "/"}><ArrowLeft size={16} /> {comic ? "Kembali ke komik" : "Ke beranda"}</Link></main>;
   }

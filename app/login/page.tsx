@@ -57,10 +57,15 @@ export default function LoginPage() {
   useEffect(() => {
     let active = true;
     supabase.auth.getUser().then(({ data }) => {
-      if (active) setSignedInEmail(data.user?.email ?? null);
+      if (!active) return;
+      if (data.user) {
+        router.replace("/");
+        return;
+      }
+      setSignedInEmail(null);
     });
     return () => { active = false; };
-  }, []);
+  }, [router]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -98,7 +103,7 @@ export default function LoginPage() {
       } else {
         setSignedInEmail(result.data.user?.email ?? email);
         setMessage("Berhasil masuk.");
-        router.push("/account");
+        router.replace("/");
       }
     } catch (authError) {
       console.error("Authentication request could not be completed:", authError);
@@ -116,7 +121,7 @@ export default function LoginPage() {
     setMessage("");
     try {
       const redirectTo = new URL("/auth/callback", window.location.origin);
-      redirectTo.searchParams.set("next", "/account");
+      redirectTo.searchParams.set("next", "/");
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo: redirectTo.toString() },
