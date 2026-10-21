@@ -10,7 +10,7 @@ function translateNode(node: ReactNode, translate: (text: string) => string): Re
     const start = node.indexOf(trimmed);
     return `${node.slice(0, start)}${translate(trimmed)}${node.slice(start + trimmed.length)}`;
   }
-  if (Array.isArray(node)) return node.map((child) => translateNode(child, translate));
+  if (Array.isArray(node)) return Children.map(node, (child) => translateNode(child, translate));
   if (isValidElement<{ children?: ReactNode }>(node) && node.props.children !== undefined) {
     return cloneElement(node, {
       ...node.props,
