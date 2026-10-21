@@ -3,17 +3,18 @@ import Link from "next/link";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import BrandLogo from "@/components/brand-logo";
 import { siteUrl } from "@/lib/seo";
+import { getRequestLocale } from "@/lib/request-locale";
+import LocalizedContent from "@/components/localized-content";
 
-export const metadata: Metadata = {
-  title: "Manifesto AI MU-KOMIK",
-  description: "AI untuk bercerita. Manusia untuk menciptakan makna. Manifesto MU-KOMIK tentang kreativitas, teknologi, dan masa depan komik.",
-  alternates: { canonical: new URL("/manifesto", siteUrl).toString() },
-  openGraph: {
-    title: "Manifesto AI MU-KOMIK",
-    description: "AI untuk bercerita. Manusia untuk menciptakan makna.",
-    url: new URL("/manifesto", siteUrl).toString(),
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const english = await getRequestLocale() === "en";
+  const title = english ? "MU-KOMIK AI Manifesto" : "Manifesto AI MU-KOMIK";
+  const description = english
+    ? "AI for storytelling. Humans for creating meaning. The MU-KOMIK manifesto on creativity, technology, and the future of comics."
+    : "AI untuk bercerita. Manusia untuk menciptakan makna. Manifesto MU-KOMIK tentang kreativitas, teknologi, dan masa depan komik.";
+  const canonical = new URL("/manifesto", siteUrl).toString();
+  return { title, description, alternates: { canonical }, openGraph: { title, description, url: canonical } };
+}
 
 const principles = [
   {
@@ -77,31 +78,31 @@ const principles = [
 export default function ManifestoPage() {
   return (
     <main className="manifesto-page">
-      <nav className="manifesto-nav" aria-label="Navigasi halaman">
+      <nav className="manifesto-nav">
         <BrandLogo linked showName />
-        <Link href="/" className="manifesto-back"><ArrowLeft size={16} /> Beranda</Link>
+        <Link href="/" className="manifesto-back"><ArrowLeft size={16} /> <LocalizedContent>Beranda</LocalizedContent></Link>
       </nav>
 
       <header className="manifesto-hero">
-        <p className="manifesto-eyebrow">PANDANGAN KAMI TENTANG MASA DEPAN KOMIK</p>
+        <p className="manifesto-eyebrow"><LocalizedContent>PANDANGAN KAMI TENTANG MASA DEPAN KOMIK</LocalizedContent></p>
         <h1>Manifesto AI<br /><em>MU-KOMIK</em></h1>
-        <p className="manifesto-lead">AI untuk bercerita.<br /><strong>Manusia untuk menciptakan makna.</strong></p>
+        <p className="manifesto-lead"><LocalizedContent>AI untuk bercerita.<br /><strong>Manusia untuk menciptakan makna.</strong></LocalizedContent></p>
         <div className="manifesto-origin">
-          <p>Kami percaya setiap komik lahir dari sebuah gagasan.</p>
-          <p>Dari pengalaman. Dari imajinasi. Dari kegelisahan. Dari tawa. Dari kehidupan sehari-hari.</p>
-          <p>AI hadir bukan untuk mengambil alih cerita itu.</p>
-          <strong>AI hadir untuk membantu kreator mewujudkannya.</strong>
+          <p><LocalizedContent>Kami percaya setiap komik lahir dari sebuah gagasan.</LocalizedContent></p>
+          <p><LocalizedContent>Dari pengalaman. Dari imajinasi. Dari kegelisahan. Dari tawa. Dari kehidupan sehari-hari.</LocalizedContent></p>
+          <p><LocalizedContent>AI hadir bukan untuk mengambil alih cerita itu.</LocalizedContent></p>
+          <strong><LocalizedContent>AI hadir untuk membantu kreator mewujudkannya.</LocalizedContent></strong>
         </div>
       </header>
 
-      <section className="manifesto-principles" aria-label="Prinsip manifesto">
+      <section className="manifesto-principles">
         {principles.map((principle, index) => (
           <article className="manifesto-principle" key={principle.title}>
             <span className="manifesto-number">{String(index + 1).padStart(2, "0")}</span>
             <div>
-              <h2>{principle.title}</h2>
+              <h2><LocalizedContent>{principle.title}</LocalizedContent></h2>
               {principle.paragraphs.map((paragraph, paragraphIndex) => (
-                <p key={`${principle.title}-${paragraphIndex}`}>{paragraph}</p>
+                <p key={`${principle.title}-${paragraphIndex}`}><LocalizedContent>{paragraph}</LocalizedContent></p>
               ))}
             </div>
           </article>
@@ -109,31 +110,31 @@ export default function ManifestoPage() {
       </section>
 
       <section className="manifesto-human-ai">
-        <p className="manifesto-eyebrow">AI + MANUSIA</p>
-        <h2>Kami tidak percaya masa depan komik adalah<br /><span>AI menggantikan manusia.</span></h2>
-        <h2>Kami percaya masa depan komik adalah<br /><strong>manusia yang menjadi lebih kuat karena AI.</strong></h2>
+        <p className="manifesto-eyebrow"><LocalizedContent>AI + MANUSIA</LocalizedContent></p>
+        <h2><LocalizedContent>Kami tidak percaya masa depan komik adalah<br /><span>AI menggantikan manusia.</span></LocalizedContent></h2>
+        <h2><LocalizedContent>Kami percaya masa depan komik adalah<br /><strong>manusia yang menjadi lebih kuat karena AI.</strong></LocalizedContent></h2>
         <div className="manifesto-contrast">
-          <p>AI memberikan kecepatan.<br /><strong>Manusia memberikan arah.</strong></p>
-          <p>AI membantu menghasilkan kemungkinan.<br /><strong>Manusia memilih mana yang bermakna.</strong></p>
-          <p>AI membantu membuat.<br /><strong>Manusia menentukan apa yang layak diceritakan.</strong></p>
+          <p><LocalizedContent>AI memberikan kecepatan.<br /><strong>Manusia memberikan arah.</strong></LocalizedContent></p>
+          <p><LocalizedContent>AI membantu menghasilkan kemungkinan.<br /><strong>Manusia memilih mana yang bermakna.</strong></LocalizedContent></p>
+          <p><LocalizedContent>AI membantu membuat.<br /><strong>Manusia menentukan apa yang layak diceritakan.</strong></LocalizedContent></p>
         </div>
       </section>
 
       <section className="manifesto-home">
         <p className="manifesto-eyebrow">MU-KOMIK</p>
-        <h2>Tempat cerita menemukan rumahnya.</h2>
-        <p>Kami membangun MU-KOMIK untuk para pencipta dunia.</p>
-        <p>Dunia yang lucu. Dunia yang absurd. Dunia yang dekat dengan kehidupan. Dunia yang belum pernah diceritakan.</p>
-        <p>Dengan teknologi AI, kami ingin membuat proses menciptakan komik menjadi lebih mudah, lebih cepat, dan lebih terbuka.</p>
-        <blockquote>
+        <h2><LocalizedContent>Tempat cerita menemukan rumahnya.</LocalizedContent></h2>
+        <p><LocalizedContent>Kami membangun MU-KOMIK untuk para pencipta dunia.</LocalizedContent></p>
+        <p><LocalizedContent>Dunia yang lucu. Dunia yang absurd. Dunia yang dekat dengan kehidupan. Dunia yang belum pernah diceritakan.</LocalizedContent></p>
+        <p><LocalizedContent>Dengan teknologi AI, kami ingin membuat proses menciptakan komik menjadi lebih mudah, lebih cepat, dan lebih terbuka.</LocalizedContent></p>
+        <blockquote><LocalizedContent>
           Di balik setiap cerita yang berarti, selalu ada manusia yang ingin mengatakan sesuatu.
           <strong>MU-KOMIK percaya pada manusia itu.</strong>
-        </blockquote>
+        </LocalizedContent></blockquote>
       </section>
 
       <footer className="manifesto-footer">
         <BrandLogo linked />
-        <Link href="/" className="manifesto-back">Kembali ke MU-KOMIK <ArrowUpRight size={16} /></Link>
+        <Link href="/" className="manifesto-back"><LocalizedContent>Kembali ke MU-KOMIK</LocalizedContent> <ArrowUpRight size={16} /></Link>
       </footer>
     </main>
   );

@@ -4,17 +4,23 @@ import Link from "next/link";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import BrandLogo from "@/components/brand-logo";
 import { siteUrl } from "@/lib/seo";
+import { getRequestLocale } from "@/lib/request-locale";
+import LocalizedContent from "@/components/localized-content";
 
-export const metadata: Metadata = {
-  title: "Syarat dan Ketentuan Layanan | MU-Komik.com",
-  description: "Syarat dan ketentuan penggunaan MU-Komik.com untuk pembaca dan kreator.",
-  alternates: { canonical: new URL("/syarat-ketentuan", siteUrl).toString() },
-  openGraph: {
-    title: "Syarat dan Ketentuan Layanan | MU-Komik.com",
-    description: "Syarat dan ketentuan penggunaan MU-Komik.com untuk pembaca dan kreator.",
-    url: new URL("/syarat-ketentuan", siteUrl).toString(),
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const english = await getRequestLocale() === "en";
+  const title = english ? "Terms of Service | MU-Komik.com" : "Syarat dan Ketentuan Layanan | MU-Komik.com";
+  const description = english
+    ? "Terms and conditions for using MU-Komik.com as a reader or creator."
+    : "Syarat dan ketentuan penggunaan MU-Komik.com untuk pembaca dan kreator.";
+  const canonical = new URL("/syarat-ketentuan", siteUrl).toString();
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: { title, description, url: canonical },
+  };
+}
 
 const termsSections: { title: string; content: ReactNode }[] = [
   {
@@ -134,36 +140,36 @@ const termsSections: { title: string; content: ReactNode }[] = [
 export default function TermsPage() {
   return (
     <main className="manifesto-page terms-page">
-      <nav className="manifesto-nav" aria-label="Navigasi halaman">
+      <nav className="manifesto-nav">
         <BrandLogo linked showName />
-        <Link href="/" className="manifesto-back"><ArrowLeft size={16} /> Beranda</Link>
+        <Link href="/" className="manifesto-back"><ArrowLeft size={16} /> <LocalizedContent>Beranda</LocalizedContent></Link>
       </nav>
 
       <header className="terms-hero">
         <p className="manifesto-eyebrow">MU-KOMIK.COM</p>
-        <h1>Syarat dan<br /><em>Ketentuan Layanan</em></h1>
-        <p className="terms-lead">Selamat datang di <strong>MU-Komik.com</strong> (“MU-Komik”, “kami”, atau “Platform”). Syarat dan Ketentuan Layanan ini mengatur penggunaan situs web, konten, fitur, dan layanan yang tersedia di MU-Komik.com.</p>
-        <p className="terms-lead">Dengan mengakses atau menggunakan MU-Komik.com, Anda menyatakan telah membaca, memahami, dan menyetujui Syarat dan Ketentuan ini. Jika Anda tidak menyetujuinya, harap berhenti menggunakan layanan kami.</p>
-        <p className="terms-updated">Terakhir diperbarui: 9 Oktober 2026</p>
+        <h1><LocalizedContent>Syarat dan</LocalizedContent><br /><em><LocalizedContent>Ketentuan Layanan</LocalizedContent></em></h1>
+        <p className="terms-lead"><LocalizedContent>Selamat datang di <strong>MU-Komik.com</strong> (“MU-Komik”, “kami”, atau “Platform”). Syarat dan Ketentuan Layanan ini mengatur penggunaan situs web, konten, fitur, dan layanan yang tersedia di MU-Komik.com.</LocalizedContent></p>
+        <p className="terms-lead"><LocalizedContent>Dengan mengakses atau menggunakan MU-Komik.com, Anda menyatakan telah membaca, memahami, dan menyetujui Syarat dan Ketentuan ini. Jika Anda tidak menyetujuinya, harap berhenti menggunakan layanan kami.</LocalizedContent></p>
+        <p className="terms-updated"><LocalizedContent>Terakhir diperbarui: 9 Oktober 2026</LocalizedContent></p>
       </header>
 
       <div className="terms-content">
         {termsSections.map((section, index) => (
           <section className="terms-section" key={section.title}>
             <span>{String(index + 1).padStart(2, "0")}</span>
-            <div><h2>{section.title}</h2>{section.content}</div>
+            <div><h2><LocalizedContent>{section.title}</LocalizedContent></h2><LocalizedContent>{section.content}</LocalizedContent></div>
           </section>
         ))}
         <div className="terms-closing">
           <strong>MU-Komik.com</strong>
-          <p>Tempat cerita dan imajinasi bertemu dalam dunia komik digital.</p>
-          <p>Terima kasih telah menggunakan MU-Komik.com.</p>
+          <p><LocalizedContent>Tempat cerita dan imajinasi bertemu dalam dunia komik digital.</LocalizedContent></p>
+          <p><LocalizedContent>Terima kasih telah menggunakan MU-Komik.com.</LocalizedContent></p>
         </div>
       </div>
 
       <footer className="manifesto-footer">
         <BrandLogo linked />
-        <Link href="/" className="manifesto-back">Kembali ke MU-KOMIK <ArrowUpRight size={16} /></Link>
+        <Link href="/" className="manifesto-back"><LocalizedContent>Kembali ke MU-KOMIK</LocalizedContent> <ArrowUpRight size={16} /></Link>
       </footer>
     </main>
   );

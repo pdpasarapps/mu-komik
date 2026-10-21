@@ -1220,6 +1220,7 @@ html[data-theme="dark"] .kids-pin-dialog-icon { background: #1f3856; color: #64a
 .reader-search-mobile, .reader-menu-toggle, .reader-search-close { display: none; }
 .language-switcher { position: fixed; z-index: 32; right: 16px; bottom: 16px; min-width: 58px; min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 11px; border: 1px solid var(--reader-border); border-radius: 999px; background: rgba(250,249,246,.96); color: var(--reader-text); box-shadow: 0 4px 16px rgba(32,36,34,.12); font: inherit; font-size: .7rem; font-weight: 850; cursor: pointer; backdrop-filter: blur(12px); }
 .language-switcher:hover { border-color: var(--reader-accent); color: var(--reader-accent); }
+.language-switcher-flag { display: block; width: 20px; height: 12px; flex: 0 0 20px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(30,37,36,.2); }
 .language-switcher:focus-visible { outline: 3px solid rgba(237,105,68,.45); outline-offset: 3px; }
 html[data-theme="dark"] .language-switcher { border-color: var(--line); background: rgba(23,27,25,.96); color: var(--ink); }
 .reader-inline-message { display: flex; justify-content: center; align-items: center; gap: 10px; padding: 8px 16px; color: #7f3927; background: #fff0e9; font-size: .78rem; }
