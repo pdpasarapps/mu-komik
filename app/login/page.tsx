@@ -51,6 +51,7 @@ export default function LoginPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [signedInEmail, setSignedInEmail] = useState<string | null>(null);
 
   useEffect(() => {
@@ -109,6 +110,40 @@ export default function LoginPage() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    setError("");
+    setMessage("");
+    try {
+      const redirectTo = new URL("/auth/callback", window.location.origin);
+      redirectTo.searchParams.set("next", "/account");
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: redirectTo.toString() },
+      });
+      if (oauthError) {
+        console.error("Google authentication request failed:", {
+          code: oauthError.code,
+          message: oauthError.message,
+        });
+        setError("Login Google belum dapat dimulai. Periksa konfigurasi Google di Supabase lalu coba lagi.");
+        setGoogleLoading(false);
+        return;
+      }
+      if (!data.url) {
+        console.error("Google authentication did not return a redirect URL.");
+        setError("Login Google belum dapat dimulai. Coba lagi beberapa saat.");
+        setGoogleLoading(false);
+        return;
+      }
+      window.location.assign(data.url);
+    } catch (authError) {
+      console.error("Google authentication request could not be completed:", authError);
+      setError("Login Google belum dapat dimulai. Periksa koneksi internet, lalu coba lagi.");
+      setGoogleLoading(false);
+    }
+  };
+
   const handleSignOut = async () => {
     setLoading(true);
     setError("");
@@ -156,6 +191,19 @@ export default function LoginPage() {
             <>
               <h2>{mode === "login" ? "Buka ruang bacamu" : "Buat akun pembaca"}</h2>
               <p className="auth-subtitle">{mode === "login" ? "Lanjutkan membaca dari bagian terakhir." : "Mulai membaca hanya dalam beberapa langkah."}</p>
+              {error && <p className="form-error" role="alert">{error}</p>}
+              {message && <p className="form-message" role="status">{message}</p>}
+              <button
+                type="button"
+                className="google-auth-button"
+                onClick={() => void handleGoogleSignIn()}
+                disabled={loading || googleLoading}
+              >
+                {googleLoading
+                  ? <><LoaderCircle className="spin" size={17} /> Menghubungkan ke Google...</>
+                  : <><span className="google-auth-mark" aria-hidden="true">G</span> Lanjutkan dengan Google</>}
+              </button>
+              <div className="auth-divider"><span>atau dengan email</span></div>
               <form onSubmit={handleSubmit} className="auth-form">
                 {mode === "signup" && <label><span>Nama tampilan</span><div className="input-wrap"><UserRound size={17} /><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Kamu ingin dipanggil apa?" /></div></label>}
                 <label><span>Email</span><div className="input-wrap"><Mail size={17} /><input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="kamu@contoh.id" /></div></label>
@@ -178,9 +226,7 @@ export default function LoginPage() {
                     </label>
                   </fieldset>
                 )}
-                {error && <p className="form-error" role="alert">{error}</p>}
-                {message && <p className="form-message" role="status">{message}</p>}
-                <button className="button button-dark auth-submit" type="submit" disabled={loading}>{loading ? <><LoaderCircle className="spin" size={17} /> Mohon tunggu</> : <>{mode === "login" ? "Masuk" : "Buat akun"} <ArrowUpRight size={17} /></>}</button>
+                <button className="button button-dark auth-submit" type="submit" disabled={loading || googleLoading}>{loading ? <><LoaderCircle className="spin" size={17} /> Mohon tunggu</> : <>{mode === "login" ? "Masuk" : "Buat akun"} <ArrowUpRight size={17} /></>}</button>
               </form>
               <button className="mode-toggle" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(""); setMessage(""); }}>{mode === "login" ? "Belum punya akun? Daftar" : "Sudah punya akun? Masuk"}</button>
             </>
