@@ -608,24 +608,29 @@ export default function HomePageClient({
         <div><p className="reader-section-kicker">{t("PUNYA CERITA?")}</p><h2>{t("Terbitkan komikmu dan temukan pembaca baru.")}</h2></div>
         <Link className="reader-primary-button" href={signedIn ? "/account" : "/login"}>{t("Jadi kreator")} <ArrowRight size={17} /></Link>
       </section>}
-      <footer className="reader-footer">
-        <div className="reader-footer-main-row">
+      <footer className={`reader-footer${kidsMode ? " reader-footer-kids" : ""}`}>
+        {!kidsMode && <div className="reader-footer-main-row">
           <div className="reader-footer-brand">
-            <BrandLogo className="wordmark reader-wordmark" />
             <p>{t("Tempat cerita Indonesia menemukan pembacanya.")}</p>
           </div>
-          {!kidsMode && <PlatformLinks includeYoutube />}
+          <PlatformLinks includeYoutube />
           <nav className="reader-footer-links" aria-label={t("Tautan footer")}>
             <a href="#jelajah">{t("Jelajah")}</a>
             <a href="#genre">{t("Genre")}</a>
-            {!kidsMode && <><a href="#creator">{t("Kreator")}</a><Link href="/artikel">{t("Artikel")}</Link></>}
+            <a href="#creator">{t("Kreator")}</a>
+            <Link href="/artikel">{t("Artikel")}</Link>
           </nav>
           <nav className="reader-footer-links" aria-label={t("Informasi platform")}>
-            {!kidsMode && <><Link href="/push-ads">{t("Pasang iklan")}</Link><Link href="/manifesto">Manifesto AI</Link><Link href="/syarat-ketentuan">{t("Syarat layanan")}</Link></>}
+            <Link href="/push-ads">{t("Pasang iklan")}</Link>
+            <Link href="/manifesto">Manifesto AI</Link>
+            <Link href="/syarat-ketentuan">{t("Syarat layanan")}</Link>
             <Link href="/faq">{t("FAQ & Glosarium")}</Link>
           </nav>
+        </div>}
+        <div className="reader-footer-bottom">
+          <BrandLogo className="wordmark reader-wordmark" />
+          <span>© 2026 mu-komik</span>
         </div>
-        <span>© 2026 mu-komik</span>
       </footer>
     </main>
   );
