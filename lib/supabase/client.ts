@@ -8,5 +8,13 @@ export function createClient() {
     throw new Error("Supabase build variables are missing: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
   }
 
-  return createBrowserClient(url, key);
+  const isGoogleAuthCallback = typeof window !== "undefined"
+    && window.location.pathname === "/auth/callback"
+    && new URLSearchParams(window.location.search).has("code");
+
+  return createBrowserClient(
+    url,
+    key,
+    isGoogleAuthCallback ? { auth: { detectSessionInUrl: false } } : undefined,
+  );
 }

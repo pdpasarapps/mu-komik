@@ -47,26 +47,30 @@ export default function AuthCallbackPage() {
         return;
       }
 
-      if (!callbackUrl.searchParams.has("code")) {
+      const code = callbackUrl.searchParams.get("code");
+      if (!code) {
         if (active) setError("Kode login tidak ditemukan. Silakan mulai login Google lagi.");
         return;
       }
 
-      // The browser client detects the callback URL and exchanges the PKCE code during initialization.
-      const { data, error: sessionError } = await withTimeout(
-        supabase.auth.getSession(),
+      const { data, error: exchangeError } = await withTimeout(
+        supabase.auth.exchangeCodeForSession(code),
         15_000,
-        "Timed out while waiting for the Google authentication session.",
+        "Timed out while exchanging the Google authentication code.",
       );
-      if (sessionError || !data.session?.user) {
-        if (sessionError) {
-          console.error("Could not read the Google authentication session:", sessionError);
+      if (exchangeError || !data.user) {
+        if (exchangeError) {
+          console.error("Could not complete Google authentication:", exchangeError);
         }
-        if (active) setError("Sesi Google belum dapat dibuat. Periksa koneksi internet, lalu coba login kembali.");
+        if (active) {
+          setError(exchangeError?.code === "pkce_code_verifier_not_found"
+            ? "Sesi login tidak cocok dengan browser atau domain ini. Mulai login dari mu-komik.com, lalu coba lagi."
+            : "Sesi Google belum dapat dibuat. Periksa koneksi internet, lalu coba login kembali.");
+        }
         return;
       }
 
-      const user = data.session.user;
+      const user = data.user;
       const metadata = user.user_metadata;
       const displayName = [metadata.full_name, metadata.name]
         .find((value): value is string => typeof value === "string" && value.trim().length > 0)
