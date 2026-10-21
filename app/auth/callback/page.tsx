@@ -12,6 +12,22 @@ function getSafeNextPath(value: string | null) {
   return value;
 }
 
+function withTimeout<T>(operation: PromiseLike<T>, timeoutMs: number, message: string) {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    Promise.resolve(operation).then(
+      (value) => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
+}
+
 export default function AuthCallbackPage() {
   const started = useRef(false);
   const [error, setError] = useState("");
@@ -31,30 +47,45 @@ export default function AuthCallbackPage() {
         return;
       }
 
-      const code = callbackUrl.searchParams.get("code");
-      if (!code) {
+      if (!callbackUrl.searchParams.has("code")) {
         if (active) setError("Kode login tidak ditemukan. Silakan mulai login Google lagi.");
         return;
       }
 
-      const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-      if (exchangeError || !data.user) {
-        console.error("Could not complete Google authentication:", exchangeError);
-        if (active) setError("Sesi Google belum dapat dibuat. Silakan coba login kembali.");
+      // The browser client detects the callback URL and exchanges the PKCE code during initialization.
+      const { data, error: sessionError } = await withTimeout(
+        supabase.auth.getSession(),
+        15_000,
+        "Timed out while waiting for the Google authentication session.",
+      );
+      if (sessionError || !data.session?.user) {
+        if (sessionError) {
+          console.error("Could not read the Google authentication session:", sessionError);
+        }
+        if (active) setError("Sesi Google belum dapat dibuat. Periksa koneksi internet, lalu coba login kembali.");
         return;
       }
 
-      const metadata = data.user.user_metadata;
+      const user = data.session.user;
+      const metadata = user.user_metadata;
       const displayName = [metadata.full_name, metadata.name]
         .find((value): value is string => typeof value === "string" && value.trim().length > 0)
         ?.trim();
       if (displayName) {
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .update({ display_name: displayName.slice(0, 80) })
-          .eq("id", data.user.id)
-          .eq("display_name", "Reader");
-        if (profileError) {
+        try {
+          const { error: profileError } = await withTimeout(
+            supabase
+              .from("profiles")
+              .update({ display_name: displayName.slice(0, 80) })
+              .eq("id", user.id)
+              .eq("display_name", "Reader"),
+            2_500,
+            "Timed out while setting the Google display name.",
+          );
+          if (profileError) {
+            console.error("Could not set the Google display name on the reader profile:", profileError);
+          }
+        } catch (profileError) {
           console.error("Could not set the Google display name on the reader profile:", profileError);
         }
       }
