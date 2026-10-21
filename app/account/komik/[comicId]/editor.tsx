@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState, type DragEvent } from "react";
-import { ArrowLeft, ArrowUpRight, BookOpen, ChevronDown, ChevronLeft, ChevronRight, GripVertical, Info, LoaderCircle, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, ArrowUpRight, BookOpen, ChevronDown, ChevronLeft, ChevronRight, GripVertical, Info, LoaderCircle, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -58,6 +58,7 @@ type Chapter = {
   subtitles_srt: string | null;
   subtitle_page_map: Record<string, string> | null;
 };
+type ComicOption = { id: string; title: string };
 type ChapterPage = { id: string; chapter_id: string; page_number: number; object_key: string };
 
 const supabase = createClient();
@@ -121,6 +122,7 @@ export default function CreatorComicPage() {
   const { comicId } = useParams<{ comicId: string }>();
   const router = useRouter();
   const [comic, setComic] = useState<Comic | null>(null);
+  const [otherComics, setOtherComics] = useState<ComicOption[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [expandedChapterIds, setExpandedChapterIds] = useState<string[] | null>(null);
   const [pagesByChapter, setPagesByChapter] = useState<Record<string, ChapterPage[]>>({});
@@ -137,6 +139,12 @@ export default function CreatorComicPage() {
   const [draggedPageId, setDraggedPageId] = useState<string | null>(null);
   const [draggedPageChapterId, setDraggedPageChapterId] = useState<string | null>(null);
   const [pageDropSlot, setPageDropSlot] = useState<{ chapterId: string; index: number } | null>(null);
+  const [draggedChapterId, setDraggedChapterId] = useState<string | null>(null);
+  const [chapterDropTargetId, setChapterDropTargetId] = useState<string | null>(null);
+  const [reorderingChapters, setReorderingChapters] = useState(false);
+  const [movingChapterId, setMovingChapterId] = useState<string | null>(null);
+  const [destinationComicId, setDestinationComicId] = useState("");
+  const [movingChapter, setMovingChapter] = useState(false);
   const reorderInFlightRef = useRef(false);
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({ title: "", chapterNumber: "", published: false });
@@ -206,6 +214,16 @@ export default function CreatorComicPage() {
       if (!comicData) {
         router.replace("/account/creator");
         return;
+      }
+      const comicsQuery = supabase.from("comics").select("id, title").neq("id", comicId).order("title", { ascending: true });
+      const { data: comicOptions, error: comicOptionsError } = profile.role === "admin"
+        ? await comicsQuery
+        : await comicsQuery.eq("creator_id", userData.user.id);
+      if (comicOptionsError) {
+        console.error("Unable to load destination comics:", comicOptionsError);
+        setMessage("Daftar komik tujuan belum dapat dimuat. Periksa koneksi lalu coba lagi.");
+      } else {
+        setOtherComics(comicOptions ?? []);
       }
       const { data: seriesCoverData, error: seriesCoverError } = await supabase
         .from("comics")
@@ -833,6 +851,107 @@ export default function CreatorComicPage() {
     setPageDropSlot((current) => current?.chapterId === chapter.id && current.index === index ? current : { chapterId: chapter.id, index });
   };
 
+  const saveChapterOrder = async (orderedChapters: Chapter[]) => {
+    if (!comic || reorderingChapters) return;
+    setReorderingChapters(true);
+    setMessage("");
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Sesi kamu telah berakhir. Silakan masuk kembali.");
+      const response = await fetch("/api/r2/reorder-chapters", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ comicId: comic.id, chapterIds: orderedChapters.map((chapter) => chapter.id) }),
+      });
+      const result = await response.json() as {
+        reordered?: boolean;
+        chapters?: Array<{ id: string; chapter_number: number }>;
+        error?: string;
+      };
+      if (!response.ok || !result.reordered || !result.chapters) {
+        throw new Error(result.error || "Urutan bab tidak dapat diperbarui.");
+      }
+      const numbers = new Map(result.chapters.map((chapter) => [chapter.id, chapter.chapter_number]));
+      setChapters((current) => current
+        .map((chapter) => ({ ...chapter, chapter_number: numbers.get(chapter.id) ?? chapter.chapter_number }))
+        .sort((first, second) => first.chapter_number - second.chapter_number));
+      setMessage("Urutan bab berhasil diperbarui.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Urutan bab tidak dapat diperbarui.");
+    } finally {
+      setReorderingChapters(false);
+      setDraggedChapterId(null);
+      setChapterDropTargetId(null);
+    }
+  };
+
+  const handleChapterDragOver = (event: DragEvent<HTMLElement>, chapterId: string) => {
+    if (!draggedChapterId || draggedChapterId === chapterId || reorderingChapters || showForm || movingChapter) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setChapterDropTargetId((current) => current === chapterId ? current : chapterId);
+  };
+
+  const handleChapterDrop = (event: DragEvent<HTMLElement>, targetChapterId: string) => {
+    event.preventDefault();
+    const sourceChapterId = event.dataTransfer.getData("text/plain") || draggedChapterId;
+    setChapterDropTargetId(null);
+    if (!sourceChapterId || sourceChapterId === targetChapterId) {
+      setDraggedChapterId(null);
+      return;
+    }
+    const next = [...chapters];
+    const sourceIndex = next.findIndex((chapter) => chapter.id === sourceChapterId);
+    const targetIndex = next.findIndex((chapter) => chapter.id === targetChapterId);
+    if (sourceIndex < 0 || targetIndex < 0) {
+      setDraggedChapterId(null);
+      return;
+    }
+    const [chapter] = next.splice(sourceIndex, 1);
+    next.splice(targetIndex, 0, chapter);
+    void saveChapterOrder(next);
+  };
+
+  const moveChapter = async (chapter: Chapter) => {
+    if (!comic || !destinationComicId) return;
+    const destination = otherComics.find((item) => item.id === destinationComicId);
+    if (!destination || !window.confirm(`Pindahkan "${chapter.title}" beserta halaman dan audionya ke "${destination.title}"?`)) return;
+    setMovingChapter(true);
+    setMessage("");
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Sesi kamu telah berakhir. Silakan masuk kembali.");
+      const response = await fetch("/api/r2/move-chapter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          sourceComicId: comic.id,
+          destinationComicId,
+          chapterId: chapter.id,
+        }),
+      });
+      const result = await response.json() as { moved?: boolean; storageCleanupPending?: boolean; error?: string };
+      if (!response.ok || !result.moved) throw new Error(result.error || "Bab tidak dapat dipindahkan.");
+      setChapters((current) => current.filter((item) => item.id !== chapter.id));
+      setPagesByChapter((current) => {
+        const next = { ...current };
+        delete next[chapter.id];
+        return next;
+      });
+      setMovingChapterId(null);
+      setDestinationComicId("");
+      setMessage(result.storageCleanupPending
+        ? `Bab berhasil dipindahkan ke "${destination.title}", tetapi berkas lama belum seluruhnya terhapus.`
+        : `Bab berhasil dipindahkan ke "${destination.title}".`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Bab tidak dapat dipindahkan.");
+    } finally {
+      setMovingChapter(false);
+    }
+  };
+
   if (loading) return <div className="creator-comic-editor-loading"><LoaderCircle className="spin" size={24} /></div>;
   if (!comic) return null;
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
@@ -1010,17 +1129,67 @@ export default function CreatorComicPage() {
         <div className="creator-section-heading">
           <div><p className="eyebrow">{chapters.length} bab</p><h2>Alur cerita</h2></div>
           <div className="chapter-list-heading-actions">
-            <button className="button button-dark" onClick={() => startChapterForm()}><Plus size={17} /> Bab baru</button>
+            {reorderingChapters && <span className="chapter-order-saving" role="status">Menyimpan urutan...</span>}
+            <button className="button button-dark" onClick={() => startChapterForm()} disabled={reorderingChapters || movingChapter}><Plus size={17} /> Bab baru</button>
           </div>
         </div>
+        {movingChapterId && (
+          <form
+            className="chapter-move-panel"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const chapter = chapters.find((item) => item.id === movingChapterId);
+              if (chapter) void moveChapter(chapter);
+            }}
+          >
+            <div>
+              <strong>Pindahkan bab</strong>
+              <span>{chapters.find((item) => item.id === movingChapterId)?.title}</span>
+            </div>
+            <label>
+              Komik tujuan
+              <select required value={destinationComicId} onChange={(event) => setDestinationComicId(event.target.value)} disabled={movingChapter}>
+                <option value="">Pilih komik</option>
+                {otherComics.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+              </select>
+            </label>
+            <div className="chapter-move-actions">
+              <button type="button" className="button button-light" onClick={() => { setMovingChapterId(null); setDestinationComicId(""); }} disabled={movingChapter}>Batal</button>
+              <button type="submit" className="button button-dark" disabled={movingChapter || !destinationComicId}>
+                {movingChapter ? <><LoaderCircle className="spin" size={16} /> Memindahkan...</> : "Pindahkan bab"}
+              </button>
+            </div>
+          </form>
+        )}
         {chapters.length === 0 ? (
           <div className="creator-empty"><BookOpen size={26} /><h3>Belum ada bab.</h3><p>Buat bab pertama untuk cerita ini.</p></div>
         ) : (
           <div className="chapter-manager-rows">
             {chapters.map((chapter, chapterIndex) => (
-              <article className="chapter-manager-row" key={chapter.id}>
+              <article
+                className={`chapter-manager-row${chapterDropTargetId === chapter.id ? " is-chapter-drop-target" : ""}${draggedChapterId === chapter.id ? " is-chapter-dragging" : ""}`}
+                key={chapter.id}
+                onDragOver={(event) => handleChapterDragOver(event, chapter.id)}
+                onDrop={(event) => handleChapterDrop(event, chapter.id)}
+              >
                 <div className="chapter-card-header">
                   <div className="chapter-card-heading">
+                    <button
+                      type="button"
+                      className="chapter-reorder-handle"
+                      aria-label={`Atur ulang bab ${chapter.title}`}
+                      title="Seret untuk mengatur ulang bab"
+                      draggable={!reorderingChapters && !uploading && deletingChapterId === null && !movingChapter && !showForm}
+                      onDragStart={(event) => {
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", chapter.id);
+                        setDraggedChapterId(chapter.id);
+                      }}
+                      onDragEnd={() => { setDraggedChapterId(null); setChapterDropTargetId(null); }}
+                      disabled={reorderingChapters || uploading || deletingChapterId !== null || movingChapter || showForm}
+                    >
+                      <GripVertical size={17} />
+                    </button>
                     <div className="chapter-number">{String(chapter.chapter_number).padStart(2, "0")}</div>
                     <div className="chapter-manager-copy">
                       <h3>{chapter.title}</h3>
@@ -1029,15 +1198,32 @@ export default function CreatorComicPage() {
                   </div>
                   <div className="chapter-row-actions">
                     <span className={`request-status request-${chapter.published_at ? "approved" : "pending"}`}>{chapter.published_at ? "Terbit" : "Draf"}</span>
-                    <button type="button" className="chapter-action" aria-label={`Ubah ${chapter.title}`} title="Ubah bab" onClick={() => startChapterForm(chapter)} disabled={deletingChapterId !== null}>
+                    {otherComics.length > 0 && (
+                      <button
+                        type="button"
+                        className="chapter-action"
+                        aria-label={`Pindahkan ${chapter.title} ke komik lain`}
+                        title="Pindahkan ke komik lain"
+                        onClick={() => {
+                          setShowForm(false);
+                          setEditingChapterId(null);
+                          setMovingChapterId(chapter.id);
+                          setDestinationComicId(otherComics[0]?.id ?? "");
+                        }}
+                        disabled={movingChapter || reorderingChapters || deletingChapterId !== null || uploading || showForm}
+                      >
+                        <ArrowRightLeft size={16} />
+                      </button>
+                    )}
+                    <button type="button" className="chapter-action" aria-label={`Ubah ${chapter.title}`} title="Ubah bab" onClick={() => startChapterForm(chapter)} disabled={deletingChapterId !== null || reorderingChapters || movingChapter}>
                       <Pencil size={16} />
                     </button>
-                    <button type="button" className="chapter-action chapter-action-danger" aria-label={`Hapus ${chapter.title}`} title="Hapus bab" onClick={() => void deleteChapter(chapter)} disabled={deletingChapterId !== null || uploading}>
+                    <button type="button" className="chapter-action chapter-action-danger" aria-label={`Hapus ${chapter.title}`} title="Hapus bab" onClick={() => void deleteChapter(chapter)} disabled={deletingChapterId !== null || uploading || reorderingChapters || movingChapter}>
                       {deletingChapterId === chapter.id ? <LoaderCircle className="spin" size={16} /> : <Trash2 size={16} />}
                     </button>
                     <Link className="round-arrow" href={`/comic/${comic.slug}/chapter/${chapter.id}`} aria-label={`Pratinjau ${chapter.title}`}><ArrowUpRight size={17} /></Link>
                     <label className="page-upload-button">
-                      <input type="file" accept={settings.allowed_image_types.join(",")} multiple disabled={uploading || deletingChapterId !== null || (pagesByChapter[chapter.id]?.length ?? 0) >= settings.max_pages_per_chapter} onChange={(event) => { setChapterExpanded(chapter.id, true); setUploadChapter(chapter); void uploadPages(event); }} />
+                      <input type="file" accept={settings.allowed_image_types.join(",")} multiple disabled={uploading || deletingChapterId !== null || reorderingChapters || movingChapter || (pagesByChapter[chapter.id]?.length ?? 0) >= settings.max_pages_per_chapter} onChange={(event) => { setChapterExpanded(chapter.id, true); setUploadChapter(chapter); void uploadPages(event); }} />
                       <Upload size={15} aria-hidden="true" />
                       Unggah halaman
                     </label>
