@@ -13,6 +13,11 @@ const supabase = createClient();
 
 type Mode = "login" | "signup";
 
+function getSafeNextPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return "/";
+  return value;
+}
+
 function getAuthErrorMessage(error: { code?: string; message: string }, mode: Mode) {
   switch (error.code) {
     case "invalid_credentials":
@@ -61,7 +66,7 @@ export default function LoginPage() {
     supabase.auth.getUser().then(({ data }) => {
       if (!active) return;
       if (data.user) {
-        router.replace("/");
+        router.replace(getSafeNextPath(new URLSearchParams(window.location.search).get("next")));
         return;
       }
       setSignedInEmail(null);
@@ -105,7 +110,7 @@ export default function LoginPage() {
       } else {
         setSignedInEmail(result.data.user?.email ?? email);
         setMessage("Berhasil masuk.");
-        router.replace("/");
+        router.replace(getSafeNextPath(new URLSearchParams(window.location.search).get("next")));
       }
     } catch (authError) {
       console.error("Authentication request could not be completed:", authError);
@@ -123,7 +128,7 @@ export default function LoginPage() {
     setMessage("");
     try {
       const redirectTo = new URL("/auth/callback", window.location.origin);
-      redirectTo.searchParams.set("next", "/");
+      redirectTo.searchParams.set("next", getSafeNextPath(new URLSearchParams(window.location.search).get("next")));
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo: redirectTo.toString() },

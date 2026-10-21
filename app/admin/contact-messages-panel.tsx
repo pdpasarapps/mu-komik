@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 import { LoaderCircle, Mail, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { getContactCategoryLabel, type ContactCategory } from "@/lib/contact-categories";
+import { useLocale } from "@/components/locale-provider";
 
 type ContactStatus = "new" | "in_progress" | "resolved";
 type ContactMessage = {
   id: string;
   name: string;
   email: string;
+  category: ContactCategory;
   subject: string;
   message: string;
   status: ContactStatus;
@@ -28,6 +31,7 @@ function formatDate(value: string) {
 }
 
 export default function ContactMessagesPanel() {
+  const { t } = useLocale();
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -39,7 +43,7 @@ export default function ContactMessagesPanel() {
     const load = async () => {
       const { data, error: queryError } = await supabase
         .from("contact_messages")
-        .select("id, name, email, subject, message, status, created_at")
+        .select("id, name, email, category, subject, message, status, created_at")
         .order("created_at", { ascending: false });
       if (!active) return;
       if (queryError) {
@@ -83,7 +87,10 @@ export default function ContactMessagesPanel() {
         : messages.map((item) => (
           <article className="admin-ad-request-card contact-message-card" key={item.id}>
             <header className="admin-ad-request-heading">
-              <div><p className="eyebrow">{item.name} · {formatDate(item.created_at)}</p><h3>{item.subject}</h3></div>
+              <div>
+                <p className="eyebrow">{t(getContactCategoryLabel(item.category))} · {item.name} · {formatDate(item.created_at)}</p>
+                <h3>{item.subject}</h3>
+              </div>
               <a className="contact-message-email" href={`mailto:${encodeURIComponent(item.email)}?subject=${encodeURIComponent(`Re: ${item.subject}`)}`}><Mail size={14} /> {item.email}</a>
             </header>
             <p className="contact-message-body">{item.message}</p>
