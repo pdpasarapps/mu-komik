@@ -66,6 +66,7 @@ const translations: Record<string, string> = {
   "Navigasi bawah": "Bottom navigation",
   "Navigasi akun": "Account navigation",
   "Tautan footer": "Footer links",
+  "Informasi platform": "Platform information",
   "Pasang iklan": "Advertise",
   "Syarat layanan": "Terms of service",
   "FAQ & Glosarium": "FAQ & Glossary",

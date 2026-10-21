@@ -610,13 +610,21 @@ export default function HomePageClient({
       </section>}
       <footer className="reader-footer">
         <div className="reader-footer-main-row">
-          <BrandLogo className="wordmark reader-wordmark" />
-          {!kidsMode && <PlatformLinks />}
-          <div className="reader-footer-utility-links">
-            <nav className="reader-footer-links" aria-label={t("Tautan footer")}><a href="#jelajah">{t("Jelajah")}</a><a href="#genre">{t("Genre")}</a>{!kidsMode && <><a href="#creator">{t("Kreator")}</a><Link href="/artikel">{t("Artikel")}</Link><Link href="/push-ads">{t("Pasang iklan")}</Link><Link href="/manifesto">Manifesto AI</Link><Link href="/syarat-ketentuan">{t("Syarat layanan")}</Link></>}<Link href="/faq">{t("FAQ & Glosarium")}</Link></nav>
+          <div className="reader-footer-brand">
+            <BrandLogo className="wordmark reader-wordmark" />
+            <p>{t("Tempat cerita Indonesia menemukan pembacanya.")}</p>
           </div>
+          {!kidsMode && <PlatformLinks includeYoutube />}
+          <nav className="reader-footer-links" aria-label={t("Tautan footer")}>
+            <a href="#jelajah">{t("Jelajah")}</a>
+            <a href="#genre">{t("Genre")}</a>
+            {!kidsMode && <><a href="#creator">{t("Kreator")}</a><Link href="/artikel">{t("Artikel")}</Link></>}
+          </nav>
+          <nav className="reader-footer-links" aria-label={t("Informasi platform")}>
+            {!kidsMode && <><Link href="/push-ads">{t("Pasang iklan")}</Link><Link href="/manifesto">Manifesto AI</Link><Link href="/syarat-ketentuan">{t("Syarat layanan")}</Link></>}
+            <Link href="/faq">{t("FAQ & Glosarium")}</Link>
+          </nav>
         </div>
-        <p>{t("Tempat cerita Indonesia menemukan pembacanya.")}</p>
         <span>© 2026 mu-komik</span>
       </footer>
     </main>
