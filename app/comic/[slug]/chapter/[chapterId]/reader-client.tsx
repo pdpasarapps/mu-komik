@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import SponsoredAd from "@/components/sponsored-ad";
+import AdsterraAd from "@/components/adsterra-ad";
 import BrandLogo from "@/components/brand-logo";
 import DeviceUnavailableNotice from "@/components/device-unavailable-notice";
 import PageInteractiveMarkerLayer from "@/components/page-interactive-marker-layer";
@@ -102,9 +103,16 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const [bookTurn, setBookTurn] = useState<BookTurn | null>(null);
   const [bookTurnSpreadChanging, setBookTurnSpreadChanging] = useState(false);
   const [pendingChapterHref, setPendingChapterHref] = useState<string | null>(null);
-  const [transitionAdAvailable, setTransitionAdAvailable] = useState<boolean | null>(null);
+  const [transitionHouseAdAvailable, setTransitionHouseAdAvailable] = useState<boolean | null>(null);
+  const [transitionAdsterraAvailable, setTransitionAdsterraAvailable] = useState<boolean | null>(null);
   const [transitionCountdown, setTransitionCountdown] = useState<number | null>(null);
   const [transitionDeadline, setTransitionDeadline] = useState<number | null>(null);
+  const transitionCountdownStartedRef = useRef(false);
+  const transitionAdAvailable = transitionHouseAdAvailable === true
+    ? true
+    : transitionHouseAdAvailable === false
+      ? transitionAdsterraAvailable
+      : null;
   const lastScrollY = useRef(0);
   const bookTurnInProgressRef = useRef(false);
   const bookTurnSpreadCommitTimeoutRef = useRef<number | null>(null);
@@ -760,15 +768,20 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     return () => window.clearTimeout(timer);
   }, [bookLeaves, bookSpreadIndex, chapter, currentPage, desktopBookMode, historyReady, pages.length, userId]);
 
-  const reportTransitionAdAvailability = useCallback((available: boolean) => {
-    setTransitionAdAvailable(available);
-    if (available) {
-      setTransitionCountdown(5);
-      setTransitionDeadline(Date.now() + 5000);
-    } else {
-      setTransitionDeadline(null);
-    }
+  const startTransitionCountdown = useCallback(() => {
+    if (transitionCountdownStartedRef.current) return;
+    transitionCountdownStartedRef.current = true;
+    setTransitionCountdown(5);
+    setTransitionDeadline(Date.now() + 5000);
   }, []);
+  const reportTransitionAdAvailability = useCallback((available: boolean) => {
+    setTransitionHouseAdAvailable(available);
+    if (available) startTransitionCountdown();
+  }, [startTransitionCountdown]);
+  const reportTransitionAdsterraAvailability = useCallback((available: boolean) => {
+    setTransitionAdsterraAvailable(available);
+    if (available) startTransitionCountdown();
+  }, [startTransitionCountdown]);
 
   const requestChapterTransition = (href: string) => {
     if (kidsMode) {
@@ -776,7 +789,9 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       return;
     }
     setPendingChapterHref(href);
-    setTransitionAdAvailable(null);
+    transitionCountdownStartedRef.current = false;
+    setTransitionHouseAdAvailable(null);
+    setTransitionAdsterraAvailable(null);
     setTransitionCountdown(null);
     setTransitionDeadline(null);
   };
@@ -1260,17 +1275,17 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                         )
                         : <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div>}
                       {src && <div className="reader-watermark-overlay reader-page-watermark" aria-hidden="true">{Array.from({ length: 6 }, (_, watermarkIndex) => <span key={watermarkIndex}>{watermarkLabel}</span>)}</div>}
-                    </div>
-                    {(index + 1) % 5 === 0 && index < pages.length - 1 && (
-                      <SponsoredAd
-                        key={`mid-chapter-ad-${page.page_number}`}
-                        slotKey="reader_mid_chapter"
-                        placement="reader"
-                        comicId={comic.id}
-                        matchPageIndex={index}
-                        readerStopId={`mid-chapter-ad-${page.page_number}`}
-                      />
-                    )}
+                      </div>
+                      {(index + 1) % 5 === 0 && index < pages.length - 1 && (
+                        <SponsoredAd
+                          key={`mid-chapter-ad-${page.page_number}`}
+                          slotKey="reader_mid_chapter"
+                          placement="reader"
+                          comicId={comic.id}
+                          matchPageIndex={index}
+                          readerStopId={`mid-chapter-ad-${page.page_number}`}
+                        />
+                      )}
                   </Fragment>
                 );
               })}
@@ -1284,6 +1299,9 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         </section>
       ) : (
         <section className="reader-no-pages"><BookOpen size={28} /><h2>{t(pageLoadError ? "Halaman komik belum dapat dimuat." : kidsMode ? "Cerita ini belum memiliki halaman." : "Episode ini belum memiliki halaman.")}</h2><p>{t(pageLoadError ? "Periksa koneksi lalu muat ulang halaman ini." : "Kembali lagi nanti untuk membaca cerita ini.")}</p>{pageLoadError ? <button onClick={() => window.location.reload()}>{t("Coba lagi")}</button> : <Link href={`/comic/${comic.slug}`}>{t("Kembali ke komik")}</Link>}</section>
+      )}
+      {!kidsMode && currentChapterRead && chapterEndReached && (
+        <AdsterraAd placement="reader" />
       )}
 
       <button
@@ -1342,6 +1360,10 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
             placement="transition"
             comicId={comic.id}
             onCampaignAvailability={reportTransitionAdAvailability}
+          />
+          <AdsterraAd
+            placement="transition"
+            onAvailabilityChange={reportTransitionAdsterraAvailability}
           />
           {transitionAdAvailable && transitionCountdown !== null && (
             transitionCountdown > 0

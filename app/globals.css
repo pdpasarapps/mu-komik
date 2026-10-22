@@ -1850,11 +1850,27 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 }
 .reader-transition-ad-loading, .reader-transition-ad-countdown { min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; color: #c4cdc7; font-size: .84rem; }
 .reader-transition-ad-dialog > .reader-episode-next-action { min-width: min(280px, 100%); min-height: 46px; }
+.adsterra-slot { width: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 5px; margin: 14px auto; overflow: hidden; }
+.adsterra-slot-label { color: #78817b; font-size: .56rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+.adsterra-slot-frame { display: block; max-width: 100%; border: 0; background: #fff; }
+.adsterra-slot-home { width: min(100%, 1080px); padding: 0 16px; }
+.adsterra-slot-catalog { grid-column: 1 / -1; margin: 10px 0 14px; }
+.adsterra-slot-comic { width: min(1080px, calc(100% - 40px)); margin: 4px auto 26px; }
+.adsterra-slot-reader { width: min(960px, calc(100% - 32px)); margin: 22px auto; scroll-margin-top: 62px; }
+.adsterra-slot-transition { width: 100%; margin: 4px 0; }
+.adsterra-slot-native .adsterra-slot-frame { width: min(100%, 960px) !important; height: 300px !important; }
+.reader-ad-pair { display: grid; justify-items: center; gap: 14px; }
+.reader-ad-pair-home { width: min(100%, 1080px); margin: 0 auto; }
+.reader-ad-pair-home > .reader-sponsored-ad-home { width: 100%; margin: 18px 0 0; padding: 0 16px; box-sizing: border-box; }
+.reader-ad-pair-comic { width: 100%; }
+.adsterra-slot-reader { margin-top: 28px; margin-bottom: 32px; }
 @media (max-width: 640px) {
   .reader-transition-ad-backdrop { padding: 12px; }
   .reader-transition-ad-dialog { max-height: calc(100dvh - 24px); gap: 10px; padding: 18px 14px; }
   .reader-sponsored-ad-transition.reader-sponsored-ad-native { height: auto; aspect-ratio: 9 / 16; }
   .reader-sponsored-ad-transition.reader-sponsored-ad-native .reader-sponsored-ad-link { height: 100%; }
+  .adsterra-slot-home { padding-right: 0; padding-left: 0; }
+  .adsterra-slot-comic { width: 100%; }
 }
 .reader-episode-next-action, .reader-episode-secondary-action { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 13px; border-radius: 7px; font-size: .72rem; font-weight: 750; }
 .reader-episode-next-action { background: #f26b43; color: #1e2524; }.reader-episode-next-action:hover { background: #fa8663; }

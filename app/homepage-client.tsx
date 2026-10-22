@@ -10,6 +10,7 @@ import { COMIC_GENRES, getComicGenreLabel } from "@/lib/comic-genres";
 import BrandLogo from "@/components/brand-logo";
 import PlatformLinks from "@/components/platform-links";
 import SponsoredAd from "@/components/sponsored-ad";
+import AdsterraAd from "@/components/adsterra-ad";
 import { KidsModeToggle, useKidsMode, usePlatformSettings } from "./platform-runtime";
 import { useCurrentDevice } from "@/components/use-current-device";
 import { isComicAvailableOnDevice } from "@/lib/comic-target-device";
@@ -503,7 +504,10 @@ export default function HomePageClient({
           </section>
         )}
 
-        <SponsoredAd slotKey="home_banner" placement="home" />
+        <div className="reader-ad-pair reader-ad-pair-home">
+          <SponsoredAd slotKey="home_banner" placement="home" />
+          <AdsterraAd placement="home" />
+        </div>
 
         {!kidsMode && ongoingComics.length > 0 && (
           <section className="reader-home-section">
@@ -542,7 +546,12 @@ export default function HomePageClient({
           {catalogState === "ready" && searchedComics.length > 0 && <div className="reader-comic-grid">{paginatedComics.map((comic, index) => (
             <Fragment key={comic.id}>
               <ComicCard comic={comic} />
-              {pageStartIndex + index === 7 && searchedComics.length > 8 && <SponsoredAd slotKey="catalog_grid_native" placement="catalog" />}
+              {pageStartIndex + index === 7 && searchedComics.length > 8 && (
+                <Fragment key={`ad-pair-${comic.id}`}>
+                  <SponsoredAd slotKey="catalog_grid_native" placement="catalog" />
+                  <AdsterraAd placement="catalog" format="native" />
+                </Fragment>
+              )}
             </Fragment>
           ))}</div>}
           {catalogState === "ready" && searchedComics.length > comicsPerPage && (

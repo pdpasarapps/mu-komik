@@ -12,6 +12,7 @@ import PlatformLinks from "@/components/platform-links";
 import { getComicGenreLabel } from "@/lib/comic-genres";
 import { getKidsAgeLabel } from "@/lib/kids-curation";
 import SponsoredAd from "@/components/sponsored-ad";
+import AdsterraAd from "@/components/adsterra-ad";
 import { ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES, getMetadataLabel } from "@/lib/comic-metadata";
 import DeviceUnavailableNotice from "@/components/device-unavailable-notice";
 import { useCurrentDevice } from "@/components/use-current-device";
@@ -977,7 +978,10 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
           </section>
         </div>
       )}
-      <SponsoredAd slotKey="comic_detail_sponsor" placement="comic" comicId={comic.id} />
+      <div className="reader-ad-pair reader-ad-pair-comic">
+        <SponsoredAd slotKey="comic_detail_sponsor" placement="comic" comicId={comic.id} />
+        <AdsterraAd placement="comic" />
+      </div>
       {(chapterListLoading || chapters.length !== 1) && <section className="reader-episodes">
         {!kidsEpisodeGrid && <div className="reader-section-heading"><div><p className="reader-section-kicker">{t("LANJUTKAN CERITA")}</p><h2>{t("Episode")}</h2></div><span className="reader-result-count">{chapters.length} {t("episode")}</span></div>}
         {!kidsMode && membership.ready && membership.verified && (membership.tier === "premium" || membership.tier === "vip") && (
