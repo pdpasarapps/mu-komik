@@ -1393,7 +1393,7 @@ html[data-theme="dark"] .reader-home-article-quote blockquote { color: #a9b2ab; 
 .reader-seo-about-header > p:last-child { margin: 0; color: #59645d; font-size: .88rem; line-height: 1.7; }
 .reader-seo-about-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .reader-seo-about-grid article { display: grid; align-content: start; gap: 11px; padding: 19px; border: 1px solid var(--reader-border); border-radius: 10px; background: rgba(255,255,255,.48); }
-.reader-seo-about-image { position: relative; overflow: hidden; aspect-ratio: 3 / 4; margin: -19px -19px 5px; border-radius: 9px 9px 0 0; background: #e8f4f7; }
+.reader-seo-about-image { position: relative; overflow: hidden; aspect-ratio: 2 / 1; margin: -19px -19px 5px; border-radius: 9px 9px 0 0; background: #e8f4f7; }
 .reader-seo-about-image img { object-fit: cover; object-position: center 42%; }
 .reader-seo-about-grid h3 { margin: 0; font-size: .98rem; letter-spacing: -.025em; }
 .reader-seo-about-grid p { margin: 0; color: #5e6961; font-size: .77rem; line-height: 1.65; }
