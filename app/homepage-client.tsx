@@ -146,6 +146,7 @@ function ComicCard({ comic, compact = false, overlayDetails = false, landscapeCa
   const chapter = comic.latestChapter;
   const { kidsMode } = useKidsMode();
   const { t } = useLocale();
+  const kidsAgeLabel = getKidsAgeLabel(comic.kidsAgeRange);
   const authorName = comic.contributor.trim().replace(/^penulis\s*:\s*/i, "").trim() || comic.creator;
   const creatorProfile = !kidsMode && comic.creatorHandle && comic.creatorProfilePublic
     ? `/kreator/${encodeURIComponent(comic.creatorHandle)}`
@@ -153,7 +154,7 @@ function ComicCard({ comic, compact = false, overlayDetails = false, landscapeCa
   const comicInfo = (
     <div className="reader-comic-info">
       {!overlayDetails && <><span className="reader-card-genre">{t(comicGenre(comic.genre))}</span><h3>{comic.title}</h3></>}
-      {kidsMode && comic.kidsModeApproved && getKidsAgeLabel(comic.kidsAgeRange) && <span className="kids-comic-age-badge">{getKidsAgeLabel(comic.kidsAgeRange)}</span>}
+      {kidsMode && comic.kidsModeApproved && kidsAgeLabel && <span className="kids-comic-age-badge">{t(kidsAgeLabel)}</span>}
       {!kidsMode && <div className={overlayDetails ? "reader-card-author" : undefined}>
         <p title={authorName}>{authorName}</p>
         {overlayDetails && creatorProfile && <Link className="reader-card-creator-shortcut" href={creatorProfile} aria-label={`Lihat profil kreator ${authorName}`} title="Profil kreator"><ArrowUpRight size={13} /></Link>}
@@ -496,7 +497,7 @@ export default function HomePageClient({
             <div className="reader-section-heading"><div><p className="reader-section-kicker">{t("KEMBALI KE CERITAMU")}</p><h2>{t("Lanjutkan membaca")}</h2></div></div>
             <Link className="reader-continue-card" href={`/comic/${continueReading.comic.slug}/chapter/${continueReading.chapterId}`}>
               <div className="reader-continue-cover">{continueReading.comic.coverUrl && <img src={continueReading.comic.coverUrl} alt="" loading="lazy" />}</div>
-              <div className="reader-continue-info"><span>{t(comicGenre(continueReading.comic.genre))}</span><h3>{continueReading.comic.title}</h3>{kidsMode && continueReading.comic.kidsModeApproved && getKidsAgeLabel(continueReading.comic.kidsAgeRange) && <span className="kids-comic-age-badge">{getKidsAgeLabel(continueReading.comic.kidsAgeRange)}</span>}<p>{kidsMode ? `${t("Bagian")} ${continueReading.chapterNumber}` : `${t("Episode")} ${continueReading.chapterNumber}`} · {continueReading.chapterTitle}</p><span className="reader-continue-progress">{t("Terakhir dibaca di halaman")} {continueReading.lastPage}{continueReading.pageCount ? ` ${t("dari")} ${continueReading.pageCount}` : ""}</span>{continueReading.pageCount > 0 && <span className="reader-continue-progressbar" role="progressbar" aria-label={t("Progres membaca")} aria-valuemin={0} aria-valuemax={continueReading.pageCount} aria-valuenow={Math.min(continueReading.pageCount, continueReading.lastPage)}><i style={{ width: `${Math.min(100, (continueReading.lastPage / continueReading.pageCount) * 100)}%` }} /></span>}</div>
+              <div className="reader-continue-info"><span>{t(comicGenre(continueReading.comic.genre))}</span><h3>{continueReading.comic.title}</h3>{kidsMode && continueReading.comic.kidsModeApproved && getKidsAgeLabel(continueReading.comic.kidsAgeRange) && <span className="kids-comic-age-badge">{t(getKidsAgeLabel(continueReading.comic.kidsAgeRange) ?? "")}</span>}<p>{kidsMode ? `${t("Bagian")} ${continueReading.chapterNumber}` : `${t("Episode")} ${continueReading.chapterNumber}`} · {continueReading.chapterTitle}</p><span className="reader-continue-progress">{t("Terakhir dibaca di halaman")} {continueReading.lastPage}{continueReading.pageCount ? ` ${t("dari")} ${continueReading.pageCount}` : ""}</span>{continueReading.pageCount > 0 && <span className="reader-continue-progressbar" role="progressbar" aria-label={t("Progres membaca")} aria-valuemin={0} aria-valuemax={continueReading.pageCount} aria-valuenow={Math.min(continueReading.pageCount, continueReading.lastPage)}><i style={{ width: `${Math.min(100, (continueReading.lastPage / continueReading.pageCount) * 100)}%` }} /></span>}</div>
               <span className="reader-continue-action">{t("Lanjutkan")} <ArrowRight size={17} /></span>
             </Link>
           </section>

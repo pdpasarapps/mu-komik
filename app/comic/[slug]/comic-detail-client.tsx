@@ -845,6 +845,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const synopsis = cleanSynopsis(comic.synopsis);
   const synopsisCanExpand = synopsis.length > 220;
   const latestChapterNumber = Math.max(0, ...chapters.map((chapter) => chapter.chapter_number));
+  const kidsAgeLabel = getKidsAgeLabel(comic.kids_age_range);
 
   return (
     <main className={`reader-detail-page reader-comic-detail-page${kidsEpisodeGrid ? " reader-comic-detail-kids-grid" : ""}${kidsTabletLandscape ? " reader-comic-detail-kids-landscape" : ""}`}>
@@ -858,7 +859,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
           <div className="reader-detail-cover">
             {coverUrl ? <img src={coverUrl} alt={`Sampul ${comic.title}`} fetchPriority="high" /> : <span>{comic.title.slice(0, 2).toUpperCase()}</span>}
           </div>
-          {kidsMode && comic.kids_mode_approved && getKidsAgeLabel(comic.kids_age_range) && <span className="kids-comic-age-badge">{getKidsAgeLabel(comic.kids_age_range)}</span>}
+          {kidsMode && comic.kids_mode_approved && kidsAgeLabel && <span className="kids-comic-age-badge">{t(kidsAgeLabel)}</span>}
           {kidsEpisodeGrid && (
             <button
               ref={kidsDescriptionTriggerRef}
