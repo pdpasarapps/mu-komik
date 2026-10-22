@@ -38,17 +38,25 @@ type Chapter = {
   subtitle_page_map?: Record<string, string> | null;
 };
 type Comic = { id: string; title: string; slug: string; target_device: ComicTargetDevice; kids_mode_approved: boolean; kids_age_range: "4_6" | "7_9" | "10_12" | null };
-type BookLeaf = { kind: "page"; page: Page; pageIndex: number } | { kind: "ad"; afterPageIndex: number } | { kind: "blank" } | { kind: "end" };
+type ReaderAdKind = "internal" | "adsterra";
+type BookLeaf = { kind: "page"; page: Page; pageIndex: number } | { kind: "ad"; afterPageIndex: number; provider: ReaderAdKind } | { kind: "blank" } | { kind: "end" };
 type BookTurn = { from: number; to: number; direction: "next" | "previous" };
 export type ChapterReaderSeed = { chapter: Chapter; comic: Comic };
 
+function getReaderAdKind(pageNumber: number): ReaderAdKind | null {
+  if (pageNumber % 10 === 0) return "adsterra";
+  if (pageNumber % 5 === 0) return "internal";
+  return null;
+}
+
 function getDesktopBookLeaves(pages: Page[], includeAds: boolean): BookLeaf[] {
-  const leaves: BookLeaf[] = pages.flatMap((page, pageIndex) => [
-    { kind: "page" as const, page, pageIndex },
-    ...(includeAds && (pageIndex + 1) % 5 === 0 && pageIndex < pages.length - 1
-      ? [{ kind: "ad" as const, afterPageIndex: pageIndex }]
-      : []),
-  ]);
+  const leaves: BookLeaf[] = pages.flatMap((page, pageIndex) => {
+    const adKind = includeAds ? getReaderAdKind(pageIndex + 1) : null;
+    return [
+      { kind: "page" as const, page, pageIndex },
+      ...(adKind ? [{ kind: "ad" as const, afterPageIndex: pageIndex, provider: adKind }] : []),
+    ];
+  });
   if (leaves.length % 2 !== 0) leaves.push({ kind: "blank" });
   if (pages.length) leaves.push({ kind: "end" });
   return leaves;
@@ -1134,9 +1142,9 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                     {bookLeaves.slice(bookTurn.from * 2, bookTurn.from * 2 + 2).map((leaf, offset) => {
                       const page = leaf.kind === "page" ? leaf.page : null;
                       const src = page ? pageUrl(page) : null;
-                      const leafKey = leaf.kind === "page" ? leaf.page.id : leaf.kind === "ad" ? `ad-after-${leaf.afterPageIndex}` : leaf.kind;
+                      const leafKey = leaf.kind === "page" ? leaf.page.id : leaf.kind === "ad" ? `${leaf.provider}-ad-after-${leaf.afterPageIndex}` : leaf.kind;
                       return (
-                        <div className={`reader-book-paper${offset === 0 ? " reader-book-paper-left" : " reader-book-paper-right"}${leaf.kind === "ad" ? " reader-book-paper-ad" : ""}${leaf.kind === "end" ? " reader-book-paper-end" : ""}`} key={leafKey}>
+                        <div className={`reader-book-paper${offset === 0 ? " reader-book-paper-left" : " reader-book-paper-right"}${leaf.kind === "ad" ? ` reader-book-paper-ad${leaf.provider === "adsterra" ? " reader-book-paper-adsterra" : ""}` : ""}${leaf.kind === "end" ? " reader-book-paper-end" : ""}`} key={leafKey}>
                           {page && src && <img src={src} alt="" draggable={false} />}
                           {leaf.kind === "page" && <span className="reader-book-page-number">{leaf.page.page_number}</span>}
                           {leaf.kind === "end" && currentChapterRead && episodeEndContent}
@@ -1149,10 +1157,12 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                   {activeBookLeaves.map((leaf, offset) => {
                     const page = leaf.kind === "page" ? leaf.page : null;
                     const src = page ? pageUrl(page) : null;
-                    const leafKey = leaf.kind === "page" ? leaf.page.id : leaf.kind === "ad" ? `ad-after-${leaf.afterPageIndex}` : leaf.kind;
+                    const leafKey = leaf.kind === "page" ? leaf.page.id : leaf.kind === "ad" ? `${leaf.provider}-ad-after-${leaf.afterPageIndex}` : leaf.kind;
                     return (
-                      <div className={`reader-book-paper${offset === 0 ? " reader-book-paper-left" : " reader-book-paper-right"}${leaf.kind === "ad" ? " reader-book-paper-ad" : ""}${leaf.kind === "end" ? " reader-book-paper-end" : ""}`} key={leafKey} data-reader-page={leaf.kind === "page" ? leaf.pageIndex : undefined}>
-                        {leaf.kind === "ad" ? (
+                      <div className={`reader-book-paper${offset === 0 ? " reader-book-paper-left" : " reader-book-paper-right"}${leaf.kind === "ad" ? ` reader-book-paper-ad${leaf.provider === "adsterra" ? " reader-book-paper-adsterra" : ""}` : ""}${leaf.kind === "end" ? " reader-book-paper-end" : ""}`} key={leafKey} data-reader-page={leaf.kind === "page" ? leaf.pageIndex : undefined}>
+                        {leaf.kind === "ad" && leaf.provider === "adsterra" ? (
+                          <AdsterraAd placement="reader" />
+                        ) : leaf.kind === "ad" ? (
                           <SponsoredAd
                             slotKey="reader_mid_chapter"
                             placement="reader"
@@ -1276,7 +1286,10 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                         : <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div>}
                       {src && <div className="reader-watermark-overlay reader-page-watermark" aria-hidden="true">{Array.from({ length: 6 }, (_, watermarkIndex) => <span key={watermarkIndex}>{watermarkLabel}</span>)}</div>}
                       </div>
-                      {(index + 1) % 5 === 0 && index < pages.length - 1 && (
+                      {!kidsMode && membership.ready && membership.tier === "free" && getReaderAdKind(index + 1) === "adsterra" && (
+                        <AdsterraAd key={`adsterra-after-page-${page.page_number}`} placement="reader" />
+                      )}
+                      {!kidsMode && membership.ready && membership.tier === "free" && getReaderAdKind(index + 1) === "internal" && (
                         <SponsoredAd
                           key={`mid-chapter-ad-${page.page_number}`}
                           slotKey="reader_mid_chapter"
@@ -1300,10 +1313,6 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       ) : (
         <section className="reader-no-pages"><BookOpen size={28} /><h2>{t(pageLoadError ? "Halaman komik belum dapat dimuat." : kidsMode ? "Cerita ini belum memiliki halaman." : "Episode ini belum memiliki halaman.")}</h2><p>{t(pageLoadError ? "Periksa koneksi lalu muat ulang halaman ini." : "Kembali lagi nanti untuk membaca cerita ini.")}</p>{pageLoadError ? <button onClick={() => window.location.reload()}>{t("Coba lagi")}</button> : <Link href={`/comic/${comic.slug}`}>{t("Kembali ke komik")}</Link>}</section>
       )}
-      {!kidsMode && currentChapterRead && chapterEndReached && (
-        <AdsterraAd placement="reader" />
-      )}
-
       <button
         className="reader-controls-toggle"
         onClick={() => {

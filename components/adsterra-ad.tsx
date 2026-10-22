@@ -20,10 +20,11 @@ const DISPLAY_ZONES = {
 const NATIVE_ZONE = "7638d28d7b56e0ee6c1ecf5d0e1c8cc3";
 
 function getDisplayZone(placement: AdPlacement, viewportWidth: number): DisplayZone {
-  if (placement === "home" || placement === "reader") {
+  if (placement === "reader") return DISPLAY_ZONES["160x300"];
+  if (placement === "home") {
     if (viewportWidth <= 640) return DISPLAY_ZONES["320x50"];
     if (viewportWidth <= 1023) return DISPLAY_ZONES["468x60"];
-    return placement === "reader" ? DISPLAY_ZONES["300x250"] : DISPLAY_ZONES["728x90"];
+    return DISPLAY_ZONES["728x90"];
   }
   return DISPLAY_ZONES["300x250"];
 }

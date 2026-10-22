@@ -1701,6 +1701,7 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 @keyframes reader-book-turn-next { from { transform: rotateY(0); } to { transform: rotateY(-180deg); } }
 @keyframes reader-book-turn-previous { from { transform: translateX(-100%) rotateY(0); } to { transform: translateX(-100%) rotateY(180deg); } }
 .reader-book-paper-ad { padding: 12px 20px 12px 0; background: #fff; }
+.reader-book-paper-adsterra { padding-right: 10px; padding-left: 10px; }
 .reader-book-paper-end { padding: 0; background: #272d2a; }
 @media (min-width: 641px) and (max-width: 1050px) and (orientation: landscape) {
   .reader-book-paper { padding-top: 8px; padding-bottom: 8px; }
@@ -1722,6 +1723,9 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .reader-book-paper-ad .reader-sponsored-ad-reader .reader-sponsored-ad-sponsor,
 .reader-book-paper-ad .reader-sponsored-ad-reader .reader-sponsored-ad-description,
 .reader-book-paper-ad .reader-sponsored-ad-reader .reader-sponsored-ad-cta { color: rgba(255,255,255,.9); }
+.reader-book-paper-adsterra > .adsterra-slot-reader { position: relative; width: min(100%, 168.75px); min-height: 0; aspect-ratio: 9 / 16; align-self: center; display: grid; place-items: center; margin: auto; overflow: visible; }
+.reader-book-paper-adsterra > .adsterra-slot-reader .adsterra-slot-label { position: absolute; top: -17px; }
+.reader-book-paper-adsterra > .adsterra-slot-reader .adsterra-slot-frame { width: 160px !important; max-width: 100%; height: 300px !important; max-height: 100%; }
 .reader-book-house-ad { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 28px; background: radial-gradient(circle at 50% 22%, #344c42, #1c2722 68%); color: #f6f4ed; text-align: center; }
 .reader-book-house-ad-icon { width: 60px; height: 60px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.2); border-radius: 50%; background: rgba(255,255,255,.08); color: #a6d7c1; }
 .reader-book-house-ad-kicker { color: #b9d9c9; font-size: .59rem; font-weight: 850; letter-spacing: .14em; }
@@ -1856,7 +1860,9 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .adsterra-slot-home { width: min(100%, 1080px); padding: 0 16px; }
 .adsterra-slot-catalog { grid-column: 1 / -1; margin: 10px 0 14px; }
 .adsterra-slot-comic { width: min(1080px, calc(100% - 40px)); margin: 4px auto 26px; }
-.adsterra-slot-reader { width: min(960px, calc(100% - 32px)); margin: 22px auto; scroll-margin-top: 62px; }
+.adsterra-slot-reader { position: relative; width: min(100%, 168.75px); aspect-ratio: 9 / 16; display: grid; place-items: center; margin: 22px auto; overflow: visible; scroll-margin-top: 62px; }
+.adsterra-slot-reader .adsterra-slot-label { position: absolute; top: -17px; }
+.adsterra-slot-reader .adsterra-slot-frame { width: 160px !important; height: 300px !important; }
 .adsterra-slot-transition { width: 100%; margin: 4px 0; }
 .adsterra-slot-native .adsterra-slot-frame { width: min(100%, 960px) !important; height: 300px !important; }
 .reader-ad-pair { display: grid; justify-items: center; gap: 14px; }
