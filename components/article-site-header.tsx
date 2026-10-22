@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import { useLocale } from "@/components/locale-provider";

@@ -103,7 +103,7 @@ export function ArticleDetailContent({ article, cover, baseUrl }: { article: Art
           <div className="article-detail-meta"><span>{author}</span><time dateTime={article.published_at}>{new Date(article.published_at).toLocaleDateString(locale === "id" ? "id-ID" : "en-US", { day: "numeric", month: "long", year: "numeric" })}</time></div>
         </header>
         {cover && <Image className="article-detail-cover" src={cover} alt={`${t("Ilustrasi artikel")}: ${title}`} width={1200} height={800} unoptimized fetchPriority="high" />}
-        <MarkdownContent content={content} />
+        <MarkdownContent content={content} middleContent={<ArticleAdPlacement />} />
         <ArticleAdPlacement />
         <footer className="article-detail-footer"><Link href="/artikel">← {t("Kembali ke semua artikel")}</Link></footer>
       </article>
