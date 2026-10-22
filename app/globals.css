@@ -2297,7 +2297,11 @@ html[data-theme="dark"] .admin-shell .admin-sidebar { border-color: var(--line);
 @media (max-width: 520px) { .creator-public-identity-copy { align-items: center; flex-direction: row; justify-content: space-between; gap: 8px; }.creator-public-identity-copy h1 { min-width: 0; flex: 1; font-size: clamp(1.45rem, 6vw, 1.9rem); }.creator-profile-share { flex: 0 0 auto; }.creator-profile-share .reader-detail-action { min-height: 40px; padding: 0 10px; font-size: .7rem; } }
 
 .admin-shell { min-height: 100vh; padding: 0 2% 7%; }
-.admin-sidebar { z-index: 20; padding: 26px 18px 18px; }
+.admin-sidebar { z-index: 20; height: calc(100vh - 48px); min-height: 0; padding: 26px 18px 18px; overflow: hidden; }
+.admin-sidebar-links { min-height: 0; flex: 1 1 auto; align-content: start; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-color: #7eaaa0 transparent; scrollbar-width: thin; }
+.admin-sidebar-links::-webkit-scrollbar { width: 5px; }
+.admin-sidebar-links::-webkit-scrollbar-track { background: transparent; }
+.admin-sidebar-links::-webkit-scrollbar-thumb { border-radius: 999px; background: #7eaaa0; }
 .admin-brand { display: flex; align-items: center; min-height: 52px; margin: 0 9px 34px; }
 .admin-brand .wordmark-image { width: 46px; height: 46px; }
 .admin-sidebar-label { margin: 0 10px 8px; color: #8a918b; font-size: .62rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
@@ -2315,7 +2319,7 @@ html[data-theme="dark"] .admin-shell .admin-sidebar { border-color: var(--line);
 .admin-sidebar-links a[aria-current="page"] svg { color: var(--orange); }
 .admin-sidebar-links a:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .admin-sidebar-links a + .admin-sidebar-label { margin-top: 16px; }
-.admin-sidebar-user { position: absolute; inset: auto 18px 18px; display: grid; grid-template-columns: 38px minmax(0,1fr) 34px; align-items: center; gap: 9px; padding-top: 15px; border-top: 1px solid var(--line); }
+.admin-sidebar-user { position: static; inset: auto; display: grid; flex: 0 0 auto; grid-template-columns: 38px minmax(0,1fr) 34px; align-items: center; gap: 9px; margin-top: auto; padding-top: 15px; border-top: 1px solid var(--line); }
 .admin-user-avatar { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: #fff0e9; color: #a8492f; }
 .admin-sidebar-user > span:nth-child(2) { min-width: 0; display: grid; gap: 3px; }
 .admin-sidebar-user strong { font-size: .72rem; }
@@ -2335,11 +2339,12 @@ html[data-theme="dark"] .admin-shell .admin-sidebar { border-color: var(--line);
 @media (max-width: 900px) {
   .admin-shell { padding: 0 4% 10%; }
   .admin-sidebar { position: sticky; inset: auto; width: 100%; min-height: 0; padding: 10px 4vw; border-right: 0; border-bottom: 1px solid var(--line); }
+  .admin-sidebar { height: auto; overflow: visible; }
   .admin-brand, .admin-sidebar-user { display: none; }
   .admin-sidebar-label, .admin-sidebar-group-label { display: none; }
   .admin-sidebar-group { display: contents; }
   .admin-sidebar-group + .admin-sidebar-group { margin-top: 0; }
-  .admin-sidebar-links { display: flex; gap: 7px; overflow-x: auto; overscroll-behavior-x: contain; scroll-padding-inline: 12px; scroll-snap-type: x proximity; scrollbar-color: #7eaaa0 transparent; scrollbar-width: thin; }
+  .admin-sidebar-links { min-height: 0; flex: 0 1 auto; display: flex; gap: 7px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scroll-padding-inline: 12px; scroll-snap-type: x proximity; scrollbar-color: #7eaaa0 transparent; scrollbar-width: thin; }
   .admin-sidebar-links::-webkit-scrollbar { height: 4px; }
   .admin-sidebar-links::-webkit-scrollbar-track { background: transparent; }
   .admin-sidebar-links::-webkit-scrollbar-thumb { border-radius: 999px; background: #7eaaa0; }
