@@ -6,7 +6,8 @@ alter type public.user_role add value if not exists 'staff' after 'creator';
 alter table public.profiles
   add column if not exists is_staff boolean not null default false,
   add column if not exists staff_title text not null default '',
-  add column if not exists staff_permissions text[] not null default '{}';
+  add column if not exists staff_permissions text[] not null default '{}',
+  add column if not exists staff_contact_categories text[] not null default '{}';
 
 alter table public.profiles
   drop constraint if exists profiles_staff_permissions_valid;
@@ -17,6 +18,17 @@ alter table public.profiles
       'users', 'admins', 'staf', 'readers', 'kreator', 'comics', 'articles',
       'share-previews', 'ad-requests', 'sponsor-campaigns', 'ad-slots',
       'homepage-promos', 'platform-settings', 'contact-messages'
+    ]::text[]
+  );
+
+alter table public.profiles
+  drop constraint if exists profiles_staff_contact_categories_valid;
+alter table public.profiles
+  add constraint profiles_staff_contact_categories_valid check (
+    staff_contact_categories <@ array[
+      'account_login', 'comic_reading', 'blocked_account', 'appeal', 'membership',
+      'payment_tokens', 'payment_other', 'creator_publishing', 'content_report',
+      'technical_issue', 'other'
     ]::text[]
   );
 

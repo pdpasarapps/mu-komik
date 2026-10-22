@@ -501,10 +501,86 @@ button, input, select { font: inherit; }
 .contact-form-message-success { color: #28724e; }
 .contact-form-message-error { color: #a33b2c; }
 .contact-form-honeypot { position: absolute; left: -10000px; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.contact-message-reply-form, .account-system-message-form form { display: grid; gap: 12px; margin-top: 18px; }
+.contact-message-reply-form label, .account-system-message-form form label { display: grid; gap: 6px; color: #59665f; font-size: .8rem; font-weight: 800; }
+.contact-message-reply-form textarea, .account-system-message-form input, .account-system-message-form textarea { width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); font: inherit; font-size: .85rem; }
+.contact-message-reply-form textarea, .account-system-message-form textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
+.contact-message-reply-form button, .account-system-message-form button { width: fit-content; }
+.contact-message-tabs { display: flex; gap: 5px; margin-bottom: 19px; border-bottom: 1px solid var(--line); }
+.contact-message-tabs button { min-height: 43px; display: inline-flex; align-items: center; gap: 9px; padding: 0 14px; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: transparent; color: #758078; font: inherit; font-size: .76rem; font-weight: 750; cursor: pointer; }
+.contact-message-tabs button[aria-selected="true"] { border-bottom-color: var(--orange); color: var(--ink); }
+.contact-message-tabs button:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
+.contact-message-tabs button span { min-width: 21px; height: 21px; display: inline-grid; place-items: center; padding: 0 5px; border-radius: 999px; background: #efede6; color: #59655d; font-size: .65rem; }
+.contact-message-tabs button[aria-selected="true"] span { background: #fff0e9; color: #a8492f; }
+.contact-messages-list [role="tabpanel"]:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
+.contact-messages-list [role="tabpanel"][hidden] { display: none; }
+.contact-message-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.contact-message-toolbar .contact-messages-summary { margin: 0; color: #758078; font-size: .75rem; }
+.contact-message-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.contact-message-filters label { display: flex; align-items: center; gap: 7px; color: #59655d; font-size: .75rem; font-weight: 750; }
+.contact-message-filters select { min-height: 40px; min-width: 150px; padding: 0 30px 0 10px; border: 1px solid var(--line); border-radius: 7px; background: #fffdf8; color: var(--ink); font: inherit; font-size: .76rem; }
+.contact-message-card { gap: 14px; }
+.contact-message-card .contact-message-email { display: inline-flex; align-items: center; gap: 6px; color: #59655d; font-size: .78rem; overflow-wrap: anywhere; }
+.contact-message-read-status { width: fit-content; margin: -4px 0 0; padding: 4px 8px; border-radius: 999px; font-size: .68rem; font-weight: 800; }
+.contact-message-read-status.is-unread { background: #fff0e9; color: #a8492f; }
+.contact-message-read-status.is-read { background: #edf3ef; color: #397252; }
+.contact-message-body { margin: 0; padding: 14px 16px; border-radius: 7px; background: #f4f3ee; color: #3f4943; font-size: .86rem; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.contact-message-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.contact-message-status-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.contact-message-reply-button { margin-left: auto; }
+.contact-message-actions label { display: inline-flex; align-items: center; gap: 9px; color: #59655d; font-size: .75rem; font-weight: 750; }
+.contact-message-actions select { min-height: 42px; min-width: 160px; padding: 0 32px 0 11px; border: 1px solid var(--line); border-radius: 7px; background: #fffdf8; color: var(--ink); font: inherit; font-size: .78rem; }
+.contact-message-actions .button { height: 42px; min-height: 42px; display: inline-flex; align-items: center; justify-content: center; padding: 0 16px; }
+@media (max-width: 640px) {
+  .contact-message-toolbar { align-items: stretch; }
+  .contact-message-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .contact-message-filters label { align-items: stretch; flex-direction: column; }
+  .contact-message-filters select { width: 100%; min-width: 0; }
+  .contact-message-actions { align-items: stretch; }
+  .contact-message-status-controls { flex: 1 1 100%; }
+  .contact-message-status-controls label { flex: 1 1 auto; justify-content: space-between; }
+  .contact-message-status-controls select { min-width: 0; }
+  .contact-message-reply-button { margin-left: auto; }
+}
+.contact-reply-dialog { position: fixed; inset: auto; top: 50%; left: 50%; width: min(calc(100% - 32px), 560px); max-height: min(90vh, 760px); max-height: min(90dvh, 760px); margin: 0; padding: 0; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; background: #fffdf8; color: var(--ink); box-shadow: 0 24px 80px rgba(0,0,0,.28); transform: translate(-50%, -50%); }
+.contact-reply-dialog::backdrop { background: rgba(15, 20, 17, .58); }
+.contact-reply-dialog .contact-message-reply-form { margin: 0; padding: clamp(20px, 4vw, 30px); }
+.contact-reply-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.contact-reply-dialog-heading .eyebrow { margin-bottom: 7px; }
+.contact-reply-dialog-heading h2 { font-size: clamp(1.6rem, 4vw, 2rem); letter-spacing: -.05em; }
+.contact-reply-dialog-heading .icon-button { flex: 0 0 auto; }
+.contact-reply-dialog .contact-message-reply-form input { width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: #f2f2ed; color: var(--ink); font: inherit; font-size: .85rem; }
+.contact-reply-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; margin-top: 4px; }
+.contact-reply-dialog-actions button { min-height: 42px; }
+.contact-reply-dialog button:disabled { cursor: wait; opacity: .7; }
+.account-system-message-form { margin-bottom: 20px; }
+.account-system-message-form .admin-setting-heading h3 { display: flex; align-items: center; gap: 8px; }
+.account-message-list { display: grid; gap: 12px; }
+.account-message-card { padding: 18px; border: 1px solid var(--line); border-radius: 9px; background: #fffdf8; }
+.account-message-card.unread { border-color: rgba(242, 107, 67, .55); box-shadow: inset 3px 0 var(--orange); }
+.account-message-card > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.account-message-kind { display: inline-flex; align-items: center; gap: 6px; color: #7a4b39; font-size: .75rem; font-weight: 800; }
+.account-message-card time, .account-message-read { color: #77827b; font-size: .75rem; }
+.account-message-card h3 { margin: 12px 0 7px; font-size: 1.05rem; }
+.account-message-card > p { margin: 0; color: #626e67; font-size: .9rem; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.account-message-read { display: block; margin-top: 10px; }
+.account-message-error { margin: 0 0 16px; color: #a33b2c; font-size: .85rem; }
 html[data-theme="dark"] .contact-form-section { background: #222825; }
 html[data-theme="dark"] .contact-form-auth-state, html[data-theme="dark"] .contact-form-profile-note { color: #c3cbc5; }
 html[data-theme="dark"] .contact-form > label:not(.contact-form-honeypot) { color: #c3cbc5; }
 html[data-theme="dark"] .contact-form input, html[data-theme="dark"] .contact-form select, html[data-theme="dark"] .contact-form textarea { background: #171c19; color: var(--ink); }
+html[data-theme="dark"] .account-message-card { background: #222825; }
+html[data-theme="dark"] .account-message-card > p, html[data-theme="dark"] .account-message-kind { color: #c3cbc5; }
+html[data-theme="dark"] .contact-message-reply-form label, html[data-theme="dark"] .account-system-message-form form label { color: #c3cbc5; }
+html[data-theme="dark"] .contact-message-reply-form textarea, html[data-theme="dark"] .account-system-message-form input, html[data-theme="dark"] .account-system-message-form textarea { background: #171c19; color: var(--ink); }
+html[data-theme="dark"] .contact-reply-dialog { border-color: var(--line); background: #222825; color: var(--ink); }
+html[data-theme="dark"] .contact-reply-dialog .contact-message-reply-form input { background: #171c19; color: var(--ink); }
+html[data-theme="dark"] .contact-message-body { background: #1a1f1c; color: #d4dbd5; }
+html[data-theme="dark"] .contact-message-card .contact-message-email, html[data-theme="dark"] .contact-message-actions label { color: #c3cbc5; }
+html[data-theme="dark"] .contact-message-actions select, html[data-theme="dark"] .contact-message-filters select { background: #171c19; color: var(--ink); }
+html[data-theme="dark"] .contact-message-toolbar .contact-messages-summary, html[data-theme="dark"] .contact-message-filters label { color: #c3cbc5; }
+html[data-theme="dark"] .contact-message-read-status.is-unread { background: #482d25; color: #ffad8c; }
+html[data-theme="dark"] .contact-message-read-status.is-read { background: #253a2e; color: #9bd2ae; }
 @media (max-width: 640px) {
   .contact-form-section { margin-bottom: 48px; padding: 20px 16px; }
   .contact-form { grid-template-columns: minmax(0, 1fr); }
@@ -1147,6 +1223,7 @@ html[data-theme="dark"] .admin-user-actions-column { background: #222825; box-sh
 .admin-staff-permissions > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .admin-user-edit-form .admin-staff-permissions label { display: flex; grid-template-columns: none; align-items: center; gap: 9px; color: var(--ink); font-size: .75rem; font-weight: 500; cursor: pointer; }
 .admin-user-edit-form .admin-staff-permissions input { flex: 0 0 16px; width: 16px; min-height: 16px; accent-color: var(--orange); }
+.admin-user-edit-form .admin-staff-contact-categories > p { margin: 0; color: #758078; font-size: .72rem; line-height: 1.5; }
 html[data-theme="dark"] .admin-staff-permissions { background: #222825; }
 @media (max-width: 540px) { .admin-staff-permissions > div { grid-template-columns: 1fr; } }
 .admin-user-filters { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; }.admin-user-filters .admin-search { flex: 1; }.admin-user-role-filter { display: flex; align-items: center; gap: 8px; color: #77827b; font-size: .76rem; }.admin-user-role-filter select { min-height: 42px; border: 1px solid var(--line); padding: 9px 11px; background: #fffdf8; color: var(--ink); font: inherit; font-size: .76rem; }

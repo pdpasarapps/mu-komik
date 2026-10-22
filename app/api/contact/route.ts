@@ -82,7 +82,14 @@ export async function POST(request: NextRequest) {
     return errorResponse("Your account needs a valid name and email address to send a message.", 400);
   }
 
-  const { error } = await serviceClient.from("contact_messages").insert({ name, email, category, subject, message });
+  const { error } = await serviceClient.from("contact_messages").insert({
+    user_id: userData.user.id,
+    name,
+    email,
+    category,
+    subject,
+    message,
+  });
   if (error) {
     console.error("Unable to store contact form message:", error);
     return errorResponse("Message could not be sent. Please try again later.", 500);

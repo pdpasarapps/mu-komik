@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookOpen, Bookmark, CircleHelp, Home, LayoutDashboard, Library, Menu, Plus, Settings2, Sparkles, UserRound, X } from "lucide-react";
+import { BarChart3, BookOpen, Bookmark, CircleHelp, Home, LayoutDashboard, Library, Mail, Menu, Plus, Settings2, Sparkles, UserRound, X } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useLocale } from "@/components/locale-provider";
@@ -74,6 +74,7 @@ export default function AccountMobileNavigation() {
           <Link href="/"><Home size={19} /><span>{t("Beranda")}</span></Link>
           <Link href="/account/reading" className={current("reading") ? "active" : ""} aria-current={current("reading") ? "page" : undefined}><BookOpen size={19} /><span>{t("Baca")}</span></Link>
           <Link href="/account/favorites" className={current("favorites") ? "active" : ""} aria-current={current("favorites") ? "page" : undefined}><Bookmark size={19} /><span>{t("Favorit")}</span></Link>
+          <Link href="/account/messages" className={current("messages") ? "active" : ""} aria-current={current("messages") ? "page" : undefined}><Mail size={19} /><span>{t("Pesan")}</span></Link>
           <Link href="/account/account-settings" className={current("account-settings") ? "active" : ""} aria-current={current("account-settings") ? "page" : undefined}><Settings2 size={19} /><span>{t("Akun")}</span></Link>
           {isStaff && <Link href="/admin"><Settings2 size={19} /><span>{t("Staf")}</span></Link>}
         </> : <>
@@ -81,6 +82,7 @@ export default function AccountMobileNavigation() {
         <Link href="/"><Home size={19} /><span>{t("Beranda")}</span></Link>
         <Link href="/account/reading" className={current("reading") ? "active" : ""} aria-current={current("reading") ? "page" : undefined}><BookOpen size={19} /><span>{t("Baca")}</span></Link>
         <Link href="/account/favorites" className={current("favorites") ? "active" : ""} aria-current={current("favorites") ? "page" : undefined}><Bookmark size={19} /><span>{t("Favorit")}</span></Link>
+        <Link href="/account/messages" className={current("messages") ? "active" : ""} aria-current={current("messages") ? "page" : undefined}><Mail size={19} /><span>{t("Pesan")}</span></Link>
         {role === "creator" && <>
           <Link href="/account/creator" className={current("creator") ? "active" : ""} aria-current={current("creator") ? "page" : undefined}><Sparkles size={19} /><span>{t("Kreator")}</span></Link>
           <Link href="/account/komiku" className={current("komiku") || isComicEditor ? "active" : ""} aria-current={current("komiku") || isComicEditor ? "page" : undefined}><Library size={19} /><span>{t("Komikku")}</span></Link>

@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { CONTACT_CATEGORIES } from "@/lib/contact-categories";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const allowedRoles = ["reader", "creator"] as const;
@@ -9,6 +10,7 @@ const allowedStaffPermissions = new Set([
   "share-previews", "ad-requests", "sponsor-campaigns", "ad-slots",
   "homepage-promos", "platform-settings", "contact-messages",
 ]);
+const allowedContactCategories = new Set<string>(CONTACT_CATEGORIES.map((category) => category.value));
 const indefiniteBanDuration = "876000h";
 
 type UserAction = "edit" | "block" | "unblock" | "deactivate";
@@ -20,6 +22,7 @@ type ActionBody = {
   isStaff?: boolean;
   staffTitle?: string;
   staffPermissions?: string[];
+  staffContactCategories?: string[];
 };
 
 function errorResponse(message: string, status: number) {
@@ -106,6 +109,10 @@ export async function POST(request: NextRequest) {
     }
     const staffTitle = typeof body.staffTitle === "string" ? body.staffTitle.trim() : "";
     const staffPermissions = body.staffPermissions;
+    const staffContactCategories = body.staffContactCategories;
+    const receivesContactMessages = body.isStaff
+      && Array.isArray(staffPermissions)
+      && staffPermissions.includes("contact-messages");
     if (body.isStaff && (
       !staffTitle
       || staffTitle.length > 60
@@ -117,6 +124,15 @@ export async function POST(request: NextRequest) {
     )) {
       return errorResponse("A staff title and valid, non-duplicate permissions are required", 400);
     }
+    if (receivesContactMessages && (
+      !Array.isArray(staffContactCategories)
+      || staffContactCategories.length < 1
+      || staffContactCategories.length > allowedContactCategories.size
+      || !staffContactCategories.every((category) => typeof category === "string" && allowedContactCategories.has(category))
+      || new Set(staffContactCategories).size !== staffContactCategories.length
+    )) {
+      return errorResponse("Select one or more valid, non-duplicate contact message categories", 400);
+    }
     const { error } = await serviceClient
       .from("profiles")
       .update({
@@ -125,6 +141,9 @@ export async function POST(request: NextRequest) {
         is_staff: body.isStaff,
         staff_title: body.isStaff ? staffTitle : "",
         staff_permissions: body.isStaff ? staffPermissions : [],
+        staff_contact_categories: receivesContactMessages
+          ? staffContactCategories ?? []
+          : [],
         ...(body.role === "reader" ? { can_upload_audio: false } : {}),
       })
       .eq("id", body.userId);
@@ -140,6 +159,9 @@ export async function POST(request: NextRequest) {
         isStaff: body.isStaff,
         staffTitle: body.isStaff ? staffTitle : "",
         staffPermissions: body.isStaff ? staffPermissions : [],
+        staffContactCategories: receivesContactMessages
+          ? staffContactCategories ?? []
+          : [],
       },
     }, { headers: { "Cache-Control": "no-store" } });
   }

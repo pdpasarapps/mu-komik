@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import type { ReactNode } from "react";
-import { ArrowRight, ArrowUpRight, BarChart3, BookOpen, Bookmark, CircleHelp, Home, LayoutDashboard, Library, LogOut, Plus, Search, Settings2, Sparkles, Trash2, UserRound } from "lucide-react";
+import { ArrowRight, ArrowUpRight, BarChart3, BookOpen, Bookmark, CircleHelp, Home, LayoutDashboard, Library, LogOut, Mail, Plus, Search, Settings2, Sparkles, Trash2, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -12,6 +12,7 @@ import CreatorContent, { type CreatorArea } from "./creator-content";
 import CreatorAnalytics from "./creator-analytics";
 import ReaderPreferencesPanel from "@/components/reader-preferences-panel";
 import AccountSecuritySettings from "@/components/account-security-settings";
+import AccountMessagesPanel from "./messages-panel";
 import { getComicGenreLabel } from "@/lib/comic-genres";
 import { createCreatorHandle, isValidCreatorHandle } from "@/lib/creator-handle";
 import { getCreatorSocialPlaceholder, isValidCreatorSocialUrl, normalizeCreatorSocialUrl, parseCreatorSocialLinks, type CreatorSocialLink } from "@/lib/creator-social-links";
@@ -20,7 +21,7 @@ import { useReaderMembership } from "../membership-runtime";
 import { READER_MEMBERSHIP_TIERS } from "@/lib/reader-membership";
 import { useLocale } from "@/components/locale-provider";
 
-export type AccountSection = "overview" | "reading" | "favorites" | "account-settings" | "creator-application" | "creator-profile" | "creator-guide" | "comic-editor" | "analitik-komik" | CreatorArea;
+export type AccountSection = "overview" | "reading" | "favorites" | "messages" | "account-settings" | "creator-application" | "creator-profile" | "creator-guide" | "comic-editor" | "analitik-komik" | CreatorArea;
 const isCreatorArea = (section: AccountSection): section is CreatorArea =>
   section === "creator" || section === "komiku" || section === "terbitkan-komik";
 
@@ -454,6 +455,7 @@ export default function AccountContent({ section, children }: { section: Account
             <Link href="/"><Home size={17} /><span>{t("Beranda")}</span></Link>
             <Link className={section === "reading" ? "active" : ""} href="/account/reading" aria-current={section === "reading" ? "page" : undefined}><BookOpen size={17} /><span>{t("Lanjut membaca")}</span></Link>
             <Link className={section === "favorites" ? "active" : ""} href="/account/favorites" aria-current={section === "favorites" ? "page" : undefined}><Bookmark size={17} /><span>{t("Favorit")}</span></Link>
+            <Link className={section === "messages" ? "active" : ""} href="/account/messages" aria-current={section === "messages" ? "page" : undefined}><Mail size={17} /><span>{t("Pesan")}</span></Link>
             {settings.feature_flags.creators && <Link className={section === "creator-application" ? "active" : ""} href="/account/creator-application" aria-current={section === "creator-application" ? "page" : undefined}><Sparkles size={17} /><span>{t("Jadi kreator")}</span></Link>}
             <Link className={section === "account-settings" ? "active" : ""} href="/account/account-settings" aria-current={section === "account-settings" ? "page" : undefined}><Settings2 size={17} /><span>{t("Pengaturan")}</span></Link>
           </nav>
@@ -471,6 +473,7 @@ export default function AccountContent({ section, children }: { section: Account
           <p className="account-nav-label">{t("Pembaca")}</p>
           <Link className={`account-nav-link${section === "reading" ? " active" : ""}`} href="/account/reading" aria-current={section === "reading" ? "page" : undefined}><BookOpen size={18} /><span>{t("Lanjut membaca")}</span></Link>
           <Link className={`account-nav-link${section === "favorites" ? " active" : ""}`} href="/account/favorites" aria-current={section === "favorites" ? "page" : undefined}><Bookmark size={18} /><span>{t("Favorit")}</span></Link>
+          <Link className={`account-nav-link${section === "messages" ? " active" : ""}`} href="/account/messages" aria-current={section === "messages" ? "page" : undefined}><Mail size={18} /><span>{t("Pesan")}</span></Link>
           {profile?.role === "reader" && settings.feature_flags.creators && <Link className={`account-nav-link${section === "creator-application" ? " active" : ""}`} href="/account/creator-application" aria-current={section === "creator-application" ? "page" : undefined}><Sparkles size={18} /><span>{t("Jadi kreator")}</span></Link>}
           {profile?.role === "creator" && <>
             <p className="account-nav-label">{t("Kreator")}</p>
@@ -495,7 +498,7 @@ export default function AccountContent({ section, children }: { section: Account
       </aside>
       <div className={`account-main${isReader ? " account-main-reader" : ""}${profile?.role === "creator" ? " account-main-creator" : ""}${section === "creator-profile" ? " account-profile-focus" : ""}${section === "creator-guide" ? " account-guide-focus" : ""}${section !== "overview" ? " account-subpage" : ""}${isCreatorArea(section) ? " account-creator-area" : ""}${section === "comic-editor" ? " account-comic-editor-area" : ""}`}>
       {!isReader && <div className="account-mobile-header"><BrandLogo showName /><button className="account-logout" onClick={handleLogout} disabled={loggingOut}><LogOut size={16} /> {loggingOut ? t("Keluar...") : t("Keluar")}</button></div>}
-      {!isCreatorArea(section) && section !== "comic-editor" && section !== "analitik-komik" && <header className="account-header"><p className="eyebrow">{t(section === "overview" ? "Ruang Bacamu" : "Akun")}</p><h1>{section === "overview" ? `${t("Hai")}, ${profile?.display_name || t("Pembaca")}.` : t(section === "reading" ? "Lanjut membaca" : section === "favorites" ? "Favorit" : section === "account-settings" ? "Pengaturan" : section === "creator-application" ? "Jadi kreator" : section === "creator-profile" ? "Profil kreator" : "Panduan MU-Komik")}</h1></header>}
+      {!isCreatorArea(section) && section !== "comic-editor" && section !== "analitik-komik" && <header className="account-header"><p className="eyebrow">{t(section === "overview" ? "Ruang Bacamu" : "Akun")}</p><h1>{section === "overview" ? `${t("Hai")}, ${profile?.display_name || t("Pembaca")}.` : t(section === "reading" ? "Lanjut membaca" : section === "favorites" ? "Favorit" : section === "messages" ? "Pesan" : section === "account-settings" ? "Pengaturan" : section === "creator-application" ? "Jadi kreator" : section === "creator-profile" ? "Profil kreator" : "Panduan MU-Komik")}</h1></header>}
       {section === "comic-editor" ? children : section === "analitik-komik" ? (
         profile?.role === "creator"
           ? <CreatorAnalytics />
@@ -504,6 +507,7 @@ export default function AccountContent({ section, children }: { section: Account
         ? <CreatorContent area={section} />
         : <>
       {section !== "creator-guide" && <section className={`account-grid ${section === "overview" ? "account-dashboard-grid" : "account-subpage-content"}`}>
+        {section === "messages" && <AccountMessagesPanel />}
         {section === "overview" && profile?.role === "reader" && <article className="account-panel account-reader-info-panel">
           <div className="panel-heading"><div><p className="eyebrow">{t("Informasi akun")}</p><h2>{t("Detail akunmu")}</h2></div><UserRound size={22} /></div>
           <dl className="account-reader-info-grid">

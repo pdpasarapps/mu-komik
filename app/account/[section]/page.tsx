@@ -4,6 +4,7 @@ import AccountContent, { type AccountSection } from "../account-content";
 const accountSections = [
   "reading",
   "favorites",
+  "messages",
   "account-settings",
   "creator-application",
   "creator-profile",

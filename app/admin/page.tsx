@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowUpRight, Archive, Ban, Baby, BookOpen, ChartNoAxesColum
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { CONTACT_CATEGORIES, type ContactCategory } from "@/lib/contact-categories";
 import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import AdminAnalyticsPanel from "./analytics-panel";
@@ -23,7 +24,7 @@ type CreatorRequest = { id: string; user_id: string; note: string; portfolio_url
 type ComicReview = { id: string; title: string; slug: string; synopsis: string; contributor: string; created_at: string; creator_id: string; creator: string };
 type KidsCurationReview = { comic_id: string; age_range: "4_6" | "7_9" | "10_12"; submitted_at: string; review_note: string; title: string; slug: string; creator: string };
 type AdminAccountStatus = "active" | "blocked" | "deleted";
-type AdminUser = { id: string; display_name: string; email: string | null; role: "reader" | "creator" | "admin"; isStaff: boolean; staffTitle: string; staffPermissions: AdminSection[]; canUploadAudio: boolean; membershipTier: ReaderMembershipTier; accountStatus: AdminAccountStatus; created_at: string };
+type AdminUser = { id: string; display_name: string; email: string | null; role: "reader" | "creator" | "admin"; isStaff: boolean; staffTitle: string; staffPermissions: AdminSection[]; staffContactCategories: ContactCategory[]; canUploadAudio: boolean; membershipTier: ReaderMembershipTier; accountStatus: AdminAccountStatus; created_at: string };
 type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string; kids_curation_status: "pending" | "approved" | "rejected" | null; kids_age_range: "4_6" | "7_9" | "10_12" | null };
 type SettingsAuditEntry = { id: number; changed_by: string | null; changed_at: string; previous_values: Record<string, unknown>; new_values: Record<string, unknown> };
 type AdminSection = "overview" | "analytics" | "comic-review" | "kids-review" | "creator-requests" | "users" | "admins" | "staf" | "readers" | "kreator" | "comics" | "articles" | "share-previews" | "ad-requests" | "contact-messages" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "homepage-promos" | "platform-settings";
@@ -136,6 +137,7 @@ export default function AdminPage() {
   const [userEditIsStaff, setUserEditIsStaff] = useState(false);
   const [userEditStaffTitle, setUserEditStaffTitle] = useState("Staf");
   const [userEditStaffPermissions, setUserEditStaffPermissions] = useState<AdminSection[]>(defaultStaffPermissions);
+  const [userEditContactCategories, setUserEditContactCategories] = useState<ContactCategory[]>([]);
   const [generatingSharePreviews, setGeneratingSharePreviews] = useState(false);
   const [sharePreviewProgress, setSharePreviewProgress] = useState("");
   const [platformSettings, setPlatformSettings] = useState<PlatformSettings>(defaultPlatformSettings);
@@ -229,7 +231,7 @@ export default function AdminPage() {
         : supabase.from("comic_kids_curation").select("comic_id, age_range, review_status, submitted_at, review_note").order("submitted_at", { ascending: true }),
     ]);
     const staffProfilesQuery = supabase.from("profiles")
-      .select("id, display_name, role, is_staff, staff_title, staff_permissions, created_at")
+      .select("id, display_name, role, is_staff, staff_title, staff_permissions, staff_contact_categories, created_at")
       .order("created_at", { ascending: false })
       .or(staffCanSeeProfiles ? "id.not.is.null" : `id.eq.${emptyUuid}`);
     const { data: staffProfileRows, error: staffProfilesError } = await staffProfilesQuery;
@@ -240,18 +242,29 @@ export default function AdminPage() {
       is_staff?: boolean;
       staff_title?: string;
       staff_permissions?: string[];
+      staff_contact_categories?: string[];
       created_at: string;
     }[] | null = staffProfileRows;
     let profileRowsError = staffProfilesError;
     if (staffProfilesError && (staffProfilesError.code === "42703" || staffProfilesError.code === "PGRST204")) {
       const legacyProfilesResult = await supabase.from("profiles")
-        .select("id, display_name, role, created_at")
+        .select("id, display_name, role, is_staff, staff_title, staff_permissions, created_at")
         .order("created_at", { ascending: false })
         .or(staffCanSeeProfiles ? "id.not.is.null" : `id.eq.${emptyUuid}`);
-      profileRowsError = legacyProfilesResult.error;
-      profileRows = legacyProfilesResult.data;
       if (!legacyProfilesResult.error) {
-        setMessage("Kolom hak akses Staf belum tersedia. Jalankan supabase/staff-access.sql untuk mengaktifkan pengaturan Staf.");
+        profileRowsError = null;
+        profileRows = legacyProfilesResult.data;
+        setMessage("Kolom kategori akses pesan staf belum tersedia. Jalankan ulang supabase/staff-access.sql dan supabase/contact-messages.sql.");
+      } else if (legacyProfilesResult.error.code === "42703" || legacyProfilesResult.error.code === "PGRST204") {
+        const oldestProfilesResult = await supabase.from("profiles")
+          .select("id, display_name, role, created_at")
+          .order("created_at", { ascending: false })
+          .or(staffCanSeeProfiles ? "id.not.is.null" : `id.eq.${emptyUuid}`);
+        profileRowsError = oldestProfilesResult.error;
+        profileRows = oldestProfilesResult.data;
+        if (!oldestProfilesResult.error) {
+          setMessage("Kolom hak akses Staf belum tersedia. Jalankan supabase/staff-access.sql untuk mengaktifkan pengaturan Staf.");
+        }
       }
     }
     const loadErrors = [requestResult.error, profileRowsError, membershipResult.error, comicResult.error].filter(Boolean);
@@ -317,6 +330,10 @@ export default function AdminPage() {
       isStaff: profile.role !== "admin" && (profile.role === "staff" || profile.is_staff === true),
       staffPermissions: Array.isArray(profile.staff_permissions)
         ? profile.staff_permissions.filter((permission): permission is AdminSection => typeof permission === "string" && permission in adminSections)
+        : [],
+      staffContactCategories: Array.isArray(profile.staff_contact_categories)
+        ? profile.staff_contact_categories.filter((category): category is ContactCategory =>
+          typeof category === "string" && CONTACT_CATEGORIES.some((item) => item.value === category))
         : [],
       accountStatus: accountStatusByUser.get(profile.id) ?? "active",
       canUploadAudio: audioPermissionByUser.get(profile.id) ?? false,
@@ -597,7 +614,7 @@ export default function AdminPage() {
   const performAdminUserAction = async (
     user: AdminUser,
     action: "edit" | "block" | "unblock" | "deactivate",
-    values?: { displayName: string; role: "reader" | "creator"; isStaff: boolean; staffTitle: string; staffPermissions: AdminSection[] },
+    values?: { displayName: string; role: "reader" | "creator"; isStaff: boolean; staffTitle: string; staffPermissions: AdminSection[]; staffContactCategories: ContactCategory[] },
   ) => {
     setActionId(user.id);
     setMessage("");
@@ -629,6 +646,7 @@ export default function AdminPage() {
           isStaff: values.isStaff,
           staffTitle: values.isStaff ? values.staffTitle : "",
           staffPermissions: values.isStaff ? values.staffPermissions : [],
+          staffContactCategories: values.isStaff ? values.staffContactCategories : [],
           canUploadAudio: values.role === "reader" ? false : user.canUploadAudio,
         };
         setUsers((current) => current.map((item) => item.id === user.id ? updatedUser : item));
@@ -694,6 +712,7 @@ export default function AdminPage() {
     setUserEditIsStaff(user.isStaff);
     setUserEditStaffTitle(user.staffTitle || "Staf");
     setUserEditStaffPermissions(user.staffPermissions.length ? user.staffPermissions : defaultStaffPermissions);
+    setUserEditContactCategories(user.staffContactCategories);
     setSelectedUserDialog({ user, mode: "edit" });
   };
 
@@ -1366,12 +1385,19 @@ export default function AdminPage() {
                   setMessage("Isi nama jabatan staf dan pilih minimal satu menu akses.");
                   return;
                 }
+                if (userEditIsStaff && userEditStaffPermissions.includes("contact-messages") && !userEditContactCategories.length) {
+                  setMessage("Pilih minimal satu kategori pesan kontak untuk staf ini.");
+                  return;
+                }
                 void performAdminUserAction(selectedUserDialog.user, "edit", {
                   displayName,
                   role: userEditRole,
                   isStaff: userEditIsStaff,
                   staffTitle: userEditIsStaff ? userEditStaffTitle.trim() : "",
                   staffPermissions: userEditIsStaff ? userEditStaffPermissions : [],
+                  staffContactCategories: userEditIsStaff && userEditStaffPermissions.includes("contact-messages")
+                    ? userEditContactCategories
+                    : [],
                 });
               }}>
                 <label>Nama tampilan<input name="displayName" required maxLength={80} defaultValue={selectedUserDialog.user.display_name} /></label>
@@ -1404,6 +1430,22 @@ export default function AdminPage() {
                       </label>
                     ))}</div>
                   </fieldset>
+                  {userEditStaffPermissions.includes("contact-messages") && <fieldset className="admin-staff-permissions admin-staff-contact-categories">
+                    <legend>Kategori pesan kontak yang dapat dibaca</legend>
+                    <p>Staf dapat membuka, mengubah status, dan membalas hanya pesan dalam kategori yang dipilih. Pilih beberapa bila diperlukan.</p>
+                    <div>{CONTACT_CATEGORIES.map((category) => (
+                      <label key={category.value}>
+                        <input
+                          type="checkbox"
+                          checked={userEditContactCategories.includes(category.value)}
+                          onChange={(event) => setUserEditContactCategories((current) => event.target.checked
+                            ? [...current, category.value]
+                            : current.filter((value) => value !== category.value))}
+                        />
+                        <span>{category.label}</span>
+                      </label>
+                    ))}</div>
+                  </fieldset>}
                 </>}
                 <p>Email tidak dapat diubah dari panel ini.</p>
                 <div className="request-actions modal-actions">
@@ -1420,6 +1462,7 @@ export default function AdminPage() {
                   {selectedUserDialog.user.isStaff && <>
                     <div><dt>Nama jabatan</dt><dd>{selectedUserDialog.user.staffTitle || "Staf"}</dd></div>
                     <div><dt>Menu akses</dt><dd>{selectedUserDialog.user.staffPermissions.map((permission) => staffPermissionOptions.find((option) => option.value === permission)?.label ?? permission).join(", ") || "Tidak ada akses khusus"}</dd></div>
+                    {selectedUserDialog.user.staffPermissions.includes("contact-messages") && <div><dt>Kategori pesan kontak</dt><dd>{selectedUserDialog.user.staffContactCategories.map((category) => CONTACT_CATEGORIES.find((item) => item.value === category)?.label ?? category).join(", ") || "Belum ada kategori"}</dd></div>}
                   </>}
                   <div><dt>Status akun</dt><dd>{selectedUserDialog.user.accountStatus === "active" ? "Aktif" : selectedUserDialog.user.accountStatus === "blocked" ? "Diblokir" : "Dinonaktifkan"}</dd></div>
                   <div><dt>Bergabung</dt><dd>{new Date(selectedUserDialog.user.created_at).toLocaleDateString("id-ID")}</dd></div>
