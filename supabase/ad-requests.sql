@@ -16,6 +16,7 @@ create table if not exists public.ad_requests (
       'home_banner',
       'catalog_grid_native',
       'comic_detail_sponsor',
+      'article_content',
       'reader_mid_chapter',
       'reader_episode_transition'
     ]::text[]
@@ -32,6 +33,21 @@ create table if not exists public.ad_requests (
     or requested_end >= requested_start
   )
 );
+
+alter table public.ad_requests
+  drop constraint if exists ad_requests_placements_check;
+alter table public.ad_requests
+  add constraint ad_requests_placements_check check (
+    cardinality(placements) > 0
+    and placements <@ array[
+      'home_banner',
+      'catalog_grid_native',
+      'comic_detail_sponsor',
+      'article_content',
+      'reader_mid_chapter',
+      'reader_episode_transition'
+    ]::text[]
+  );
 
 alter table public.ad_requests
   add column if not exists image_url_tablet text

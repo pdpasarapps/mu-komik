@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useReaderMembership } from "@/app/membership-runtime";
-import { useKidsMode } from "@/app/platform-runtime";
+import { useKidsMode, usePlatformSettings } from "@/app/platform-runtime";
 import { useLocale } from "@/components/locale-provider";
 
-type AdPlacement = "home" | "catalog" | "comic" | "reader" | "transition";
+type AdPlacement = "home" | "catalog" | "comic" | "reader" | "transition" | "article";
 type DisplayZone = { key: string; width: number; height: number };
 
 const DISPLAY_ZONES = {
@@ -55,8 +55,10 @@ export default function AdsterraAd({
 }) {
   const membership = useReaderMembership();
   const { kidsMode } = useKidsMode();
+  const { settings } = usePlatformSettings();
   const { t } = useLocale();
   const [viewportWidth, setViewportWidth] = useState<number | null>(null);
+  const placementEnabled = settings.ads_adsterra_enabled && settings.ad_placements[placement].adsterra;
 
   useEffect(() => {
     const updateViewportWidth = () => setViewportWidth(window.innerWidth);
@@ -66,12 +68,12 @@ export default function AdsterraAd({
   }, []);
 
   useEffect(() => {
-    if (membership.ready && (kidsMode || membership.tier !== "free")) {
+    if (membership.ready && (!placementEnabled || kidsMode || membership.tier !== "free")) {
       onAvailabilityChange?.(false);
     }
-  }, [kidsMode, membership.ready, membership.tier, onAvailabilityChange]);
+  }, [kidsMode, membership.ready, membership.tier, onAvailabilityChange, placementEnabled]);
 
-  if (kidsMode || !membership.ready || membership.tier !== "free") return null;
+  if (!placementEnabled || kidsMode || !membership.ready || membership.tier !== "free") return null;
   if (format === "display" && viewportWidth === null) return null;
 
   const zone = format === "display" ? getDisplayZone(placement, viewportWidth ?? 1280) : null;

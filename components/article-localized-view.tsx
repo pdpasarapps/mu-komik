@@ -6,6 +6,17 @@ import MarkdownContent from "@/components/markdown-content";
 import { useLocale } from "@/components/locale-provider";
 import { localizedText } from "@/lib/localized-content";
 import type { Article } from "@/lib/articles";
+import AdsterraAd from "@/components/adsterra-ad";
+import SponsoredAd from "@/components/sponsored-ad";
+
+function ArticleAdPlacement() {
+  return (
+    <div className="article-ad-placement">
+      <SponsoredAd slotKey="article_content" placement="article" />
+      <AdsterraAd placement="article" />
+    </div>
+  );
+}
 
 export function ArticleListingContent({ articles }: { articles: (Article & { coverUrl?: string })[] }) {
   const { locale, t } = useLocale();
@@ -43,6 +54,7 @@ export function ArticleListingContent({ articles }: { articles: (Article & { cov
           <Link href="/">{t("Jelajahi komik")} <span aria-hidden="true">→</span></Link>
         </section>
       )}
+      <ArticleAdPlacement />
       <footer className="article-site-footer">
         <Link href="/">{t("Kembali ke MU-Komik")}</Link>
         <Link href="/syarat-ketentuan">{t("Syarat layanan")}</Link>
@@ -92,6 +104,7 @@ export function ArticleDetailContent({ article, cover, baseUrl }: { article: Art
         </header>
         {cover && <Image className="article-detail-cover" src={cover} alt={`${t("Ilustrasi artikel")}: ${title}`} width={1200} height={800} unoptimized fetchPriority="high" />}
         <MarkdownContent content={content} />
+        <ArticleAdPlacement />
         <footer className="article-detail-footer"><Link href="/artikel">← {t("Kembali ke semua artikel")}</Link></footer>
       </article>
       <footer className="article-site-footer">

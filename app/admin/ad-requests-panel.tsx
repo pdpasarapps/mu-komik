@@ -38,6 +38,7 @@ const placementLabels: Record<string, string> = {
   home_banner: "Banner beranda",
   catalog_grid_native: "Katalog komik",
   comic_detail_sponsor: "Detail komik",
+  article_content: "Artikel",
   reader_mid_chapter: "Di sela halaman baca",
   reader_episode_transition: "Antar episode",
 };

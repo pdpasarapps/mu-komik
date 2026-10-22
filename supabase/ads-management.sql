@@ -67,6 +67,7 @@ values
   ('Banner beranda', 'home_banner', 'banner', 'Tampil setelah area komik pilihan di beranda.'),
   ('Iklan native katalog', 'catalog_grid_native', 'native', 'Tampil selebar grid setelah 8 komik di Jelajah dan hasil pencarian (jika hasil lebih dari 8).'),
   ('Sponsor detail komik', 'comic_detail_sponsor', 'sponsor', 'Tampil di halaman detail komik sebelum daftar episode.'),
+  ('Iklan artikel', 'article_content', 'native', 'Tampil setelah konten pada halaman daftar dan detail artikel.'),
   ('Iklan tengah bab', 'reader_mid_chapter', 'native', 'Tampil setiap setelah 5 halaman di halaman baca, kecuali setelah halaman terakhir.'),
   ('Iklan antar episode', 'reader_episode_transition', 'native', 'Tampil saat pembaca berpindah episode. Materi tidak dapat dilewati selama 5 detik.')
 on conflict (slot_key) do nothing;

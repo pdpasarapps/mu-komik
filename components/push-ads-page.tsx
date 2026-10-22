@@ -44,6 +44,7 @@ const placementOptions = [
   { value: "home_banner", label: "Banner beranda" },
   { value: "catalog_grid_native", label: "Di antara katalog komik" },
   { value: "comic_detail_sponsor", label: "Halaman detail komik" },
+  { value: "article_content", label: "Halaman artikel" },
   { value: "reader_mid_chapter", label: "Di sela halaman baca" },
   { value: "reader_episode_transition", label: "Antar episode" },
 ];

@@ -5,6 +5,10 @@ create table if not exists public.platform_settings (
   maintenance_message text not null default 'MU-Komik sedang dalam pemeliharaan. Silakan kembali lagi nanti.',
   announcement_enabled boolean not null default false,
   announcement_message text not null default '',
+  ads_internal_enabled boolean not null default true,
+  ads_adsterra_enabled boolean not null default true,
+  ad_placements jsonb not null default '{"home":{"internal":true,"adsterra":true},"catalog":{"internal":true,"adsterra":true},"comic":{"internal":true,"adsterra":true},"reader":{"internal":true,"adsterra":true},"transition":{"internal":true,"adsterra":true},"article":{"internal":true,"adsterra":true}}'::jsonb
+    check (jsonb_typeof(ad_placements) = 'object'),
   feature_flags jsonb not null default '{"reading":true,"search":true,"creators":true,"comments":true,"favorites":true}'::jsonb
     check (jsonb_typeof(feature_flags) = 'object'),
   require_comic_review boolean not null default true,
@@ -30,6 +34,11 @@ create table if not exists public.platform_settings (
   updated_at timestamptz not null default now()
 );
 
+alter table public.platform_settings add column if not exists ads_internal_enabled boolean not null default true;
+alter table public.platform_settings add column if not exists ads_adsterra_enabled boolean not null default true;
+alter table public.platform_settings add column if not exists ad_placements jsonb not null default '{"home":{"internal":true,"adsterra":true},"catalog":{"internal":true,"adsterra":true},"comic":{"internal":true,"adsterra":true},"reader":{"internal":true,"adsterra":true},"transition":{"internal":true,"adsterra":true},"article":{"internal":true,"adsterra":true}}'::jsonb
+  check (jsonb_typeof(ad_placements) = 'object');
+alter table public.platform_settings alter column ad_placements set default '{"home":{"internal":true,"adsterra":true},"catalog":{"internal":true,"adsterra":true},"comic":{"internal":true,"adsterra":true},"reader":{"internal":true,"adsterra":true},"transition":{"internal":true,"adsterra":true},"article":{"internal":true,"adsterra":true}}'::jsonb;
 alter table public.platform_settings add column if not exists require_comic_review boolean not null default true;
 alter table public.platform_settings add column if not exists creator_applications_enabled boolean not null default true;
 alter table public.platform_settings add column if not exists max_comics_per_creator integer not null default 5 check (max_comics_per_creator between 1 and 100);

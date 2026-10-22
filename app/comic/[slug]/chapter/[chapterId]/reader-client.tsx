@@ -13,7 +13,7 @@ import PageInteractiveMarkerLayer from "@/components/page-interactive-marker-lay
 import { useCurrentDevice } from "@/components/use-current-device";
 import { COMIC_TARGET_DEVICES, isComicAvailableOnDevice, type ComicTargetDevice } from "@/lib/comic-target-device";
 import { useReaderMembership } from "@/app/membership-runtime";
-import { KidsModeToggle, useKidsMode } from "@/app/platform-runtime";
+import { KidsModeToggle, useKidsMode, usePlatformSettings } from "@/app/platform-runtime";
 import { parseChapterSubtitles, type ChapterSubtitleCue } from "@/lib/chapter-subtitles";
 import PageTextOverlayLayer from "@/components/page-text-overlay-layer";
 import { parsePageTextOverlayDocument, type PageInteractiveMarker, type PageTextImageVerticalAlign, type PageTextOverlay } from "@/lib/page-text-overlays";
@@ -43,15 +43,15 @@ type BookLeaf = { kind: "page"; page: Page; pageIndex: number } | { kind: "ad"; 
 type BookTurn = { from: number; to: number; direction: "next" | "previous" };
 export type ChapterReaderSeed = { chapter: Chapter; comic: Comic };
 
-function getReaderAdKind(pageNumber: number): ReaderAdKind | null {
-  if (pageNumber % 10 === 0) return "adsterra";
-  if (pageNumber % 5 === 0) return "internal";
+function getReaderAdKind(pageNumber: number, internalEnabled: boolean, adsterraEnabled: boolean): ReaderAdKind | null {
+  if (pageNumber % 10 === 0) return adsterraEnabled ? "adsterra" : null;
+  if (pageNumber % 5 === 0) return internalEnabled ? "internal" : null;
   return null;
 }
 
-function getDesktopBookLeaves(pages: Page[], includeAds: boolean): BookLeaf[] {
+function getDesktopBookLeaves(pages: Page[], includeAds: boolean, internalEnabled: boolean, adsterraEnabled: boolean): BookLeaf[] {
   const leaves: BookLeaf[] = pages.flatMap((page, pageIndex) => {
-    const adKind = includeAds ? getReaderAdKind(pageIndex + 1) : null;
+    const adKind = includeAds ? getReaderAdKind(pageIndex + 1, internalEnabled, adsterraEnabled) : null;
     return [
       { kind: "page" as const, page, pageIndex },
       ...(adKind ? [{ kind: "ad" as const, afterPageIndex: pageIndex, provider: adKind }] : []),
@@ -83,6 +83,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const [tabletLandscape, setTabletLandscape] = useState(false);
   const membership = useReaderMembership();
   const { kidsMode } = useKidsMode();
+  const { settings } = usePlatformSettings();
   const chapterTerm = t(kidsMode ? "Cerita" : "Episode");
   const [chapter, setChapter] = useState<Chapter | null>(seed.chapter);
   const [comic, setComic] = useState<Comic | null>(seed.comic);
@@ -128,6 +129,8 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const audioElementRef = useRef<HTMLAudioElement>(null);
   const watermarkLabel = `MU-KOMIK.COM · ${watermarkName}`;
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
+  const readerInternalAdsEnabled = settings.ads_internal_enabled && settings.ad_placements.reader.internal;
+  const readerAdsterraEnabled = settings.ads_adsterra_enabled && settings.ad_placements.reader.adsterra;
   const desktopBookMode = currentDevice === "desktop" || (currentDevice === "tablet" && tabletLandscape);
   const subtitleTrack = useMemo(() => {
     if (!chapter?.subtitles_srt || !chapter.subtitle_page_map) {
@@ -142,8 +145,8 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   }, [chapter]);
   const subtitleCues = subtitleTrack.cues;
   const bookLeaves = useMemo(
-    () => getDesktopBookLeaves(pages, !kidsMode && membership.ready && membership.tier === "free"),
-    [kidsMode, membership.ready, membership.tier, pages],
+    () => getDesktopBookLeaves(pages, !kidsMode && membership.ready && membership.tier === "free", readerInternalAdsEnabled, readerAdsterraEnabled),
+    [kidsMode, membership.ready, membership.tier, pages, readerInternalAdsEnabled, readerAdsterraEnabled],
   );
   const currentPageRef = useRef(currentPage);
   const bookLeavesRef = useRef(bookLeaves);
@@ -464,7 +467,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       const useDesktopBook = currentDevice === "desktop";
       const readerResumePage = useDesktopBook ? Math.max(0, resumePage) : resumePage;
       const initialBookLeaves = useDesktopBook
-        ? getDesktopBookLeaves(pageData, !kidsMode && membership.tier === "free")
+        ? getDesktopBookLeaves(pageData, !kidsMode && membership.tier === "free", readerInternalAdsEnabled, readerAdsterraEnabled)
         : [];
       const resumeLeafIndex = useDesktopBook
         ? Math.max(0, initialBookLeaves.findIndex((leaf) => leaf.kind === "page" && leaf.pageIndex === readerResumePage))
@@ -537,7 +540,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         bookTurnSpreadCommitTimeoutRef.current = null;
       }
     };
-  }, [chapterId, currentDevice, kidsMode, membership.ready, membership.tier, router, seed.chapter, seed.comic.kids_age_range, seed.comic.kids_mode_approved, seed.comic.target_device, slug]);
+  }, [chapterId, currentDevice, kidsMode, membership.ready, membership.tier, readerAdsterraEnabled, readerInternalAdsEnabled, router, seed.chapter, seed.comic.kids_age_range, seed.comic.kids_mode_approved, seed.comic.target_device, slug]);
 
   useEffect(() => {
     if (loading || !chapter || !pages.length) return;
@@ -1286,10 +1289,10 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                         : <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div>}
                       {src && <div className="reader-watermark-overlay reader-page-watermark" aria-hidden="true">{Array.from({ length: 6 }, (_, watermarkIndex) => <span key={watermarkIndex}>{watermarkLabel}</span>)}</div>}
                       </div>
-                      {!kidsMode && membership.ready && membership.tier === "free" && getReaderAdKind(index + 1) === "adsterra" && (
+                      {!kidsMode && membership.ready && membership.tier === "free" && getReaderAdKind(index + 1, readerInternalAdsEnabled, readerAdsterraEnabled) === "adsterra" && (
                         <AdsterraAd key={`adsterra-after-page-${page.page_number}`} placement="reader" />
                       )}
-                      {!kidsMode && membership.ready && membership.tier === "free" && getReaderAdKind(index + 1) === "internal" && (
+                      {!kidsMode && membership.ready && membership.tier === "free" && getReaderAdKind(index + 1, readerInternalAdsEnabled, readerAdsterraEnabled) === "internal" && (
                         <SponsoredAd
                           key={`mid-chapter-ad-${page.page_number}`}
                           slotKey="reader_mid_chapter"

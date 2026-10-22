@@ -6,11 +6,21 @@ export type PlatformFeatureFlags = {
   favorites: boolean;
 };
 
+export type AdPlacementSettings = {
+  internal: boolean;
+  adsterra: boolean;
+};
+
+export type AdPlacementVisibility = Record<"home" | "catalog" | "comic" | "reader" | "transition" | "article", AdPlacementSettings>;
+
 export type PlatformSettings = {
   maintenance_enabled: boolean;
   maintenance_message: string;
   announcement_enabled: boolean;
   announcement_message: string;
+  ads_internal_enabled: boolean;
+  ads_adsterra_enabled: boolean;
+  ad_placements: AdPlacementVisibility;
   feature_flags: PlatformFeatureFlags;
   require_comic_review: boolean;
   creator_applications_enabled: boolean;
@@ -28,6 +38,16 @@ export const defaultPlatformSettings: PlatformSettings = {
   maintenance_message: "MU-Komik sedang dalam pemeliharaan. Silakan kembali lagi nanti.",
   announcement_enabled: false,
   announcement_message: "",
+  ads_internal_enabled: true,
+  ads_adsterra_enabled: true,
+  ad_placements: {
+    home: { internal: true, adsterra: true },
+    catalog: { internal: true, adsterra: true },
+    comic: { internal: true, adsterra: true },
+    reader: { internal: true, adsterra: true },
+    transition: { internal: true, adsterra: true },
+    article: { internal: true, adsterra: true },
+  },
   feature_flags: {
     reading: true,
     search: true,
@@ -65,7 +85,7 @@ export async function getPlatformSettings(): Promise<{ settings: PlatformSetting
   }
 
   try {
-    const response = await fetch(`${url.replace(/\/$/, "")}/rest/v1/platform_settings?select=maintenance_enabled,maintenance_message,announcement_enabled,announcement_message,feature_flags,require_comic_review,creator_applications_enabled,max_comics_per_creator,max_upload_size_mb,max_pages_per_chapter,allowed_image_types,max_interactive_audio_size_mb,max_interactive_audio_duration_seconds,allowed_interactive_audio_types&id=eq.true`, {
+    const response = await fetch(`${url.replace(/\/$/, "")}/rest/v1/platform_settings?select=maintenance_enabled,maintenance_message,announcement_enabled,announcement_message,ads_internal_enabled,ads_adsterra_enabled,ad_placements,feature_flags,require_comic_review,creator_applications_enabled,max_comics_per_creator,max_upload_size_mb,max_pages_per_chapter,allowed_image_types,max_interactive_audio_size_mb,max_interactive_audio_duration_seconds,allowed_interactive_audio_types&id=eq.true`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
       cache: "no-store",
     });
@@ -80,6 +100,14 @@ export async function getPlatformSettings(): Promise<{ settings: PlatformSetting
         ...defaultPlatformSettings,
         ...row,
         feature_flags: { ...defaultPlatformSettings.feature_flags, ...row.feature_flags },
+        ad_placements: {
+          home: { ...defaultPlatformSettings.ad_placements.home, ...row.ad_placements?.home },
+          catalog: { ...defaultPlatformSettings.ad_placements.catalog, ...row.ad_placements?.catalog },
+          comic: { ...defaultPlatformSettings.ad_placements.comic, ...row.ad_placements?.comic },
+          reader: { ...defaultPlatformSettings.ad_placements.reader, ...row.ad_placements?.reader },
+          transition: { ...defaultPlatformSettings.ad_placements.transition, ...row.ad_placements?.transition },
+          article: { ...defaultPlatformSettings.ad_placements.article, ...row.ad_placements?.article },
+        },
         allowed_image_types: Array.isArray(row.allowed_image_types) ? row.allowed_image_types : defaultPlatformSettings.allowed_image_types,
         allowed_interactive_audio_types: Array.isArray(row.allowed_interactive_audio_types)
           ? row.allowed_interactive_audio_types

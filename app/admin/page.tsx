@@ -88,6 +88,9 @@ const platformSettingLabels: Record<string, string> = {
   maintenance_message: "Pesan pemeliharaan",
   announcement_enabled: "Banner pengumuman",
   announcement_message: "Isi pengumuman",
+  ads_internal_enabled: "Iklan internal MU Komik",
+  ads_adsterra_enabled: "Iklan Adsterra",
+  ad_placements: "Visibilitas iklan per lokasi",
   require_comic_review: "Wajib kurasi sebelum terbit",
   creator_applications_enabled: "Pengajuan kreator",
   max_comics_per_creator: "Batas komik per kreator",
@@ -402,7 +405,7 @@ export default function AdminPage() {
   const loadPlatformSettings = useEffectEvent(async () => {
     const { data: settingsData, error: settingsError } = await supabase
       .from("platform_settings")
-      .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_message, feature_flags, require_comic_review, creator_applications_enabled, max_comics_per_creator, max_upload_size_mb, max_pages_per_chapter, allowed_image_types, max_interactive_audio_size_mb, max_interactive_audio_duration_seconds, allowed_interactive_audio_types")
+      .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_message, ads_internal_enabled, ads_adsterra_enabled, ad_placements, feature_flags, require_comic_review, creator_applications_enabled, max_comics_per_creator, max_upload_size_mb, max_pages_per_chapter, allowed_image_types, max_interactive_audio_size_mb, max_interactive_audio_duration_seconds, allowed_interactive_audio_types")
       .eq("id", true)
       .maybeSingle();
     const { data: auditData, error: auditError } = await supabase
@@ -423,6 +426,14 @@ export default function AdminPage() {
         ...defaultPlatformSettings,
         ...settingsData,
         feature_flags: { ...defaultPlatformSettings.feature_flags, ...settingsData.feature_flags },
+        ad_placements: {
+          home: { ...defaultPlatformSettings.ad_placements.home, ...settingsData.ad_placements?.home },
+          catalog: { ...defaultPlatformSettings.ad_placements.catalog, ...settingsData.ad_placements?.catalog },
+          comic: { ...defaultPlatformSettings.ad_placements.comic, ...settingsData.ad_placements?.comic },
+          reader: { ...defaultPlatformSettings.ad_placements.reader, ...settingsData.ad_placements?.reader },
+          transition: { ...defaultPlatformSettings.ad_placements.transition, ...settingsData.ad_placements?.transition },
+          article: { ...defaultPlatformSettings.ad_placements.article, ...settingsData.ad_placements?.article },
+        },
         allowed_image_types: Array.isArray(settingsData.allowed_image_types) ? settingsData.allowed_image_types : defaultPlatformSettings.allowed_image_types,
         allowed_interactive_audio_types: Array.isArray(settingsData.allowed_interactive_audio_types)
           ? settingsData.allowed_interactive_audio_types
@@ -955,6 +966,29 @@ export default function AdminPage() {
             <article className="admin-setting-card">
               <div className="admin-setting-heading"><div><h3>Banner pengumuman</h3><p>Tampilkan pengumuman di bagian atas halaman untuk semua pengunjung.</p></div><label className="admin-switch"><input type="checkbox" checked={platformSettings.announcement_enabled} onChange={(event) => setPlatformSettings((current) => ({ ...current, announcement_enabled: event.target.checked }))} /><span /></label></div>
               <label className="admin-setting-field">Isi pengumuman<textarea value={platformSettings.announcement_message} onChange={(event) => setPlatformSettings((current) => ({ ...current, announcement_message: event.target.value }))} maxLength={300} rows={3} placeholder="Tulis pengumuman untuk pembaca dan kreator..." /></label>
+            </article>
+            <article className="admin-setting-card">
+              <div className="admin-setting-heading"><div><h3>Iklan</h3><p>Atur visibilitas kampanye iklan internal dan unit Adsterra di seluruh platform. Perubahan berlaku setelah pengaturan disimpan.</p></div></div>
+              <div className="admin-feature-toggles">
+                <label className="admin-feature-toggle"><span>Iklan internal MU Komik</span><input type="checkbox" checked={platformSettings.ads_internal_enabled} onChange={(event) => setPlatformSettings((current) => ({ ...current, ads_internal_enabled: event.target.checked }))} /></label>
+                <label className="admin-feature-toggle"><span>Iklan Adsterra</span><input type="checkbox" checked={platformSettings.ads_adsterra_enabled} onChange={(event) => setPlatformSettings((current) => ({ ...current, ads_adsterra_enabled: event.target.checked }))} /></label>
+              </div>
+              <div className="admin-ad-visibility-grid">
+                {([
+                  ["home", "Beranda"],
+                  ["catalog", "Katalog komik"],
+                  ["comic", "Detail komik"],
+                  ["reader", "Reader (sela halaman)"],
+                  ["transition", "Transisi episode"],
+                  ["article", "Artikel"],
+                ] as const).map(([placement, label]) => (
+                  <fieldset className="admin-ad-visibility-placement" key={placement}>
+                    <legend>{label}</legend>
+                    <label className="admin-feature-toggle"><span>Internal</span><input type="checkbox" checked={platformSettings.ad_placements[placement].internal} onChange={(event) => setPlatformSettings((current) => ({ ...current, ad_placements: { ...current.ad_placements, [placement]: { ...current.ad_placements[placement], internal: event.target.checked } } }))} /></label>
+                    <label className="admin-feature-toggle"><span>Adsterra</span><input type="checkbox" checked={platformSettings.ad_placements[placement].adsterra} onChange={(event) => setPlatformSettings((current) => ({ ...current, ad_placements: { ...current.ad_placements, [placement]: { ...current.ad_placements[placement], adsterra: event.target.checked } } }))} /></label>
+                  </fieldset>
+                ))}
+              </div>
             </article>
             <article className="admin-setting-card">
               <div className="admin-setting-heading"><div><h3>Status fitur</h3><p>Fitur yang dimatikan akan menampilkan pemberitahuan dan tidak bisa dibuka pengunjung. Komentar belum tersedia; statusnya disimpan untuk aktivasi di masa mendatang.</p></div></div>
