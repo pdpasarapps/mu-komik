@@ -647,11 +647,11 @@ html[data-theme="dark"] .google-auth-button:hover:not(:disabled) { background: #
 .chapter-page-thumbnail { width: 100%; aspect-ratio: 2 / 3; display: grid; place-items: center; border-radius: 5px; background-color: #f1efe8; background-size: contain; background-position: center; background-repeat: no-repeat; color: #879189; }
 .chapter-page-meta { display: grid; gap: 5px; }
 .chapter-page-meta-row { min-height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.chapter-page-order { display: flex; justify-content: center; gap: 8px; }
-.chapter-page-order .chapter-action { width: 28px; height: 26px; }
+.chapter-page-navigation { display: grid; grid-template-columns: 28px minmax(0, 1fr) 28px; align-items: center; gap: 5px; }
+.chapter-page-navigation .chapter-action { width: 28px; height: 30px; flex: 0 0 auto; }
 .chapter-page-label { white-space: nowrap; color: var(--ink); font-size: .72rem; font-weight: 750; }
 .chapter-page-label-group { min-width: 0; display: inline-flex; align-items: center; gap: 5px; }
-.chapter-page-edit-text { min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid rgba(30,37,36,.1); border-radius: 6px; background: #f7f8f6; color: #195748; font-size: .7rem; font-weight: 750; text-decoration: none; }
+.chapter-page-edit-text { min-width: 0; min-height: 30px; flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid rgba(30,37,36,.1); border-radius: 6px; background: #f7f8f6; color: #195748; font-size: .7rem; font-weight: 750; text-decoration: none; }
 .chapter-page-edit-text:hover { border-color: #84ad9b; background: #eef6f1; }
 .chapter-page-drag-handle { width: 26px; height: 28px; display: inline-grid; flex: 0 0 auto; place-items: center; border: 0; border-radius: 4px; background: transparent; color: #879189; cursor: grab; touch-action: none; }
 .chapter-page-drag-handle:hover:not(:disabled) { background: #edf4ef; color: #195748; }

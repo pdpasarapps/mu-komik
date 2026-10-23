@@ -1331,14 +1331,7 @@ export default function CreatorComicPage() {
                             {deletingPageId === page.id ? <LoaderCircle className="spin" size={14} /> : <Trash2 size={14} />}
                           </button>
                         </div>
-                        <Link
-                          className="chapter-page-edit-text"
-                          href={`/account/komik/${encodeURIComponent(comicId)}/chapter/${encodeURIComponent(chapter.id)}/page/${encodeURIComponent(page.id)}/edit`}
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <Pencil size={14} /> Edit teks
-                        </Link>
-                        <div className="chapter-page-order">
+                        <div className="chapter-page-navigation">
                           <button
                             type="button"
                             className="chapter-action"
@@ -1349,6 +1342,13 @@ export default function CreatorComicPage() {
                           >
                             {reorderingPageId === page.id ? <LoaderCircle className="spin" size={14} /> : <ChevronLeft size={15} />}
                           </button>
+                          <Link
+                            className="chapter-page-edit-text"
+                            href={`/account/komik/${encodeURIComponent(comicId)}/chapter/${encodeURIComponent(chapter.id)}/page/${encodeURIComponent(page.id)}/edit`}
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <Pencil size={14} /> Editor
+                          </Link>
                           <button
                             type="button"
                             className="chapter-action"
