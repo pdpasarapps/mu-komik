@@ -142,8 +142,19 @@ export async function POST(request: NextRequest) {
   for (let page = 1; requestedIds.size > 0; page += 1) {
     const { data, error } = await serviceClient.auth.admin.listUsers({ page, perPage: usersPerPage });
     if (error) {
-      console.error("Unable to load admin user emails:", error);
-      return errorResponse(`User emails could not be loaded (Auth admin API error: ${error.code || "unknown"}).`, 500);
+      console.error("Unable to load admin user emails:", {
+        name: error.name,
+        message: error.message,
+        status: error.status,
+        code: error.code,
+      });
+      const details = [error.code, error.status, error.message]
+        .filter((value): value is string | number => typeof value === "string" || typeof value === "number")
+        .join(": ");
+      return errorResponse(
+        `User emails could not be loaded${details ? ` (Auth admin API: ${details})` : ""}.`,
+        500,
+      );
     }
     for (const user of data.users) {
       if (requestedIds.delete(user.id)) {
