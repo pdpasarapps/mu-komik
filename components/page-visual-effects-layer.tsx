@@ -16,6 +16,8 @@ const effectParticleCounts: Record<PageVisualEffect, number> = {
   sparkles: 14,
   insects: 8,
   leaves: 10,
+  glow: 8,
+  burst: 5,
 };
 
 function getParticleStyle(index: number, leafSize = 8, leafRandomness = 50): CSSProperties {
@@ -27,11 +29,14 @@ function getParticleStyle(index: number, leafSize = 8, leafRandomness = 50): CSS
   const variation = ((index * 31) % 101) / 100;
   const randomness = leafRandomness / 100;
   const variedLeafSize = leafSize * (1 + (variation * 2 - 1) * randomness * 0.45);
+  const motionX = 2 + (index * 29 % 7);
+  const motionY = 1 + (index * 17 % 5);
   return {
     left: `${left}%`,
     top: `${top}%`,
     animationDelay: `${delay}s`,
     animationDuration: `${duration}s`,
+    "--page-vfx-particle-duration": `${duration}s`,
     width: `${size}px`,
     height: `${size}px`,
     "--page-vfx-flight-x": `${((index * 37) % 16) - 8}cqw`,
@@ -39,6 +44,8 @@ function getParticleStyle(index: number, leafSize = 8, leafRandomness = 50): CSS
     "--page-vfx-wind-x": `${8 + variation * randomness * 48}cqw`,
     "--page-vfx-leaf-size": `${variedLeafSize}px`,
     "--page-vfx-leaf-rotation": `${180 + variation * randomness * 360}deg`,
+    "--page-vfx-movement-x": `${motionX}cqw`,
+    "--page-vfx-movement-y": `${motionY}cqw`,
   } as CSSProperties;
 }
 
@@ -66,6 +73,8 @@ export default function PageVisualEffectsLayer({ effects, effectSettings }: {
           rainPattern,
           rainLength,
           rainAngle,
+          movement,
+          brightness,
         } = effectSettings[effect];
         const rainPatternMultiplier = rainPattern === "heavy" ? 1.75 : 0.65;
         const particleCount = Math.min(200, Math.max(1, Math.round(
@@ -84,6 +93,7 @@ export default function PageVisualEffectsLayer({ effects, effectSettings }: {
         const effectStyle = {
           "--page-vfx-density": Math.min(1, density / 100 * densityMultiplier),
           "--page-vfx-speed": 100 / (speed * speedMultiplier),
+          "--page-vfx-brightness": brightness / 100,
           "--page-vfx-leaf-color": leafGradients[leafColor],
           "--page-vfx-rain-height": `${rainLength}%`,
           ...(effect === "rain" ? { ...rainDirectionStyle, ...rainPatternStyle } : {}),
@@ -91,7 +101,12 @@ export default function PageVisualEffectsLayer({ effects, effectSettings }: {
         return effect === "fog"
           ? <div className="page-visual-fog" key={effect} style={effectStyle}>{Array.from({ length: particleCount }, (_, index) => <span key={index} style={getParticleStyle(index)} />)}</div>
         : (
-          <div className={`page-visual-effect page-visual-effect-${effect}`} key={effect} style={effectStyle}>
+          <div
+            className={`page-visual-effect page-visual-effect-${effect}`}
+            data-movement={effect === "glow" || effect === "burst" ? movement : undefined}
+            key={effect}
+            style={effectStyle}
+          >
             {Array.from({ length: particleCount }, (_, index) => (
               <span key={index} style={getParticleStyle(index, leafSize, leafRandomness)}>
                 {effect === "sparkles" ? (index % 2 ? "✦" : "✧") : null}

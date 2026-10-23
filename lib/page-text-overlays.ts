@@ -3,11 +3,12 @@ export type PageTextBalloonShape = "speech" | "thought" | "shout" | "surprise" |
 export type PageTextLevel = "body" | "h1" | "h2" | "h3";
 export type PageTextFont = "default" | "comic-neue" | "bangers" | "patrick-hand" | "nunito" | "caveat";
 export type PageTextImageVerticalAlign = "top" | "center" | "bottom";
-export type PageVisualEffect = "rain" | "fog" | "snow" | "sparkles" | "insects" | "leaves";
+export type PageVisualEffect = "rain" | "fog" | "snow" | "sparkles" | "insects" | "leaves" | "glow" | "burst";
 export type PageColorFilter = "none" | "warm" | "cool" | "vintage" | "mono" | "cinematic" | "morning";
 export type PageLeafColor = "green" | "yellow" | "orange" | "red" | "brown";
 export type PageRainDirection = "vertical" | "diagonal-right" | "diagonal-left";
 export type PageRainPattern = "drizzle" | "heavy";
+export type PageVfxMovement = "static" | "random" | "wave";
 export type PageTextBalloonTailDirection =
   | "bottom-left"
   | "bottom"
@@ -54,6 +55,8 @@ export const PAGE_VISUAL_EFFECTS: Array<{ value: PageVisualEffect; label: string
   { value: "sparkles", label: "Kilau" },
   { value: "insects", label: "Serangga kecil" },
   { value: "leaves", label: "Daun tertiup angin" },
+  { value: "glow", label: "Glow" },
+  { value: "burst", label: "Burst" },
 ];
 
 export const PAGE_COLOR_FILTERS: Array<{ value: PageColorFilter; label: string }> = [
@@ -83,6 +86,12 @@ export const PAGE_RAIN_DIRECTIONS: Array<{ value: PageRainDirection; label: stri
 export const PAGE_RAIN_PATTERNS: Array<{ value: PageRainPattern; label: string }> = [
   { value: "drizzle", label: "Rintik-rintik" },
   { value: "heavy", label: "Hujan lebat" },
+];
+
+export const PAGE_VFX_MOVEMENTS: Array<{ value: PageVfxMovement; label: string }> = [
+  { value: "static", label: "Statis" },
+  { value: "random", label: "Acak" },
+  { value: "wave", label: "Gelombang" },
 ];
 
 export type PageTextOverlay = {
@@ -210,15 +219,19 @@ export type PageVisualEffectSettings = {
   rainPattern: PageRainPattern;
   rainLength: number;
   rainAngle: number;
+  movement: PageVfxMovement;
+  brightness: number;
 };
 
 export const defaultPageVisualEffectSettings: Record<PageVisualEffect, PageVisualEffectSettings> = {
-  rain: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0 },
-  fog: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0 },
-  snow: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0 },
-  sparkles: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0 },
-  insects: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0 },
-  leaves: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0 },
+  rain: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0, movement: "static", brightness: 100 },
+  fog: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0, movement: "static", brightness: 100 },
+  snow: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0, movement: "static", brightness: 100 },
+  sparkles: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0, movement: "static", brightness: 100 },
+  insects: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0, movement: "static", brightness: 100 },
+  leaves: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0, movement: "static", brightness: 100 },
+  glow: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0, movement: "static", brightness: 100 },
+  burst: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0, movement: "static", brightness: 100 },
 };
 
 export const defaultPageVisualEffects: PageVisualEffects = {
@@ -478,7 +491,11 @@ function parsePageVisualEffects(value: object): PageVisualEffects {
       || "rainLength" in stored && (typeof stored.rainLength !== "number"
         || !Number.isInteger(stored.rainLength) || stored.rainLength < 2 || stored.rainLength > 30)
       || "rainAngle" in stored && (typeof stored.rainAngle !== "number"
-        || !Number.isInteger(stored.rainAngle) || stored.rainAngle < 0 || stored.rainAngle > 359))) {
+        || !Number.isInteger(stored.rainAngle) || stored.rainAngle < 0 || stored.rainAngle > 359)
+      || "movement" in stored && (typeof stored.movement !== "string"
+        || !PAGE_VFX_MOVEMENTS.some((movement) => movement.value === stored.movement))
+      || "brightness" in stored && (typeof stored.brightness !== "number"
+        || !Number.isInteger(stored.brightness) || stored.brightness < 0 || stored.brightness > 200))) {
       throw new Error(`Pengaturan efek ${effect} tidak valid.`);
     }
     return [effect, {
@@ -496,6 +513,8 @@ function parsePageVisualEffects(value: object): PageVisualEffects {
         : stored && "rainDirection" in stored
           ? stored.rainDirection === "diagonal-right" ? 90 : stored.rainDirection === "diagonal-left" ? 270 : 0
           : 0,
+      movement: stored && "movement" in stored ? stored.movement as PageVfxMovement : "static",
+      brightness: stored && "brightness" in stored ? stored.brightness as number : 100,
     }];
   })) as Record<PageVisualEffect, PageVisualEffectSettings>;
   return {

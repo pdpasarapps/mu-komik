@@ -23,6 +23,7 @@ import {
   PAGE_COLOR_FILTERS,
   PAGE_LEAF_COLORS,
   PAGE_RAIN_PATTERNS,
+  PAGE_VFX_MOVEMENTS,
   PAGE_VISUAL_EFFECTS,
   PAGE_VISUAL_PRESETS,
   defaultPageVisualEffectSettings,
@@ -323,6 +324,28 @@ export default function PageTextEditor() {
       effectSettings: {
         ...current.effectSettings,
         rain: { ...current.effectSettings.rain, [setting]: value },
+      },
+    }));
+    setMessage("");
+  }
+
+  function updateVfxMovement(effect: "glow" | "burst", movement: PageVisualEffects["effectSettings"]["glow"]["movement"]) {
+    setVisualEffects((current) => ({
+      ...current,
+      effectSettings: {
+        ...current.effectSettings,
+        [effect]: { ...current.effectSettings[effect], movement },
+      },
+    }));
+    setMessage("");
+  }
+
+  function updateVfxBrightness(effect: "glow" | "burst", brightness: number) {
+    setVisualEffects((current) => ({
+      ...current,
+      effectSettings: {
+        ...current.effectSettings,
+        [effect]: { ...current.effectSettings[effect], brightness },
       },
     }));
     setMessage("");
@@ -978,6 +1001,36 @@ export default function PageTextEditor() {
                             step="1"
                             value={visualEffects.effectSettings.leaves.leafRandomness}
                             onChange={(event) => updateLeafSetting("leafRandomness", Number(event.target.value))}
+                          />
+                        </div>
+                      </>
+                    )}
+                    {(value === "glow" || value === "burst") && (
+                      <>
+                        <div className="page-vfx-setting">
+                          <label htmlFor={`page-vfx-${value}-movement`}>Gerakan</label>
+                          <output>{PAGE_VFX_MOVEMENTS.find(({ value: movement }) => movement === visualEffects.effectSettings[value].movement)?.label}</output>
+                          <select
+                            id={`page-vfx-${value}-movement`}
+                            value={visualEffects.effectSettings[value].movement}
+                            onChange={(event) => updateVfxMovement(value, event.target.value as PageVisualEffects["effectSettings"]["glow"]["movement"])}
+                          >
+                            {PAGE_VFX_MOVEMENTS.map(({ value: movement, label: movementLabel }) => (
+                              <option value={movement} key={movement}>{movementLabel}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="page-vfx-setting">
+                          <label htmlFor={`page-vfx-${value}-brightness`}>Kecerahan</label>
+                          <output>{visualEffects.effectSettings[value].brightness}%</output>
+                          <input
+                            id={`page-vfx-${value}-brightness`}
+                            type="range"
+                            min="0"
+                            max="200"
+                            step="5"
+                            value={visualEffects.effectSettings[value].brightness}
+                            onChange={(event) => updateVfxBrightness(value, Number(event.target.value))}
                           />
                         </div>
                       </>
