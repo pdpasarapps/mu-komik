@@ -3,6 +3,8 @@ export type PageTextBalloonShape = "speech" | "thought" | "shout" | "surprise" |
 export type PageTextLevel = "body" | "h1" | "h2" | "h3";
 export type PageTextFont = "default" | "comic-neue" | "bangers" | "patrick-hand" | "nunito" | "caveat";
 export type PageTextImageVerticalAlign = "top" | "center" | "bottom";
+export type PageVisualEffect = "rain" | "fog" | "snow" | "sparkles";
+export type PageColorFilter = "none" | "warm" | "cool" | "vintage" | "mono" | "cinematic";
 export type PageTextBalloonTailDirection =
   | "bottom-left"
   | "bottom"
@@ -40,6 +42,22 @@ export const PAGE_TEXT_BALLOON_TAIL_DIRECTIONS: Array<{ value: PageTextBalloonTa
   { value: "top-left", label: "Kiri atas" },
   { value: "top", label: "Tengah atas" },
   { value: "top-right", label: "Kanan atas" },
+];
+
+export const PAGE_VISUAL_EFFECTS: Array<{ value: PageVisualEffect; label: string }> = [
+  { value: "rain", label: "Hujan" },
+  { value: "fog", label: "Kabut" },
+  { value: "snow", label: "Salju" },
+  { value: "sparkles", label: "Kilau" },
+];
+
+export const PAGE_COLOR_FILTERS: Array<{ value: PageColorFilter; label: string }> = [
+  { value: "none", label: "Tanpa filter" },
+  { value: "warm", label: "Hangat" },
+  { value: "cool", label: "Dingin" },
+  { value: "vintage", label: "Vintage" },
+  { value: "mono", label: "Monokrom" },
+  { value: "cinematic", label: "Sinematik" },
 ];
 
 export type PageTextOverlay = {
@@ -139,6 +157,33 @@ export type PageTextOverlayDocument = {
   overlays: PageTextOverlay[];
   interactiveMarkers: PageInteractiveMarker[];
   imageVerticalAlign: PageTextImageVerticalAlign;
+  visualEffects: PageVisualEffects;
+};
+
+export type PageVisualEffects = {
+  effects: PageVisualEffect[];
+  colorFilter: PageColorFilter;
+  effectSettings: Record<PageVisualEffect, PageVisualEffectSettings>;
+};
+
+export type PageVisualEffectSettings = {
+  density: number;
+  speed: number;
+  densityMultiplier: number;
+  speedMultiplier: number;
+};
+
+export const defaultPageVisualEffectSettings: Record<PageVisualEffect, PageVisualEffectSettings> = {
+  rain: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1 },
+  fog: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1 },
+  snow: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1 },
+  sparkles: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1 },
+};
+
+export const defaultPageVisualEffects: PageVisualEffects = {
+  effects: [],
+  colorFilter: "none",
+  effectSettings: defaultPageVisualEffectSettings,
 };
 
 export function getInteractiveSparklePositions(markerId: string, density: number) {
@@ -286,10 +331,11 @@ export function parsePageTextOverlayDocument(value: unknown): PageTextOverlayDoc
       overlays,
       interactiveMarkers: [],
       imageVerticalAlign: isPageTextImageVerticalAlign(legacyAlign) ? legacyAlign : "center",
+      visualEffects: defaultPageVisualEffects,
     };
   }
   if (!value || typeof value !== "object" || !("overlays" in value)) {
-    if (value == null) return { overlays: [], interactiveMarkers: [], imageVerticalAlign: "center" };
+    if (value == null) return { overlays: [], interactiveMarkers: [], imageVerticalAlign: "center", visualEffects: defaultPageVisualEffects };
     throw new Error("Pengaturan teks halaman tidak valid.");
   }
   if ("imageVerticalAlign" in value && value.imageVerticalAlign !== undefined && !isPageTextImageVerticalAlign(value.imageVerticalAlign)) {
@@ -298,12 +344,68 @@ export function parsePageTextOverlayDocument(value: unknown): PageTextOverlayDoc
   const interactiveMarkers = "interactiveMarkers" in value && value.interactiveMarkers !== undefined
     ? parsePageInteractiveMarkers(value.interactiveMarkers)
     : [];
+  const visualEffects = parsePageVisualEffects(value);
   return {
     overlays: parsePageTextOverlays(value.overlays),
     interactiveMarkers,
     imageVerticalAlign: "imageVerticalAlign" in value && isPageTextImageVerticalAlign(value.imageVerticalAlign)
       ? value.imageVerticalAlign
       : "center",
+    visualEffects,
+  };
+}
+
+function parsePageVisualEffects(value: object): PageVisualEffects {
+  if (!("visualEffects" in value) || value.visualEffects === undefined) return defaultPageVisualEffects;
+  const visualEffects = value.visualEffects;
+  if (!visualEffects || typeof visualEffects !== "object" || !("effects" in visualEffects)
+    || !Array.isArray(visualEffects.effects)
+    || visualEffects.effects.some((effect) => typeof effect !== "string"
+      || !PAGE_VISUAL_EFFECTS.some((option) => option.value === effect))
+    || "density" in visualEffects && visualEffects.density !== undefined
+      && (typeof visualEffects.density !== "number" || !Number.isInteger(visualEffects.density)
+        || visualEffects.density < 1 || visualEffects.density > 100)
+    || "speed" in visualEffects && visualEffects.speed !== undefined
+      && (typeof visualEffects.speed !== "number" || !Number.isInteger(visualEffects.speed)
+        || visualEffects.speed < 25 || visualEffects.speed > 200)
+    || "colorFilter" in visualEffects && visualEffects.colorFilter !== undefined
+      && (typeof visualEffects.colorFilter !== "string"
+        || !PAGE_COLOR_FILTERS.some((option) => option.value === visualEffects.colorFilter))
+    || "effectSettings" in visualEffects && visualEffects.effectSettings !== undefined
+      && (!visualEffects.effectSettings || typeof visualEffects.effectSettings !== "object")
+  ) {
+    throw new Error("Efek visual halaman tidak valid.");
+  }
+  const legacyDensity = "density" in visualEffects && typeof visualEffects.density === "number" ? visualEffects.density : 50;
+  const legacySpeed = "speed" in visualEffects && typeof visualEffects.speed === "number" ? visualEffects.speed : 100;
+  const storedEffectSettings: Record<string, unknown> = "effectSettings" in visualEffects
+    && visualEffects.effectSettings && typeof visualEffects.effectSettings === "object"
+    ? visualEffects.effectSettings as Record<string, unknown>
+    : {};
+  const effectSettings = Object.fromEntries(PAGE_VISUAL_EFFECTS.map(({ value: effect }) => {
+    const stored = effect in storedEffectSettings ? storedEffectSettings[effect] : undefined;
+    if (stored !== undefined && (!stored || typeof stored !== "object"
+      || !("density" in stored) || typeof stored.density !== "number" || !Number.isInteger(stored.density) || stored.density < 1 || stored.density > 100
+      || !("speed" in stored) || typeof stored.speed !== "number" || !Number.isInteger(stored.speed) || stored.speed < 25 || stored.speed > 200
+      || "densityMultiplier" in stored && (typeof stored.densityMultiplier !== "number"
+        || !Number.isInteger(stored.densityMultiplier) || stored.densityMultiplier < 1 || stored.densityMultiplier > 10)
+      || "speedMultiplier" in stored && (typeof stored.speedMultiplier !== "number"
+        || !Number.isInteger(stored.speedMultiplier) || stored.speedMultiplier < 1 || stored.speedMultiplier > 10))) {
+      throw new Error(`Pengaturan efek ${effect} tidak valid.`);
+    }
+    return [effect, {
+      density: stored ? stored.density as number : legacyDensity,
+      speed: stored ? stored.speed as number : legacySpeed,
+      densityMultiplier: stored && "densityMultiplier" in stored ? stored.densityMultiplier as number : 1,
+      speedMultiplier: stored && "speedMultiplier" in stored ? stored.speedMultiplier as number : 1,
+    }];
+  })) as Record<PageVisualEffect, PageVisualEffectSettings>;
+  return {
+    effects: [...new Set(visualEffects.effects as PageVisualEffect[])],
+    colorFilter: "colorFilter" in visualEffects && typeof visualEffects.colorFilter === "string"
+      ? visualEffects.colorFilter as PageColorFilter
+      : "none",
+    effectSettings,
   };
 }
 
@@ -354,6 +456,7 @@ export function serializePageTextOverlayDocument(document: PageTextOverlayDocume
     imageVerticalAlign: document.imageVerticalAlign,
     overlays: document.overlays,
     interactiveMarkers: document.interactiveMarkers,
+    visualEffects: document.visualEffects,
   });
 }
 

@@ -16,7 +16,8 @@ import { useReaderMembership } from "@/app/membership-runtime";
 import { KidsModeToggle, useKidsMode, usePlatformSettings } from "@/app/platform-runtime";
 import { parseChapterSubtitles, type ChapterSubtitleCue } from "@/lib/chapter-subtitles";
 import PageTextOverlayLayer from "@/components/page-text-overlay-layer";
-import { parsePageTextOverlayDocument, type PageInteractiveMarker, type PageTextImageVerticalAlign, type PageTextOverlay } from "@/lib/page-text-overlays";
+import PageVisualEffectsLayer, { getPageVisualFilterClass } from "@/components/page-visual-effects-layer";
+import { parsePageTextOverlayDocument, type PageColorFilter, type PageInteractiveMarker, type PageTextImageVerticalAlign, type PageTextOverlay, type PageVisualEffect, type PageVisualEffectSettings } from "@/lib/page-text-overlays";
 import { useLocale } from "@/components/locale-provider";
 
 const supabase = createClient();
@@ -27,7 +28,7 @@ const GUEST_READ_CHAPTERS_STORAGE_KEY = "mu-komik:guest-read-chapters";
 const GUEST_READ_CHAPTER_LIMIT = 2;
 const PENDING_GUEST_READING_STORAGE_KEY = "mu-komik:pending-guest-reading";
 
-type Page = { id: string; page_number: number; object_key: string; text_overlays: PageTextOverlay[]; interactive_markers: PageInteractiveMarker[]; image_vertical_align: PageTextImageVerticalAlign };
+type Page = { id: string; page_number: number; object_key: string; text_overlays: PageTextOverlay[]; interactive_markers: PageInteractiveMarker[]; image_vertical_align: PageTextImageVerticalAlign; visual_effects: PageVisualEffect[]; visual_effect_settings: Record<PageVisualEffect, PageVisualEffectSettings>; color_filter: PageColorFilter };
 type Chapter = {
   id: string;
   title: string;
@@ -397,6 +398,9 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
             text_overlays: pageText.overlays,
             interactive_markers: pageText.interactiveMarkers,
             image_vertical_align: pageText.imageVerticalAlign,
+            visual_effects: pageText.visualEffects.effects,
+            visual_effect_settings: pageText.visualEffects.effectSettings,
+            color_filter: pageText.visualEffects.colorFilter,
           });
           pagesByChapter.set(page.chapter_id, chapterPages);
         }
@@ -1187,10 +1191,11 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                           currentChapterRead && <div data-reader-stop="episode-end">{episodeEndContent}</div>
                         ) : page && src ? (
                           <div
-                            className={`reader-book-page-art${page.text_overlays.length || page.interactive_markers.length ? " reader-page-art-with-text-overlays" : ""}`}
+                            className={`reader-book-page-art${page.text_overlays.length || page.interactive_markers.length || page.visual_effects.length || page.color_filter !== "none" ? " reader-page-art-with-text-overlays" : ""}`}
                             style={{ "--reader-page-aspect-ratio": pageAspectRatios[page.id] ?? 0.75 } as CSSProperties}
                           >
                             <img
+                              className={getPageVisualFilterClass(page.color_filter)}
                               src={src}
                               alt={`${comic.title}, episode ${chapter.chapter_number}, halaman ${page.page_number}`}
                               draggable={false}
@@ -1205,6 +1210,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                                 }
                               }}
                             />
+                            <PageVisualEffectsLayer effects={page.visual_effects} effectSettings={page.visual_effect_settings} />
                             <PageTextOverlayLayer overlays={page.text_overlays} />
                             <PageInteractiveMarkerLayer markers={page.interactive_markers} />
                             {activeSubtitlePageId === page.id && activeSubtitle && (
@@ -1260,10 +1266,11 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                       {src
                         ? (
                           <div
-                            className={`reader-page-art${page.text_overlays.length || page.interactive_markers.length ? " reader-page-art-with-text-overlays" : ""}`}
+                            className={`reader-page-art${page.text_overlays.length || page.interactive_markers.length || page.visual_effects.length || page.color_filter !== "none" ? " reader-page-art-with-text-overlays" : ""}`}
                             style={{ "--reader-page-aspect-ratio": pageAspectRatios[page.id] ?? 0.75 } as CSSProperties}
                           >
                             <img
+                              className={getPageVisualFilterClass(page.color_filter)}
                               src={src}
                               alt={`${comic.title}, ${chapterTerm} ${chapter.chapter_number}, ${t("halaman")} ${page.page_number}`}
                               loading={index < 2 ? "eager" : "lazy"}
@@ -1279,6 +1286,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                                 }
                               }}
                             />
+                            <PageVisualEffectsLayer effects={page.visual_effects} effectSettings={page.visual_effect_settings} />
                             <PageTextOverlayLayer overlays={page.text_overlays} />
                             <PageInteractiveMarkerLayer markers={page.interactive_markers} />
                             {activeSubtitlePageId === page.id && activeSubtitle && (

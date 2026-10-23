@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } fr
 import { ArrowLeft, Bold, Eye, EyeOff, Italic, LoaderCircle, MessageSquareText, MousePointer2, Plus, Save, Smile, Trash2, Type, Underline, Volume2 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import PageVisualEffectsLayer, { getPageVisualFilterClass } from "@/components/page-visual-effects-layer";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getInteractiveSound, interactiveSounds } from "@/lib/interactive-sounds";
@@ -18,9 +19,13 @@ import {
   PAGE_TEXT_BALLOON_TAIL_RADIUS_X,
   PAGE_TEXT_FONTS,
   PAGE_TEXT_BALLOON_TAIL_DIRECTIONS,
+  PAGE_COLOR_FILTERS,
+  PAGE_VISUAL_EFFECTS,
+  defaultPageVisualEffects,
   parsePageTextOverlayDocument,
   serializePageTextOverlayDocument,
   type PageTextImageVerticalAlign,
+  type PageVisualEffects,
   type PageInteractiveEffect,
   type PageInteractiveMarker,
   type PageTextOverlay,
@@ -54,6 +59,7 @@ export default function PageTextEditor() {
   const [overlays, setOverlays] = useState<PageTextOverlay[]>([]);
   const [interactiveMarkers, setInteractiveMarkers] = useState<PageInteractiveMarker[]>([]);
   const [imageVerticalAlign, setImageVerticalAlign] = useState<PageTextImageVerticalAlign>("center");
+  const [visualEffects, setVisualEffects] = useState<PageVisualEffects>(defaultPageVisualEffects);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [previewDevice, setPreviewDevice] = useState<"mobile" | "tablet">("mobile");
@@ -79,7 +85,7 @@ export default function PageTextEditor() {
   const selectedMarker = interactiveMarkers.find((marker) => marker.id === selectedMarkerId) ?? null;
   const imageUrl = page && publicUrl ? `${publicUrl.replace(/\/$/, "")}/${page.object_key}` : null;
   const backHref = `/account/komik/${encodeURIComponent(comicId)}`;
-  const isDirty = serializePageTextOverlayDocument({ overlays, interactiveMarkers, imageVerticalAlign }) !== savedDocument;
+  const isDirty = serializePageTextOverlayDocument({ overlays, interactiveMarkers, imageVerticalAlign, visualEffects }) !== savedDocument;
 
   useEffect(() => () => {
     soundPreviewRef.current?.pause();
@@ -181,6 +187,7 @@ export default function PageTextEditor() {
         setOverlays(storedOverlays);
         setInteractiveMarkers(storedDocument.interactiveMarkers);
         setImageVerticalAlign(storedDocument.imageVerticalAlign);
+        setVisualEffects(storedDocument.visualEffects);
         setSavedDocument(serializePageTextOverlayDocument(storedDocument));
         setSelectedId(storedOverlays[0]?.id ?? null);
       } catch (parseError) {
@@ -220,6 +227,52 @@ export default function PageTextEditor() {
 
   function updateImageVerticalAlign(imageVerticalAlign: PageTextImageVerticalAlign) {
     setImageVerticalAlign(imageVerticalAlign);
+    setMessage("");
+  }
+
+  function toggleVisualEffect(effect: PageVisualEffects["effects"][number]) {
+    setVisualEffects((current) => ({
+      ...current,
+      effects: current.effects.includes(effect)
+        ? current.effects.filter((item) => item !== effect)
+        : [...current.effects, effect],
+    }));
+    setMessage("");
+  }
+
+  function updateColorFilter(colorFilter: PageVisualEffects["colorFilter"]) {
+    setVisualEffects((current) => ({ ...current, colorFilter }));
+    setMessage("");
+  }
+
+  function updateVisualEffectDensity(effect: PageVisualEffects["effects"][number], density: number) {
+    setVisualEffects((current) => ({
+      ...current,
+      effectSettings: { ...current.effectSettings, [effect]: { ...current.effectSettings[effect], density } },
+    }));
+    setMessage("");
+  }
+
+  function updateVisualEffectSpeed(effect: PageVisualEffects["effects"][number], speed: number) {
+    setVisualEffects((current) => ({
+      ...current,
+      effectSettings: { ...current.effectSettings, [effect]: { ...current.effectSettings[effect], speed } },
+    }));
+    setMessage("");
+  }
+
+  function updateVisualEffectMultiplier(
+    effect: PageVisualEffects["effects"][number],
+    setting: "densityMultiplier" | "speedMultiplier",
+    multiplier: number,
+  ) {
+    setVisualEffects((current) => ({
+      ...current,
+      effectSettings: {
+        ...current.effectSettings,
+        [effect]: { ...current.effectSettings[effect], [setting]: multiplier },
+      },
+    }));
     setMessage("");
   }
 
@@ -490,7 +543,7 @@ export default function PageTextEditor() {
     setSaving(true);
     setError("");
     setMessage("");
-    const document = { overlays, interactiveMarkers, imageVerticalAlign };
+    const document = { overlays, interactiveMarkers, imageVerticalAlign, visualEffects };
     const serializedDocument = serializePageTextOverlayDocument(document);
     const result = await supabase.from("pages").update({ text_overlays: JSON.parse(serializedDocument) }).eq("id", page.id).select("id").maybeSingle();
     if (result.error || !result.data) {
@@ -505,7 +558,7 @@ export default function PageTextEditor() {
     }
     const previousDocument = parsePageTextOverlayDocument(JSON.parse(savedDocument));
     setSavedDocument(serializedDocument);
-    setMessage("Teks halaman berhasil disimpan.");
+    setMessage("Perubahan halaman berhasil disimpan.");
     setSaving(false);
     const nextAudioKeys = new Set(interactiveMarkers.map((marker) => marker.soundObjectKey).filter((key): key is string => key !== null));
     const removedAudioKeys = new Set(previousDocument.interactiveMarkers
@@ -564,6 +617,7 @@ export default function PageTextEditor() {
           </div>
           <div className={`page-text-editor-canvas page-text-editor-canvas-preview-${previewDevice}`} style={{ aspectRatio: previewDevice === "mobile" ? "9 / 16" : pageAspectRatio }}>
             <Image
+              className={getPageVisualFilterClass(visualEffects.colorFilter)}
               src={imageUrl}
               alt={`Pratinjau halaman ${page.page_number}`}
               fill
@@ -575,6 +629,7 @@ export default function PageTextEditor() {
                 if (naturalWidth > 0 && naturalHeight > 0) setPageAspectRatio(naturalWidth / naturalHeight);
               }}
             />
+            <PageVisualEffectsLayer effects={visualEffects.effects} effectSettings={visualEffects.effectSettings} />
             <div className="page-text-overlay-layer page-text-overlay-edit-layer">
               {overlays.map((overlay) => {
                 const isSelected = selectedId === overlay.id;
@@ -718,6 +773,77 @@ export default function PageTextEditor() {
               <option value="bottom">Bawah</option>
             </select>
           </label>
+          <fieldset className="page-visual-effects-settings">
+            <legend>Efek visual (VFX)</legend>
+            <p>Pilih efek untuk pratinjau dan reader. Efek mengikuti halaman ini setelah disimpan.</p>
+            <div className="page-visual-effects-options">
+              {PAGE_VISUAL_EFFECTS.map(({ value, label }) => (
+                <section className="page-visual-effect-settings" key={value}>
+                  <label className="page-visual-effect-toggle">
+                    <input type="checkbox" checked={visualEffects.effects.includes(value)} onChange={() => toggleVisualEffect(value)} />
+                    <span>{label}</span>
+                  </label>
+                  <details className="page-visual-effect-details">
+                    <summary>Atur {label.toLocaleLowerCase("id-ID")}</summary>
+                    <label className="page-text-editor-page-setting">
+                      Kepadatan: {visualEffects.effectSettings[value].density}%
+                      <input
+                        type="range"
+                        min="1"
+                        max="100"
+                        step="1"
+                        value={visualEffects.effectSettings[value].density}
+                        onChange={(event) => updateVisualEffectDensity(value, Number(event.target.value))}
+                        aria-label={`Kepadatan efek ${label}`}
+                      />
+                    </label>
+                    <label className="page-text-editor-page-setting">
+                      Pengali kepadatan
+                      <select
+                        value={visualEffects.effectSettings[value].densityMultiplier}
+                        onChange={(event) => updateVisualEffectMultiplier(value, "densityMultiplier", Number(event.target.value))}
+                        aria-label={`Pengali kepadatan efek ${label}`}
+                      >
+                        {Array.from({ length: 10 }, (_, index) => index + 1).map((multiplier) => (
+                          <option value={multiplier} key={multiplier}>{multiplier}X</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="page-text-editor-page-setting">
+                      Kecepatan: {visualEffects.effectSettings[value].speed}%
+                      <input
+                        type="range"
+                        min="25"
+                        max="200"
+                        step="5"
+                        value={visualEffects.effectSettings[value].speed}
+                        onChange={(event) => updateVisualEffectSpeed(value, Number(event.target.value))}
+                        aria-label={`Kecepatan efek ${label}`}
+                      />
+                    </label>
+                    <label className="page-text-editor-page-setting">
+                      Pengali kecepatan
+                      <select
+                        value={visualEffects.effectSettings[value].speedMultiplier}
+                        onChange={(event) => updateVisualEffectMultiplier(value, "speedMultiplier", Number(event.target.value))}
+                        aria-label={`Pengali kecepatan efek ${label}`}
+                      >
+                        {Array.from({ length: 10 }, (_, index) => index + 1).map((multiplier) => (
+                          <option value={multiplier} key={multiplier}>{multiplier}X</option>
+                        ))}
+                      </select>
+                    </label>
+                  </details>
+                </section>
+              ))}
+            </div>
+            <label className="page-text-editor-page-setting">
+              Filter warna
+              <select value={visualEffects.colorFilter} onChange={(event) => updateColorFilter(event.target.value as PageVisualEffects["colorFilter"])}>
+                {PAGE_COLOR_FILTERS.map(({ value, label }) => <option value={value} key={value}>{label}</option>)}
+              </select>
+            </label>
+          </fieldset>
           {(overlays.length > 0 || interactiveMarkers.length > 0) && (
             <section className="page-text-overlay-list" aria-label="Lapisan halaman">
               <h3>Lapisan halaman ({overlays.length + interactiveMarkers.length})</h3>
