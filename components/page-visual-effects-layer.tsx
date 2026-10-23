@@ -1,19 +1,32 @@
 import type { CSSProperties } from "react";
-import type { PageColorFilter, PageVisualEffect, PageVisualEffectSettings } from "@/lib/page-text-overlays";
+import type { PageColorFilter, PageLeafColor, PageVisualEffect, PageVisualEffectSettings } from "@/lib/page-text-overlays";
+
+const leafGradients: Record<PageLeafColor, string> = {
+  green: "linear-gradient(135deg, #b7a64f, #657e35 70%, #425e30)",
+  yellow: "linear-gradient(135deg, #fff2a0, #d3b735 70%, #987b24)",
+  orange: "linear-gradient(135deg, #ffd078, #e47b2f 70%, #a94a28)",
+  red: "linear-gradient(135deg, #ffad78, #c94335 70%, #792d35)",
+  brown: "linear-gradient(135deg, #d4a76d, #8b5b35 70%, #563a2c)",
+};
 
 const effectParticleCounts: Record<PageVisualEffect, number> = {
   rain: 28,
   fog: 3,
   snow: 22,
   sparkles: 14,
+  insects: 8,
+  leaves: 10,
 };
 
-function getParticleStyle(index: number): CSSProperties {
+function getParticleStyle(index: number, leafSize = 8, leafRandomness = 50): CSSProperties {
   const left = ((index * 47 + 13) % 97) + 1;
   const top = ((index * 61 + 7) % 101) - 1;
   const delay = -((index * 17) % 40) / 10;
   const duration = 3 + (index % 5) * 0.7;
   const size = 2 + (index % 4);
+  const variation = ((index * 31) % 101) / 100;
+  const randomness = leafRandomness / 100;
+  const variedLeafSize = leafSize * (1 + (variation * 2 - 1) * randomness * 0.45);
   return {
     left: `${left}%`,
     top: `${top}%`,
@@ -21,6 +34,11 @@ function getParticleStyle(index: number): CSSProperties {
     animationDuration: `${duration}s`,
     width: `${size}px`,
     height: `${size}px`,
+    "--page-vfx-flight-x": `${((index * 37) % 16) - 8}cqw`,
+    "--page-vfx-flight-y": `${((index * 23) % 12) - 6}cqw`,
+    "--page-vfx-wind-x": `${8 + variation * randomness * 48}cqw`,
+    "--page-vfx-leaf-size": `${variedLeafSize}px`,
+    "--page-vfx-leaf-rotation": `${180 + variation * randomness * 360}deg`,
   } as CSSProperties;
 }
 
@@ -37,18 +55,19 @@ export default function PageVisualEffectsLayer({ effects, effectSettings }: {
   return (
     <div className="page-visual-effects-layer" aria-hidden="true">
       {effects.map((effect) => {
-        const { density, speed, densityMultiplier, speedMultiplier } = effectSettings[effect];
+        const { density, speed, densityMultiplier, speedMultiplier, leafSize, leafRandomness, leafColor } = effectSettings[effect];
         const particleCount = Math.min(200, Math.max(1, Math.round(effectParticleCounts[effect] * density / 50 * densityMultiplier)));
         const effectStyle = {
           "--page-vfx-density": Math.min(1, density / 100 * densityMultiplier),
           "--page-vfx-speed": 100 / (speed * speedMultiplier),
+          "--page-vfx-leaf-color": leafGradients[leafColor],
         } as CSSProperties;
         return effect === "fog"
           ? <div className="page-visual-fog" key={effect} style={effectStyle}>{Array.from({ length: particleCount }, (_, index) => <span key={index} style={getParticleStyle(index)} />)}</div>
         : (
           <div className={`page-visual-effect page-visual-effect-${effect}`} key={effect} style={effectStyle}>
             {Array.from({ length: particleCount }, (_, index) => (
-              <span key={index} style={getParticleStyle(index)}>
+              <span key={index} style={getParticleStyle(index, leafSize, leafRandomness)}>
                 {effect === "sparkles" ? (index % 2 ? "✦" : "✧") : null}
               </span>
             ))}

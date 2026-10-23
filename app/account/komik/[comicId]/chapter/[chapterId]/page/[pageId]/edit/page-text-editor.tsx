@@ -20,7 +20,10 @@ import {
   PAGE_TEXT_FONTS,
   PAGE_TEXT_BALLOON_TAIL_DIRECTIONS,
   PAGE_COLOR_FILTERS,
+  PAGE_LEAF_COLORS,
   PAGE_VISUAL_EFFECTS,
+  PAGE_VISUAL_PRESETS,
+  defaultPageVisualEffectSettings,
   defaultPageVisualEffects,
   parsePageTextOverlayDocument,
   serializePageTextOverlayDocument,
@@ -245,6 +248,25 @@ export default function PageTextEditor() {
     setMessage("");
   }
 
+  function applyVisualPreset(presetValue: string) {
+    const preset = PAGE_VISUAL_PRESETS.find(({ value }) => value === presetValue);
+    if (!preset) return;
+
+    const effectSettings = { ...defaultPageVisualEffectSettings };
+    for (const { value: effect } of PAGE_VISUAL_EFFECTS) {
+      effectSettings[effect] = {
+        ...defaultPageVisualEffectSettings[effect],
+        ...preset.effectSettings[effect],
+      };
+    }
+    setVisualEffects({
+      effects: [...preset.effects],
+      colorFilter: preset.colorFilter,
+      effectSettings,
+    });
+    setMessage("");
+  }
+
   function updateVisualEffectDensity(effect: PageVisualEffects["effects"][number], density: number) {
     setVisualEffects((current) => ({
       ...current,
@@ -271,6 +293,20 @@ export default function PageTextEditor() {
       effectSettings: {
         ...current.effectSettings,
         [effect]: { ...current.effectSettings[effect], [setting]: multiplier },
+      },
+    }));
+    setMessage("");
+  }
+
+  function updateLeafSetting<K extends "leafSize" | "leafRandomness" | "leafColor">(
+    setting: K,
+    value: PageVisualEffects["effectSettings"]["leaves"][K],
+  ) {
+    setVisualEffects((current) => ({
+      ...current,
+      effectSettings: {
+        ...current.effectSettings,
+        leaves: { ...current.effectSettings.leaves, [setting]: value },
       },
     }));
     setMessage("");
@@ -773,68 +809,124 @@ export default function PageTextEditor() {
               <option value="bottom">Bawah</option>
             </select>
           </label>
-          <fieldset className="page-visual-effects-settings">
-            <legend>Efek visual (VFX)</legend>
+          <details className="page-visual-effects-settings">
+            <summary className="page-visual-effects-summary">Efek visual (VFX)</summary>
             <p>Pilih efek untuk pratinjau dan reader. Efek mengikuti halaman ini setelah disimpan.</p>
+            <label className="page-text-editor-page-setting">
+              Preset atmosfer
+              <select value="" onChange={(event) => applyVisualPreset(event.target.value)}>
+                <option value="">Pilih preset</option>
+                {PAGE_VISUAL_PRESETS.map(({ value, label }) => <option value={value} key={value}>{label}</option>)}
+              </select>
+            </label>
             <div className="page-visual-effects-options">
               {PAGE_VISUAL_EFFECTS.map(({ value, label }) => (
-                <section className="page-visual-effect-settings" key={value}>
-                  <label className="page-visual-effect-toggle">
-                    <input type="checkbox" checked={visualEffects.effects.includes(value)} onChange={() => toggleVisualEffect(value)} />
-                    <span>{label}</span>
-                  </label>
-                  <details className="page-visual-effect-details">
-                    <summary>Atur {label.toLocaleLowerCase("id-ID")}</summary>
-                    <label className="page-text-editor-page-setting">
-                      Kepadatan: {visualEffects.effectSettings[value].density}%
+                <details className="page-visual-effect-settings" key={value}>
+                  <summary className="page-visual-effect-header">
+                    <label className="page-visual-effect-toggle" onClick={(event) => event.stopPropagation()}>
+                      <input type="checkbox" checked={visualEffects.effects.includes(value)} onChange={() => toggleVisualEffect(value)} />
+                      <span>{label}</span>
+                    </label>
+                    <span className="page-visual-effect-settings-action">Atur</span>
+                  </summary>
+                  <div className="page-vfx-controls">
+                    <div className="page-vfx-setting">
+                      <label htmlFor={`page-vfx-${value}-density`}>Kepadatan</label>
+                      <output>{visualEffects.effectSettings[value].density}%</output>
                       <input
+                        id={`page-vfx-${value}-density`}
                         type="range"
                         min="1"
                         max="100"
                         step="1"
                         value={visualEffects.effectSettings[value].density}
                         onChange={(event) => updateVisualEffectDensity(value, Number(event.target.value))}
-                        aria-label={`Kepadatan efek ${label}`}
                       />
-                    </label>
-                    <label className="page-text-editor-page-setting">
-                      Pengali kepadatan
+                    </div>
+                    <div className="page-vfx-setting">
+                      <label htmlFor={`page-vfx-${value}-density-multiplier`}>Pengali kepadatan</label>
+                      <output>{visualEffects.effectSettings[value].densityMultiplier}X</output>
                       <select
+                        id={`page-vfx-${value}-density-multiplier`}
                         value={visualEffects.effectSettings[value].densityMultiplier}
                         onChange={(event) => updateVisualEffectMultiplier(value, "densityMultiplier", Number(event.target.value))}
-                        aria-label={`Pengali kepadatan efek ${label}`}
                       >
                         {Array.from({ length: 10 }, (_, index) => index + 1).map((multiplier) => (
                           <option value={multiplier} key={multiplier}>{multiplier}X</option>
                         ))}
                       </select>
-                    </label>
-                    <label className="page-text-editor-page-setting">
-                      Kecepatan: {visualEffects.effectSettings[value].speed}%
+                    </div>
+                    <div className="page-vfx-setting">
+                      <label htmlFor={`page-vfx-${value}-speed`}>Kecepatan</label>
+                      <output>{visualEffects.effectSettings[value].speed}%</output>
                       <input
+                        id={`page-vfx-${value}-speed`}
                         type="range"
                         min="25"
                         max="200"
                         step="5"
                         value={visualEffects.effectSettings[value].speed}
                         onChange={(event) => updateVisualEffectSpeed(value, Number(event.target.value))}
-                        aria-label={`Kecepatan efek ${label}`}
                       />
-                    </label>
-                    <label className="page-text-editor-page-setting">
-                      Pengali kecepatan
+                    </div>
+                    <div className="page-vfx-setting">
+                      <label htmlFor={`page-vfx-${value}-speed-multiplier`}>Pengali kecepatan</label>
+                      <output>{visualEffects.effectSettings[value].speedMultiplier}X</output>
                       <select
+                        id={`page-vfx-${value}-speed-multiplier`}
                         value={visualEffects.effectSettings[value].speedMultiplier}
                         onChange={(event) => updateVisualEffectMultiplier(value, "speedMultiplier", Number(event.target.value))}
-                        aria-label={`Pengali kecepatan efek ${label}`}
                       >
                         {Array.from({ length: 10 }, (_, index) => index + 1).map((multiplier) => (
                           <option value={multiplier} key={multiplier}>{multiplier}X</option>
                         ))}
                       </select>
-                    </label>
-                  </details>
-                </section>
+                    </div>
+                    {value === "leaves" && (
+                      <>
+                        <div className="page-vfx-setting">
+                          <label htmlFor="page-vfx-leaves-size">Ukuran daun</label>
+                          <output>{visualEffects.effectSettings.leaves.leafSize}px</output>
+                          <input
+                            id="page-vfx-leaves-size"
+                            type="range"
+                            min="2"
+                            max="20"
+                            step="1"
+                            value={visualEffects.effectSettings.leaves.leafSize}
+                            onChange={(event) => updateLeafSetting("leafSize", Number(event.target.value))}
+                          />
+                        </div>
+                        <div className="page-vfx-setting">
+                          <label htmlFor="page-vfx-leaves-color">Warna daun</label>
+                          <output>{PAGE_LEAF_COLORS.find(({ value: color }) => color === visualEffects.effectSettings.leaves.leafColor)?.label}</output>
+                          <select
+                            id="page-vfx-leaves-color"
+                            value={visualEffects.effectSettings.leaves.leafColor}
+                            onChange={(event) => updateLeafSetting("leafColor", event.target.value as PageVisualEffects["effectSettings"]["leaves"]["leafColor"])}
+                          >
+                            {PAGE_LEAF_COLORS.map(({ value: color, label: colorLabel }) => (
+                              <option value={color} key={color}>{colorLabel}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="page-vfx-setting">
+                          <label htmlFor="page-vfx-leaves-randomness">Variasi gerak</label>
+                          <output>{visualEffects.effectSettings.leaves.leafRandomness}%</output>
+                          <input
+                            id="page-vfx-leaves-randomness"
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={visualEffects.effectSettings.leaves.leafRandomness}
+                            onChange={(event) => updateLeafSetting("leafRandomness", Number(event.target.value))}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </details>
               ))}
             </div>
             <label className="page-text-editor-page-setting">
@@ -843,7 +935,7 @@ export default function PageTextEditor() {
                 {PAGE_COLOR_FILTERS.map(({ value, label }) => <option value={value} key={value}>{label}</option>)}
               </select>
             </label>
-          </fieldset>
+          </details>
           {(overlays.length > 0 || interactiveMarkers.length > 0) && (
             <section className="page-text-overlay-list" aria-label="Lapisan halaman">
               <h3>Lapisan halaman ({overlays.length + interactiveMarkers.length})</h3>

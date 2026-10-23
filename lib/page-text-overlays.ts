@@ -3,8 +3,9 @@ export type PageTextBalloonShape = "speech" | "thought" | "shout" | "surprise" |
 export type PageTextLevel = "body" | "h1" | "h2" | "h3";
 export type PageTextFont = "default" | "comic-neue" | "bangers" | "patrick-hand" | "nunito" | "caveat";
 export type PageTextImageVerticalAlign = "top" | "center" | "bottom";
-export type PageVisualEffect = "rain" | "fog" | "snow" | "sparkles";
+export type PageVisualEffect = "rain" | "fog" | "snow" | "sparkles" | "insects" | "leaves";
 export type PageColorFilter = "none" | "warm" | "cool" | "vintage" | "mono" | "cinematic" | "morning";
+export type PageLeafColor = "green" | "yellow" | "orange" | "red" | "brown";
 export type PageTextBalloonTailDirection =
   | "bottom-left"
   | "bottom"
@@ -49,6 +50,8 @@ export const PAGE_VISUAL_EFFECTS: Array<{ value: PageVisualEffect; label: string
   { value: "fog", label: "Kabut" },
   { value: "snow", label: "Salju" },
   { value: "sparkles", label: "Kilau" },
+  { value: "insects", label: "Serangga kecil" },
+  { value: "leaves", label: "Daun tertiup angin" },
 ];
 
 export const PAGE_COLOR_FILTERS: Array<{ value: PageColorFilter; label: string }> = [
@@ -59,6 +62,14 @@ export const PAGE_COLOR_FILTERS: Array<{ value: PageColorFilter; label: string }
   { value: "mono", label: "Monokrom" },
   { value: "cinematic", label: "Sinematik" },
   { value: "morning", label: "Atmosfer pagi hari" },
+];
+
+export const PAGE_LEAF_COLORS: Array<{ value: PageLeafColor; label: string }> = [
+  { value: "green", label: "Hijau" },
+  { value: "yellow", label: "Kuning" },
+  { value: "orange", label: "Oranye" },
+  { value: "red", label: "Merah" },
+  { value: "brown", label: "Cokelat" },
 ];
 
 export type PageTextOverlay = {
@@ -167,18 +178,31 @@ export type PageVisualEffects = {
   effectSettings: Record<PageVisualEffect, PageVisualEffectSettings>;
 };
 
+export type PageVisualPreset = {
+  value: string;
+  label: string;
+  effects: PageVisualEffect[];
+  colorFilter: PageColorFilter;
+  effectSettings: Partial<Record<PageVisualEffect, Partial<PageVisualEffectSettings>>>;
+};
+
 export type PageVisualEffectSettings = {
   density: number;
   speed: number;
   densityMultiplier: number;
   speedMultiplier: number;
+  leafSize: number;
+  leafRandomness: number;
+  leafColor: PageLeafColor;
 };
 
 export const defaultPageVisualEffectSettings: Record<PageVisualEffect, PageVisualEffectSettings> = {
-  rain: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1 },
-  fog: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1 },
-  snow: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1 },
-  sparkles: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1 },
+  rain: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green" },
+  fog: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green" },
+  snow: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green" },
+  sparkles: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green" },
+  insects: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green" },
+  leaves: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green" },
 };
 
 export const defaultPageVisualEffects: PageVisualEffects = {
@@ -186,6 +210,39 @@ export const defaultPageVisualEffects: PageVisualEffects = {
   colorFilter: "none",
   effectSettings: defaultPageVisualEffectSettings,
 };
+
+export const PAGE_VISUAL_PRESETS: PageVisualPreset[] = [
+  {
+    value: "bright-morning",
+    label: "Pagi cerah",
+    effects: ["insects", "sparkles"],
+    colorFilter: "morning",
+    effectSettings: {
+      insects: { density: 28, speed: 80 },
+      sparkles: { density: 22, speed: 75 },
+    },
+  },
+  {
+    value: "autumn",
+    label: "Musim gugur",
+    effects: ["leaves", "insects"],
+    colorFilter: "warm",
+    effectSettings: {
+      leaves: { density: 45, speed: 85, leafSize: 11, leafRandomness: 75, leafColor: "orange" },
+      insects: { density: 15, speed: 70 },
+    },
+  },
+  {
+    value: "gentle-rain",
+    label: "Hujan tenang",
+    effects: ["rain", "fog"],
+    colorFilter: "cool",
+    effectSettings: {
+      rain: { density: 35, speed: 80 },
+      fog: { density: 25, speed: 70 },
+    },
+  },
+];
 
 export function getInteractiveSparklePositions(markerId: string, density: number) {
   let seed = 2166136261;
@@ -391,7 +448,13 @@ function parsePageVisualEffects(value: object): PageVisualEffects {
       || "densityMultiplier" in stored && (typeof stored.densityMultiplier !== "number"
         || !Number.isInteger(stored.densityMultiplier) || stored.densityMultiplier < 1 || stored.densityMultiplier > 10)
       || "speedMultiplier" in stored && (typeof stored.speedMultiplier !== "number"
-        || !Number.isInteger(stored.speedMultiplier) || stored.speedMultiplier < 1 || stored.speedMultiplier > 10))) {
+        || !Number.isInteger(stored.speedMultiplier) || stored.speedMultiplier < 1 || stored.speedMultiplier > 10)
+      || "leafSize" in stored && (typeof stored.leafSize !== "number"
+        || !Number.isInteger(stored.leafSize) || stored.leafSize < 2 || stored.leafSize > 20)
+      || "leafRandomness" in stored && (typeof stored.leafRandomness !== "number"
+        || !Number.isInteger(stored.leafRandomness) || stored.leafRandomness < 0 || stored.leafRandomness > 100)
+      || "leafColor" in stored && (typeof stored.leafColor !== "string"
+        || !PAGE_LEAF_COLORS.some((color) => color.value === stored.leafColor)))) {
       throw new Error(`Pengaturan efek ${effect} tidak valid.`);
     }
     return [effect, {
@@ -399,6 +462,9 @@ function parsePageVisualEffects(value: object): PageVisualEffects {
       speed: stored ? stored.speed as number : legacySpeed,
       densityMultiplier: stored && "densityMultiplier" in stored ? stored.densityMultiplier as number : 1,
       speedMultiplier: stored && "speedMultiplier" in stored ? stored.speedMultiplier as number : 1,
+      leafSize: stored && "leafSize" in stored ? stored.leafSize as number : 8,
+      leafRandomness: stored && "leafRandomness" in stored ? stored.leafRandomness as number : 50,
+      leafColor: stored && "leafColor" in stored ? stored.leafColor as PageLeafColor : "green",
     }];
   })) as Record<PageVisualEffect, PageVisualEffectSettings>;
   return {
