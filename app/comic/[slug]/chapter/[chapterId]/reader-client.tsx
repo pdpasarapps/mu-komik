@@ -39,7 +39,7 @@ type Chapter = {
   subtitles_srt?: string | null;
   subtitle_page_map?: Record<string, string> | null;
 };
-type Comic = { id: string; title: string; slug: string; target_device: ComicTargetDevice; guest_read_all_episodes: boolean; kids_mode_approved: boolean; kids_age_range: "4_6" | "7_9" | "10_12" | null };
+type Comic = { id: string; title: string; slug: string; target_device: ComicTargetDevice; guest_read_all_episodes: boolean; kids_mode_approved: boolean; kids_age_range: "4_6" | "7_9" | "10_12" | null; preview_access: boolean };
 type ReaderAdKind = "internal" | "adsterra";
 type BookLeaf = { kind: "page"; page: Page; pageIndex: number } | { kind: "ad"; afterPageIndex: number; provider: ReaderAdKind } | { kind: "blank" } | { kind: "end" };
 type BookTurn = { from: number; to: number; direction: "next" | "previous" };
@@ -303,6 +303,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         guest_read_all_episodes: "guest_read_all_episodes" in loadedComicData && loadedComicData.guest_read_all_episodes === true,
         kids_mode_approved: seed.comic.kids_mode_approved,
         kids_age_range: seed.comic.kids_age_range,
+        preview_access: seed.comic.preview_access,
       };
       if (!isComicAvailableOnDevice(comicData.target_device, currentDevice)) {
         if (active) {
@@ -312,8 +313,14 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         return;
       }
 
+      let chaptersQuery = supabase
+        .from("chapters")
+        .select("id, title, chapter_number, comic_id")
+        .eq("comic_id", chapterData.comic_id)
+        .order("chapter_number");
+      if (!comicData.preview_access) chaptersQuery = chaptersQuery.not("published_at", "is", null);
       const [{ data: chapters, error: chaptersError }, { data: sessionData, error: sessionError }] = await Promise.all([
-        supabase.from("chapters").select("id, title, chapter_number, comic_id").eq("comic_id", chapterData.comic_id).not("published_at", "is", null).order("chapter_number").abortSignal(requestController.signal),
+        chaptersQuery.abortSignal(requestController.signal),
         supabase.auth.getSession(),
       ]);
       if (!active) return;
@@ -355,7 +362,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       const chapterIds = chapters.map((item) => item.id);
       const currentUserId = sessionData.session?.user.id ?? null;
       let guestReadChapterIds: string[] | null = null;
-      if (!currentUserId) {
+      if (!currentUserId && !comicData.preview_access) {
         try {
           const storedChapterIds = localStorage.getItem(GUEST_READ_CHAPTERS_STORAGE_KEY);
           const parsedChapterIds: unknown = storedChapterIds ? JSON.parse(storedChapterIds) : [];
@@ -458,7 +465,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         return chapterPages.length === 0 || (savedPagesByChapter.get(item.id)?.size ?? 0) < chapterPages.length;
       });
       const completedEveryChapter = firstIncompleteIndex < 0;
-      if (!kidsMode && membership.tier !== "vip" && !completedEveryChapter && targetChapterIndex > firstIncompleteIndex) {
+      if (!comicData.preview_access && !kidsMode && membership.tier !== "vip" && !completedEveryChapter && targetChapterIndex > firstIncompleteIndex) {
         const firstIncompleteChapter = chapters[firstIncompleteIndex];
         router.replace(`/comic/${comicData.slug}/chapter/${firstIncompleteChapter.id}`);
         return;
@@ -561,7 +568,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         bookTurnSpreadCommitTimeoutRef.current = null;
       }
     };
-  }, [chapterId, currentDevice, kidsMode, membership.ready, membership.tier, readerAdsterraEnabled, readerInternalAdsEnabled, router, seed.chapter, seed.comic.kids_age_range, seed.comic.kids_mode_approved, seed.comic.target_device, slug]);
+  }, [chapterId, currentDevice, kidsMode, membership.ready, membership.tier, readerAdsterraEnabled, readerInternalAdsEnabled, router, seed.chapter, seed.comic.preview_access, seed.comic.kids_age_range, seed.comic.kids_mode_approved, seed.comic.target_device, slug]);
 
   useEffect(() => {
     if (loading || !chapter || !pages.length) return;
@@ -1012,7 +1019,8 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const currentChapterRead = pages.length > 0 && readPageIds.size >= pages.length;
   const nextChapterUnlocked = Boolean(
     nextChapterCandidate &&
-    (kidsMode ||
+    (comic.preview_access ||
+      kidsMode ||
       membership.tier === "vip" ||
       allChaptersRead ||
       chapterIndex + 1 <= firstIncompleteChapterIndex ||
@@ -1086,13 +1094,13 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     >
       <header className="reader-experience-header">
         <Link className="reader-experience-back" href={`/comic/${comic.slug}`} aria-label={t("Kembali ke detail komik")}><ArrowLeft size={19} /><span>{comic.title}</span></Link>
-        <div className="reader-experience-chapter"><span>{chapterTerm} {chapter.chapter_number}</span><strong>{chapter.title}</strong></div>
+        <div className="reader-experience-chapter"><span>{chapterTerm} {chapter.chapter_number}</span><strong>{chapter.title}</strong>{comic.preview_access && <small>Pratinjau terbatas</small>}</div>
         <details className="reader-episode-menu">
           <summary aria-label={t(kidsMode ? "Daftar cerita" : "Daftar episode")}><List size={19} /><ChevronDown size={14} /></summary>
           <div className="reader-episode-menu-popover">
             <p>{t(kidsMode ? "Daftar cerita" : "Daftar episode")}</p>
             {chapterList.map((item, index) => {
-              const unlocked = kidsMode || membership.tier === "vip" || allChaptersRead || index <= firstIncompleteChapterIndex || (index === firstIncompleteChapterIndex + 1 && chapterIndex === firstIncompleteChapterIndex && currentChapterRead);
+              const unlocked = comic.preview_access || kidsMode || membership.tier === "vip" || allChaptersRead || index <= firstIncompleteChapterIndex || (index === firstIncompleteChapterIndex + 1 && chapterIndex === firstIncompleteChapterIndex && currentChapterRead);
               return unlocked
                 ? <Link className={item.id === chapter.id ? "reader-menu-current" : ""} key={item.id} href={`/comic/${comic.slug}/chapter/${item.id}`} onClick={(event) => {
                     if (item.id !== chapter.id) {
@@ -1348,7 +1356,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                         : <div className="reader-image-error">Alamat media komik belum dikonfigurasi.</div>}
                       {src && <div className="reader-watermark-overlay reader-page-watermark" aria-hidden="true">{Array.from({ length: 6 }, (_, watermarkIndex) => <span key={watermarkIndex}>{watermarkLabel}</span>)}</div>}
                       </div>
-                      {!kidsMode && membership.ready && membership.tier === "free" && getReaderAdKind(index + 1, readerInternalAdsEnabled, readerAdsterraEnabled) === "adsterra" && (
+                      {!comic.preview_access && !kidsMode && membership.ready && membership.tier === "free" && getReaderAdKind(index + 1, readerInternalAdsEnabled, readerAdsterraEnabled) === "adsterra" && (
                         <AdsterraAd
                           key={`adsterra-after-page-${page.page_number}`}
                           placement="reader"
@@ -1360,7 +1368,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                           }}
                         />
                       )}
-                      {!kidsMode && membership.ready && membership.tier === "free" && getReaderAdKind(index + 1, readerInternalAdsEnabled, readerAdsterraEnabled) === "internal" && (
+                      {!comic.preview_access && !kidsMode && membership.ready && membership.tier === "free" && getReaderAdKind(index + 1, readerInternalAdsEnabled, readerAdsterraEnabled) === "internal" && (
                         <SponsoredAd
                           key={`mid-chapter-ad-${page.page_number}`}
                           slotKey="reader_mid_chapter"

@@ -38,6 +38,7 @@ async function authorize(request: NextRequest, comicId: string, coverKey?: strin
   const isStaff = profile?.role !== "admin" && profile?.is_staff === true
     && Array.isArray(profile.staff_permissions)
     && profile.staff_permissions.includes("share-previews");
+  const isCreator = profile?.role === "creator" && !isStaff;
   if (profile?.role !== "creator" && profile?.role !== "admin" && !isStaff) {
     return { response: NextResponse.json({ error: "Creator access required" }, { status: 403 }) };
   }
@@ -50,7 +51,7 @@ async function authorize(request: NextRequest, comicId: string, coverKey?: strin
   if (comicError) {
     return { response: NextResponse.json({ error: "Could not verify comic ownership" }, { status: 500 }) };
   }
-  if (!comic || (requireCurrentCover && comic.cover_key !== coverKey)
+  if (!comic || (requireCurrentCover && !isCreator && comic.cover_key !== coverKey)
     || (requireCurrentCover && isStaff && comic.status !== "published")
     || (profile.role !== "admin" && !isStaff && comic.creator_id !== userData.user.id)) {
     return { response: NextResponse.json({ error: "Comic not found" }, { status: 404 }) };

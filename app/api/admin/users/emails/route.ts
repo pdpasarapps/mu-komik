@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     console.error("Unable to load admin user emails: Supabase URL, anon key, or service-role key is missing.");
-    return errorResponse("User email lookup is not configured", 500);
+    return errorResponse("User email lookup is not configured. Check the server Supabase URL, anon key, and service-role key.", 500);
   }
 
   const authClient = createClient(supabaseUrl, anonKey, {

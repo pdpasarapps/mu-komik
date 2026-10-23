@@ -21,7 +21,7 @@ import { READER_MEMBERSHIP_TIERS, type ReaderMembershipTier } from "@/lib/reader
 
 type RequestStatus = "pending" | "approved" | "rejected";
 type CreatorRequest = { id: string; user_id: string; note: string; portfolio_url: string | null; instagram_url: string | null; other_url: string | null; status: RequestStatus; created_at: string; applicant: string; role: string };
-type ComicReview = { id: string; title: string; slug: string; synopsis: string; contributor: string; created_at: string; creator_id: string; creator: string };
+type ComicReview = { id: string; title: string; slug: string; synopsis: string; contributor: string; created_at: string; creator_id: string; creator: string; status: "draft" | "pending_review" | "published" | "archived" };
 type KidsCurationReview = { comic_id: string; age_range: "4_6" | "7_9" | "10_12"; submitted_at: string; review_note: string; title: string; slug: string; creator: string };
 type AdminAccountStatus = "active" | "blocked" | "deleted";
 type AdminUser = { id: string; display_name: string; email: string | null; role: "reader" | "creator" | "admin"; isStaff: boolean; staffTitle: string; staffPermissions: AdminSection[]; staffContactCategories: ContactCategory[]; canUploadAudio: boolean; membershipTier: ReaderMembershipTier; accountStatus: AdminAccountStatus; created_at: string };
@@ -325,7 +325,14 @@ export default function AdminPage() {
           },
           body: JSON.stringify({ userIds: loadedProfiles.map((profile) => profile.id) }),
         });
-        if (!emailResponse.ok) throw new Error(`Email lookup failed with status ${emailResponse.status}`);
+        if (!emailResponse.ok) {
+          const errorData: unknown = await emailResponse.json().catch(() => null);
+          const errorMessage = errorData && typeof errorData === "object" && "error" in errorData
+            && typeof errorData.error === "string"
+            ? errorData.error
+            : `HTTP ${emailResponse.status}`;
+          throw new Error(`${errorMessage} (HTTP ${emailResponse.status})`);
+        }
         const emailData: unknown = await emailResponse.json();
         if (!emailData || typeof emailData !== "object" || !("emails" in emailData)
           || !emailData.emails || typeof emailData.emails !== "object"
@@ -337,11 +344,11 @@ export default function AdminPage() {
         setUserEmailSetupError("");
       } catch (error) {
         console.error("Unable to load user emails:", error);
-        setUserEmailSetupError("Email pengguna gagal dimuat. Muat ulang halaman untuk mencoba kembali.");
+        setUserEmailSetupError(`Email pengguna gagal dimuat: ${error instanceof Error ? error.message : String(error)}`);
       }
     } else {
       console.error("Unable to load user emails: authenticated session is unavailable.", sessionError);
-      setUserEmailSetupError("Email pengguna gagal dimuat. Muat ulang halaman untuk mencoba kembali.");
+      setUserEmailSetupError(`Email pengguna gagal dimuat: ${sessionError?.message || "Sesi masuk tidak tersedia."}`);
     }
     const profiles = loadedProfiles.map((profile) => ({
       ...profile,
@@ -406,8 +413,8 @@ export default function AdminPage() {
     }
     const { data: pendingComics, error: comicError } = await supabase
       .from("comics")
-      .select("id, title, slug, synopsis, contributor, created_at, creator_id")
-      .eq("status", "pending_review")
+      .select("id, title, slug, synopsis, contributor, created_at, creator_id, status")
+      .in("status", ["draft", "pending_review"])
       .order("created_at", { ascending: true });
     if (comicError) {
       console.error("Unable to load comics pending review:", comicError);
@@ -415,6 +422,7 @@ export default function AdminPage() {
     } else {
       setComicReviews((pendingComics ?? []).map((comic) => ({
         ...comic,
+        status: comic.status as ComicReview["status"],
         creator: profileMap.get(comic.creator_id)?.display_name || `Akun ${comic.creator_id.slice(0, 8)}`,
       })));
     }
@@ -1162,25 +1170,27 @@ export default function AdminPage() {
         {section === "comic-review" && <section className="comic-review-section" id="comic-review">
           <div className="admin-section-heading">
             <div><p className="eyebrow">Antrean publikasi</p><h2>Kurasi komik</h2></div>
-            <span>{comicReviews.length} menunggu kurasi</span>
+            <span>{comicReviews.filter((comic) => comic.status === "pending_review").length} menunggu kurasi · {comicReviews.filter((comic) => comic.status === "draft").length} draf</span>
           </div>
           {comicReviews.length === 0 ? (
-            <div className="admin-empty comic-review-empty"><ShieldCheck size={26} /><h2>Tidak ada komik untuk ditinjau.</h2><p>Pengajuan komik dari kreator akan tampil di sini.</p></div>
+            <div className="admin-empty comic-review-empty"><ShieldCheck size={26} /><h2>Tidak ada komik untuk ditinjau.</h2><p>Draf kreator dan pengajuan komik akan tampil di sini.</p></div>
           ) : (
             <div className="comic-review-list">
               {comicReviews.map((comic) => (
                 <article className="comic-review-card" key={comic.id}>
                   <div className="comic-review-copy">
-                    <span className="request-status request-pending">Menunggu kurasi</span>
+                    <span className="request-status request-pending">{comic.status === "pending_review" ? "Menunggu kurasi" : "Draf kreator"}</span>
                     <h3>{comic.title}</h3>
                     <p className="comic-review-creator">Oleh {comic.creator} · {new Date(comic.created_at).toLocaleDateString("id-ID")}</p>
                     <p className="comic-review-synopsis">{comic.synopsis}</p>
                     {comic.contributor && <p className="comic-review-contributor">Kontributor: {comic.contributor}</p>}
                   </div>
                   <div className="comic-review-actions">
-                    <Link className="button button-light" href={`/account/komik/${comic.id}`}><Eye size={15} /> Tinjau komik</Link>
-                    <button className="approve-button" onClick={() => reviewComic(comic, "published")} disabled={comicActionId === comic.id}><Check size={16} /> Terbitkan</button>
-                    <button className="reject-button" onClick={() => reviewComic(comic, "draft")} disabled={comicActionId === comic.id}><X size={16} /> Kembalikan ke draf</button>
+                    <Link className="button button-light" href={`/comic/${encodeURIComponent(comic.slug)}`} target="_blank" rel="noreferrer"><Eye size={15} /> Pratinjau komik</Link>
+                    {comic.status === "pending_review" && <>
+                      <button className="approve-button" onClick={() => reviewComic(comic, "published")} disabled={comicActionId === comic.id}><Check size={16} /> Terbitkan</button>
+                      <button className="reject-button" onClick={() => reviewComic(comic, "draft")} disabled={comicActionId === comic.id}><X size={16} /> Kembalikan ke draf</button>
+                    </>}
                   </div>
                 </article>
               ))}
@@ -1462,7 +1472,7 @@ export default function AdminPage() {
               <p>{selectedComicDetail.synopsis || "Belum ada sinopsis."}</p>
             </div>
             <div className="request-actions modal-actions">
-              {selectedComicDetail.status === "published" && <Link className="approve-button" href={`/comic/${encodeURIComponent(selectedComicDetail.slug)}`} target="_blank" rel="noreferrer">Lihat komik <ArrowUpRight size={15} /></Link>}
+              {(selectedComicDetail.status === "published" || !isStaff || staffPermissions.includes("comic-review") || staffPermissions.includes("kids-review")) && <Link className="approve-button" href={`/comic/${encodeURIComponent(selectedComicDetail.slug)}`} target="_blank" rel="noreferrer">{selectedComicDetail.status === "published" ? "Lihat komik" : "Pratinjau komik"} <ArrowUpRight size={15} /></Link>}
               <button className="reject-button" onClick={() => setSelectedComicDetail(null)}>Tutup</button>
             </div>
           </section>

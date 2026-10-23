@@ -49,6 +49,7 @@ export type Comic = {
   source_info: string;
   kids_mode_approved: boolean;
   kids_age_range: "4_6" | "7_9" | "10_12" | null;
+  preview_access: boolean;
   cover_key: string | null;
   kids_series_cover_key: string | null;
   profiles: { id?: string; public_handle?: string | null; display_name: string; public_profile?: boolean } | { id?: string; public_handle?: string | null; display_name: string; public_profile?: boolean }[] | null;
@@ -387,6 +388,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
         target_audience: "target_audience" in data ? data.target_audience : "all_ages",
         kids_mode_approved: initialComic?.kids_mode_approved ?? false,
         kids_age_range: initialComic?.kids_age_range ?? null,
+        preview_access: initialComic?.preview_access ?? false,
         kids_series_cover_key: initialComic?.kids_series_cover_key ?? null,
         language: "language" in data ? data.language : "id",
         origin_type: "origin_type" in data ? data.origin_type : "original",
@@ -403,13 +405,13 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
       }
 
       const engagementRequest = supabase.rpc("public_comic_engagement", { p_comic_id: data.id });
-      const { data: chapterData, error: chapterError } = await supabase
+      let chapterQuery = supabase
         .from("chapters")
         .select("id, title, chapter_number, published_at")
         .eq("comic_id", data.id)
-        .not("published_at", "is", null)
-        .order("chapter_number", { ascending: true })
-        .abortSignal(AbortSignal.timeout(8000));
+        .order("chapter_number", { ascending: true });
+      if (!comic.preview_access) chapterQuery = chapterQuery.not("published_at", "is", null);
+      const { data: chapterData, error: chapterError } = await chapterQuery.abortSignal(AbortSignal.timeout(8000));
       const { data: engagementData, error: engagementError } = await engagementRequest;
       if (engagementError) {
         const details = describeLoadError(engagementError);
@@ -835,6 +837,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const allChaptersRead = chapters.length > 0 && firstIncompleteIndex === -1;
   const isChapterUnlocked = (chapterIndex: number) => {
     if (chapterIndex < 0) return false;
+    if (comic.preview_access) return true;
     if (kidsMode) return true;
     if (membership.tier === "vip") return true;
     if (!chapterProgressReady) return chapterIndex === 0;
@@ -855,6 +858,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
         <KidsModeToggle />
         <Link className="reader-back-link" href="/"><Compass size={17} /> {t("Jelajah")}</Link>
       </nav>
+      {comic.preview_access && <p className="reader-creator-preview-notice" role="status">Pratinjau terbatas — komik ini belum dipublikasikan dan hanya dapat dilihat oleh akun kreator, admin, atau kurator yang berwenang.</p>}
       <section className="reader-comic-detail">
         <div className="reader-detail-cover-wrap">
           <div className="reader-detail-cover">
@@ -920,7 +924,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
                   {t("Favorit")}
                 </button>
               : <Link className="reader-detail-action" href="/login" aria-label={t("Masuk untuk menyimpan komik ke favorit")}><Heart size={17} /> {t("Favorit")}</Link>)}
-            {!kidsMode && <button className="reader-detail-action" onClick={() => void shareComic()}><Share2 size={17} /> {t("Bagikan")}</button>}
+            {!kidsMode && !comic.preview_access && <button className="reader-detail-action" onClick={() => void shareComic()}><Share2 size={17} /> {t("Bagikan")}</button>}
           </div>}
           {!kidsMode && bookmarkMessage && <p className="reader-detail-action-message" role="status">{t(bookmarkMessage)}</p>}
           {!kidsMode && shareMessage && <p className="reader-detail-action-message" role="status">{t(shareMessage)}</p>}
@@ -978,10 +982,10 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
           </section>
         </div>
       )}
-      <div className="reader-ad-pair reader-ad-pair-comic">
+      {!comic.preview_access && <div className="reader-ad-pair reader-ad-pair-comic">
         <SponsoredAd slotKey="comic_detail_sponsor" placement="comic" comicId={comic.id} />
         <AdsterraAd placement="comic" />
-      </div>
+      </div>}
       {(chapterListLoading || chapters.length !== 1) && <section className="reader-episodes">
         {!kidsEpisodeGrid && <div className="reader-section-heading"><div><p className="reader-section-kicker">{t("LANJUTKAN CERITA")}</p><h2>{t("Episode")}</h2></div><span className="reader-result-count">{chapters.length} {t("episode")}</span></div>}
         {!kidsMode && membership.ready && membership.verified && (membership.tier === "premium" || membership.tier === "vip") && (

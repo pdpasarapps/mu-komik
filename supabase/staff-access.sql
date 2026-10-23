@@ -309,6 +309,38 @@ using (
   or public.has_admin_section_access('share-previews')
 );
 
+drop policy if exists "Staff preview comic chapters" on public.chapters;
+create policy "Staff preview comic chapters"
+on public.chapters for select
+using (
+  exists (
+    select 1 from public.comics
+    where comics.id = chapters.comic_id
+      and comics.status <> 'published'
+      and (
+        public.has_admin_section_access('comic-review')
+        or public.has_admin_section_access('kids-review')
+      )
+  )
+);
+
+drop policy if exists "Staff preview comic pages" on public.pages;
+create policy "Staff preview comic pages"
+on public.pages for select
+using (
+  exists (
+    select 1
+    from public.chapters
+    join public.comics on comics.id = chapters.comic_id
+    where chapters.id = pages.chapter_id
+      and comics.status <> 'published'
+      and (
+        public.has_admin_section_access('comic-review')
+        or public.has_admin_section_access('kids-review')
+      )
+  )
+);
+
 create or replace function public.review_comic_submission(p_comic_id uuid, p_decision text)
 returns void
 language plpgsql
