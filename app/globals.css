@@ -1940,6 +1940,9 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .adsterra-slot-reader { position: relative; width: min(100%, 168.75px); aspect-ratio: 9 / 16; display: grid; place-items: center; margin: 22px auto; overflow: visible; scroll-margin-top: 62px; }
 .adsterra-slot-reader .adsterra-slot-label { position: absolute; top: -17px; }
 .adsterra-slot-reader .adsterra-slot-frame { width: 160px !important; height: 300px !important; }
+.adsterra-reader-continue { min-height: 40px; margin: 8px 0 0; padding: 0 14px; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; background: #2b3430; color: #f4f5f2; font: inherit; font-size: .72rem; font-weight: 750; cursor: pointer; }
+.adsterra-reader-continue:hover { background: #3a4741; }
+.adsterra-reader-continue:focus-visible { outline: 2px solid #a6d7c1; outline-offset: 3px; }
 .adsterra-slot-transition { width: 100%; margin: 4px 0; }
 .adsterra-slot-native .adsterra-slot-frame { width: min(100%, 960px) !important; height: 300px !important; }
 .reader-ad-pair { display: grid; justify-items: center; gap: 14px; }

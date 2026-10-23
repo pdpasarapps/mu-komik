@@ -95,6 +95,8 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const [pageAspectRatios, setPageAspectRatios] = useState<Record<string, number>>({});
   const [readPageIds, setReadPageIds] = useState<Set<string>>(() => new Set());
   const [currentPage, setCurrentPage] = useState(0);
+  const [readerStopIds, setReaderStopIds] = useState<string[]>([]);
+  const [activeReaderStopId, setActiveReaderStopId] = useState("page-0");
   const [activeSubtitle, setActiveSubtitle] = useState("");
   const [activeSubtitlePageId, setActiveSubtitlePageId] = useState<string | null>(null);
   const [audioError, setAudioError] = useState("");
@@ -582,15 +584,20 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     if (loading || !pages.length) return;
     if (desktopBookMode) return;
     const visibleRatios = new Map<Element, number>();
+    const stops = Array.from(pagesContainerRef.current?.querySelectorAll<HTMLElement>("[data-reader-stop]") ?? []);
+    setReaderStopIds(stops.map((stop) => stop.dataset.readerStop).filter((stopId): stopId is string => Boolean(stopId)));
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting) visibleRatios.set(entry.target, entry.intersectionRatio);
         else visibleRatios.delete(entry.target);
       }
-      const visiblePage = [...visibleRatios.entries()]
+      const visibleStop = [...visibleRatios.entries()]
         .sort((left, right) => right[1] - left[1])[0]?.[0];
-      const index = Number(visiblePage?.getAttribute("data-reader-page"));
-      if (Number.isInteger(index)) {
+      const stopId = visibleStop?.getAttribute("data-reader-stop");
+      if (stopId) setActiveReaderStopId(stopId);
+      const pageIndex = visibleStop?.getAttribute("data-reader-page");
+      if (pageIndex !== null && pageIndex !== undefined && Number.isInteger(Number(pageIndex))) {
+        const index = Number(pageIndex);
         setCurrentPage(index);
         const pageId = pages[index]?.id;
         if (pageId) {
@@ -601,9 +608,9 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         }
       }
     }, { threshold: [0.05, 0.1, 0.25, 0.5, 0.75] });
-    document.querySelectorAll("[data-reader-page]").forEach((element) => observer.observe(element));
+    stops.forEach((element) => observer.observe(element));
     return () => observer.disconnect();
-  }, [currentPage, desktopBookMode, loading, pages]);
+  }, [desktopBookMode, kidsMode, loading, membership.ready, membership.tier, pages, readerAdsterraEnabled, readerInternalAdsEnabled]);
 
   useEffect(() => {
     if (!chapter || readPageIds.size === 0) return;
@@ -649,6 +656,24 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     const scrollBlock = currentDevice === "mobile" && !controlsVisible ? "center" : "start";
     document.querySelector(`[data-reader-page="${targetIndex}"]`)?.scrollIntoView({ behavior, block: scrollBlock });
   }, [bookLeaves.length, bookSpreadIndex, controlsVisible, currentDevice, currentPage, desktopBookMode, pages.length]);
+
+  const navigateReaderStop = useCallback((direction: -1 | 1, fromStopId = activeReaderStopId) => {
+    if (desktopBookMode) {
+      scrollToPage(currentPage + direction);
+      return true;
+    }
+    const stops = Array.from(pagesContainerRef.current?.querySelectorAll<HTMLElement>("[data-reader-stop]") ?? []);
+    const activeIndex = stops.findIndex((stop) => stop.dataset.readerStop === fromStopId);
+    const targetStop = stops[activeIndex + direction];
+    if (!targetStop) return false;
+    const stopId = targetStop.dataset.readerStop;
+    if (stopId) setActiveReaderStopId(stopId);
+    const pageIndex = targetStop.getAttribute("data-reader-page");
+    if (pageIndex !== null && Number.isInteger(Number(pageIndex))) setCurrentPage(Number(pageIndex));
+    const scrollBlock = currentDevice === "mobile" && !controlsVisible ? "center" : "start";
+    targetStop.scrollIntoView({ behavior: "smooth", block: scrollBlock });
+    return true;
+  }, [activeReaderStopId, controlsVisible, currentDevice, currentPage, desktopBookMode, scrollToPage]);
 
   const updateAudioSubtitle = useCallback((event: SyntheticEvent<HTMLAudioElement>) => {
     const audio = event.currentTarget;
@@ -715,11 +740,11 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       event.preventDefault();
       if (currentDevice === "desktop" && !isTouchTabletLandscape()) setControlsVisible(true);
       const direction = event.key === "ArrowRight" ? 1 : -1;
-      scrollToPage(currentPage + direction);
+      navigateReaderStop(direction);
     };
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
-  }, [currentDevice, currentPage, loading, pages.length, scrollToPage]);
+  }, [currentDevice, loading, navigateReaderStop, pages.length]);
 
   useEffect(() => {
     if (loading || !pages.length) return;
@@ -753,7 +778,9 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   useEffect(() => {
     if (currentDevice !== "mobile" || controlsVisible || desktopBookMode) return;
     const updateFullscreenTopPadding = () => {
-      const frame = document.querySelector<HTMLElement>(`[data-reader-page="${currentPage}"]`);
+      const frame = Array.from(pagesContainerRef.current?.querySelectorAll<HTMLElement>("[data-reader-stop]") ?? [])
+        .find((stop) => stop.dataset.readerStop === activeReaderStopId)
+        ?? document.querySelector<HTMLElement>(`[data-reader-page="${currentPage}"]`);
       const reader = pagesContainerRef.current?.closest<HTMLElement>(".reader-experience");
       if (!frame || !reader) return;
       const topPadding = Math.max(0, (window.innerHeight - frame.getBoundingClientRect().height) / 2);
@@ -762,7 +789,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     updateFullscreenTopPadding();
     window.addEventListener("resize", updateFullscreenTopPadding);
     return () => window.removeEventListener("resize", updateFullscreenTopPadding);
-  }, [controlsVisible, currentDevice, currentPage, desktopBookMode]);
+  }, [activeReaderStopId, controlsVisible, currentDevice, currentPage, desktopBookMode]);
 
   useEffect(() => {
     if (!userId || !historyReady || !chapter || !pages.length) return;
@@ -874,7 +901,10 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       const startIndex = stops.findIndex((stop) => stop.dataset.readerStop === touchStart.stopId);
       const targetStop = stops[startIndex + (deltaY > 0 ? 1 : -1)];
       const scrollBlock = currentDevice === "mobile" && !controlsVisible ? "center" : "start";
-      targetStop?.scrollIntoView({ behavior: "smooth", block: scrollBlock });
+      if (targetStop) {
+        setActiveReaderStopId(targetStop.dataset.readerStop ?? touchStart.stopId);
+        targetStop.scrollIntoView({ behavior: "smooth", block: scrollBlock });
+      }
     };
     const handleTouchCancel = () => { start = null; };
     pagesContainer.addEventListener("touchstart", handleTouchStart, { passive: true });
@@ -997,9 +1027,15 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     ? isEpisodeEndSpread
     : currentPage === pages.length - 1;
   const progressPage = Math.min(pages.length, displayedPageEnd);
+  const activeReaderStopIndex = readerStopIds.indexOf(activeReaderStopId);
+  const canGoBack = desktopBookMode
+    ? currentPage > 0
+    : activeReaderStopIndex > 0 || currentPage > 0;
   const canAdvancePage = desktopBookMode
     ? bookSpreadIndex + 1 < Math.ceil(bookLeaves.length / 2)
-    : currentPage < pages.length - 1;
+    : activeReaderStopIndex >= 0
+      ? activeReaderStopIndex < readerStopIds.length - 1
+      : currentPage < pages.length - 1;
   const episodeEndContent = (
     <section className="reader-episode-end" aria-labelledby="reader-episode-end-title">
       <span className="reader-episode-end-kicker">{t(kidsMode ? "CERITA SELESAI" : "EPISODE SELESAI")}</span>
@@ -1298,7 +1334,16 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                       {src && <div className="reader-watermark-overlay reader-page-watermark" aria-hidden="true">{Array.from({ length: 6 }, (_, watermarkIndex) => <span key={watermarkIndex}>{watermarkLabel}</span>)}</div>}
                       </div>
                       {!kidsMode && membership.ready && membership.tier === "free" && getReaderAdKind(index + 1, readerInternalAdsEnabled, readerAdsterraEnabled) === "adsterra" && (
-                        <AdsterraAd key={`adsterra-after-page-${page.page_number}`} placement="reader" />
+                        <AdsterraAd
+                          key={`adsterra-after-page-${page.page_number}`}
+                          placement="reader"
+                          readerStopId={desktopBookMode ? undefined : `mid-chapter-ad-${page.page_number}`}
+                          onReaderContinue={desktopBookMode ? undefined : () => {
+                            if (!navigateReaderStop(1, `mid-chapter-ad-${page.page_number}`) && nextChapter) {
+                              requestChapterTransition(`/comic/${comic.slug}/chapter/${nextChapter.id}`);
+                            }
+                          }}
+                        />
                       )}
                       {!kidsMode && membership.ready && membership.tier === "free" && getReaderAdKind(index + 1, readerInternalAdsEnabled, readerAdsterraEnabled) === "internal" && (
                         <SponsoredAd
@@ -1331,7 +1376,9 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
           setControlsVisible(nextControlsVisible);
           if (currentDevice === "mobile" && !desktopBookMode) {
             const reader = pagesContainerRef.current?.closest<HTMLElement>(".reader-experience");
-            const frame = document.querySelector<HTMLElement>(`[data-reader-page="${currentPage}"]`);
+            const frame = Array.from(pagesContainerRef.current?.querySelectorAll<HTMLElement>("[data-reader-stop]") ?? [])
+              .find((stop) => stop.dataset.readerStop === activeReaderStopId)
+              ?? document.querySelector<HTMLElement>(`[data-reader-page="${currentPage}"]`);
             if (nextControlsVisible) {
               reader?.style.removeProperty("--reader-mobile-fullscreen-top-padding");
             } else if (reader && frame) {
@@ -1354,10 +1401,10 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
 
       {controlsVisible && pages.length > 0 && (
         <footer className="reader-experience-controls">
-          <button onClick={() => scrollToPage(currentPage - 1)} disabled={currentPage <= 0} aria-label={t("Halaman sebelumnya")}><ChevronLeft size={20} /><span>{t("Sebelumnya")}</span></button>
-          <span className="reader-page-count">{isEpisodeEndSpread ? `${t("Penutup")} ${chapterTerm.toLowerCase()}` : desktopBookMode && displayedPageEnd > displayedPageStart ? `${displayedPageStart}–${displayedPageEnd}` : displayedPageStart} {!isEpisodeEndSpread && <><i>/</i> {pages.length}</>}</span>
+          <button onClick={() => navigateReaderStop(-1)} disabled={!canGoBack} aria-label={t("Halaman sebelumnya")}><ChevronLeft size={20} /><span>{t("Sebelumnya")}</span></button>
+          <span className="reader-page-count">{isEpisodeEndSpread ? `${t("Penutup")} ${chapterTerm.toLowerCase()}` : activeReaderStopId.startsWith("mid-chapter-ad-") ? t("Iklan") : desktopBookMode && displayedPageEnd > displayedPageStart ? `${displayedPageStart}–${displayedPageEnd}` : displayedPageStart} {!isEpisodeEndSpread && !activeReaderStopId.startsWith("mid-chapter-ad-") && <><i>/</i> {pages.length}</>}</span>
           {canAdvancePage
-            ? <button onClick={() => scrollToPage(currentPage + 1)} aria-label={t("Halaman berikutnya")}><span>{t("Berikutnya")}</span><ChevronRight size={20} /></button>
+            ? <button onClick={() => navigateReaderStop(1)} aria-label={t("Halaman berikutnya")}><span>{t("Berikutnya")}</span><ChevronRight size={20} /></button>
             : nextChapter
               ? <Link href={`/comic/${comic.slug}/chapter/${nextChapter.id}`} onClick={(event) => { event.preventDefault(); requestChapterTransition(`/comic/${comic.slug}/chapter/${nextChapter.id}`); }}><span>{t(kidsMode ? "Cerita selanjutnya" : "Episode selanjutnya")}</span><ArrowRight size={19} /></Link>
               : <Link href={`/comic/${comic.slug}`}><span>{t(kidsMode ? "Daftar cerita" : "Daftar episode")}</span><BookOpen size={18} /></Link>}

@@ -37,21 +37,25 @@ function getDisplaySource(zone: DisplayZone) {
     width: zone.width,
     params: {},
   });
-  return `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden}body{display:grid;place-items:center}</style></head><body><script>window.atOptions=${options};</script><script src="https://bauval.org/22/${zone.key}"></script></body></html>`;
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:contain}body{display:grid;place-items:center}</style></head><body><script>window.atOptions=${options};</script><script src="https://bauval.org/22/${zone.key}"></script></body></html>`;
 }
 
 function getNativeSource() {
-  return `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>html,body{margin:0;width:100%;min-height:300px;overflow:hidden}</style></head><body><script async="async" data-cfasync="false" src="https://bauval.org/21/${NATIVE_ZONE}"></script><div id="container-${NATIVE_ZONE}"></div></body></html>`;
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>html,body{margin:0;width:100%;min-height:300px;overflow:hidden;overscroll-behavior:contain}</style></head><body><script async="async" data-cfasync="false" src="https://bauval.org/21/${NATIVE_ZONE}"></script><div id="container-${NATIVE_ZONE}"></div></body></html>`;
 }
 
 export default function AdsterraAd({
   placement,
   format = "display",
   onAvailabilityChange,
+  readerStopId,
+  onReaderContinue,
 }: {
   placement: AdPlacement;
   format?: "display" | "native";
   onAvailabilityChange?: (available: boolean) => void;
+  readerStopId?: string;
+  onReaderContinue?: () => void;
 }) {
   const membership = useReaderMembership();
   const { kidsMode } = useKidsMode();
@@ -82,7 +86,11 @@ export default function AdsterraAd({
   const frameHeight = zone ? `${zone.height}px` : "300px";
 
   return (
-    <aside className={`adsterra-slot adsterra-slot-${placement}${format === "native" ? " adsterra-slot-native" : ""}`} aria-label={t("Iklan")}>
+    <aside
+      className={`adsterra-slot adsterra-slot-${placement}${format === "native" ? " adsterra-slot-native" : ""}`}
+      data-reader-stop={readerStopId}
+      aria-label={t("Iklan")}
+    >
       <span className="adsterra-slot-label">{t("Iklan")}</span>
       <iframe
         className="adsterra-slot-frame"
@@ -94,6 +102,11 @@ export default function AdsterraAd({
         onLoad={() => onAvailabilityChange?.(true)}
         onError={() => onAvailabilityChange?.(false)}
       />
+      {onReaderContinue && (
+        <button className="adsterra-reader-continue" type="button" onClick={onReaderContinue}>
+          {t("Lanjutkan membaca")}
+        </button>
+      )}
     </aside>
   );
 }
