@@ -35,24 +35,48 @@ export async function POST(request: NextRequest) {
   }
 
   const authClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const { data: userData, error: userError } = await authClient.auth.getUser(accessToken);
   if (userError || !userData.user) return errorResponse("Unauthorized", 401);
 
-  const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-  const { data: profile, error: profileError } = await serviceClient
+  const { data: profileData, error: profileError } = await authClient
     .from("profiles")
     .select("role, is_staff, staff_permissions")
     .eq("id", userData.user.id)
     .maybeSingle();
-  if (profileError) {
+  type UserAccessProfile = { role: string; is_staff?: boolean; staff_permissions?: string[] | null };
+  let profile: UserAccessProfile | null = profileData;
+  let staffAccessAvailable = true;
+  if (profileError?.code === "42703" || profileError?.code === "PGRST204") {
+    console.warn("Staff access columns are missing; allowing admin-only email lookup until the staff migration is applied.", {
+      code: profileError.code,
+    });
+    const fallback = await authClient
+      .from("profiles")
+      .select("role")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+    if (fallback.error) {
+      console.error("Unable to verify admin role for user email lookup:", fallback.error);
+      return errorResponse(
+        `Could not verify admin access (profile query error: ${fallback.error.code || "unknown"}).`,
+        500,
+      );
+    }
+    profile = fallback.data;
+    staffAccessAvailable = false;
+  } else if (profileError) {
     console.error("Unable to verify admin access for user email lookup:", profileError);
-    return errorResponse("Could not verify admin access", 500);
+    return errorResponse(
+      `Could not verify admin access (profile query error: ${profileError.code || "unknown"}).`,
+      500,
+    );
   }
-  if (profile?.role !== "admin" && profile?.is_staff !== true) return errorResponse("Admin access required", 403);
+  if (profile?.role !== "admin" && (profile?.is_staff !== true || !staffAccessAvailable)) {
+    return errorResponse("Admin access required", 403);
+  }
   const isStaff = profile.role !== "admin" && profile.is_staff === true;
   const staffPermissions = isStaff && Array.isArray(profile.staff_permissions)
     ? profile.staff_permissions.filter((permission): permission is string => typeof permission === "string")
@@ -61,6 +85,9 @@ export async function POST(request: NextRequest) {
     return errorResponse("Staff access to user emails is not permitted", 403);
   }
 
+  const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
   const rawBody = await request.text();
   if (Buffer.byteLength(rawBody) > 512 * 1024) return errorResponse("Request body is too large", 413);
   let body: unknown;
@@ -116,7 +143,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await serviceClient.auth.admin.listUsers({ page, perPage: usersPerPage });
     if (error) {
       console.error("Unable to load admin user emails:", error);
-      return errorResponse("User emails could not be loaded", 500);
+      return errorResponse(`User emails could not be loaded (Auth admin API error: ${error.code || "unknown"}).`, 500);
     }
     for (const user of data.users) {
       if (requestedIds.delete(user.id)) {
