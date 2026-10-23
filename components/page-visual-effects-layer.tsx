@@ -55,12 +55,38 @@ export default function PageVisualEffectsLayer({ effects, effectSettings }: {
   return (
     <div className="page-visual-effects-layer" aria-hidden="true">
       {effects.map((effect) => {
-        const { density, speed, densityMultiplier, speedMultiplier, leafSize, leafRandomness, leafColor } = effectSettings[effect];
-        const particleCount = Math.min(200, Math.max(1, Math.round(effectParticleCounts[effect] * density / 50 * densityMultiplier)));
+        const {
+          density,
+          speed,
+          densityMultiplier,
+          speedMultiplier,
+          leafSize,
+          leafRandomness,
+          leafColor,
+          rainPattern,
+          rainLength,
+          rainAngle,
+        } = effectSettings[effect];
+        const rainPatternMultiplier = rainPattern === "heavy" ? 1.75 : 0.65;
+        const particleCount = Math.min(200, Math.max(1, Math.round(
+          effectParticleCounts[effect] * density / 50 * densityMultiplier
+          * (effect === "rain" ? rainPatternMultiplier : 1),
+        )));
+        const horizontalDrift = Math.round(Math.sin((rainAngle * Math.PI) / 180) * 7000) / 100;
+        const tilt = -Math.atan2(horizontalDrift, 110) * 180 / Math.PI;
+        const rainDirectionStyle = {
+          "--page-vfx-rain-x": `${horizontalDrift}cqw`,
+          "--page-vfx-rain-angle": `${tilt}deg`,
+        };
+        const rainPatternStyle = rainPattern === "heavy"
+          ? { "--page-vfx-rain-width": "1.7px", "--page-vfx-rain-opacity": ".9" }
+          : { "--page-vfx-rain-width": ".7px", "--page-vfx-rain-opacity": ".5" };
         const effectStyle = {
           "--page-vfx-density": Math.min(1, density / 100 * densityMultiplier),
           "--page-vfx-speed": 100 / (speed * speedMultiplier),
           "--page-vfx-leaf-color": leafGradients[leafColor],
+          "--page-vfx-rain-height": `${rainLength}%`,
+          ...(effect === "rain" ? { ...rainDirectionStyle, ...rainPatternStyle } : {}),
         } as CSSProperties;
         return effect === "fog"
           ? <div className="page-visual-fog" key={effect} style={effectStyle}>{Array.from({ length: particleCount }, (_, index) => <span key={index} style={getParticleStyle(index)} />)}</div>

@@ -795,6 +795,16 @@ html[data-theme="dark"] .chapter-move-panel { border-color: var(--line); backgro
 .page-vfx-setting input[type="range"], .page-vfx-setting select { grid-column: 1 / -1; }
 .page-vfx-setting input[type="range"] { width: 100%; margin: 2px 0 0; accent-color: #28745b; cursor: pointer; }
 .page-vfx-setting select { min-height: 38px; border: 1px solid var(--line); border-radius: 6px; padding: 0 8px; background: #fff; color: var(--ink); font: inherit; }
+.page-vfx-angle-dial { grid-column: 1 / -1; width: 118px; height: 118px; margin: 4px auto 0; cursor: grab; touch-action: none; user-select: none; outline: none; }
+.page-vfx-angle-dial:active { cursor: grabbing; }
+.page-vfx-angle-dial:focus-visible { border-radius: 50%; outline: 2px solid #28745b; outline-offset: 3px; }
+.page-vfx-angle-dial svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.page-vfx-angle-dial text { fill: #718078; font-size: 5px; font-weight: 700; }
+.page-vfx-angle-track { fill: none; stroke: #cad5ce; stroke-width: 2; }
+.page-vfx-angle-center { fill: #718078; }
+.page-vfx-angle-indicator { stroke: #28745b; stroke-width: 2; stroke-linecap: round; }
+.page-vfx-angle-handle { fill: #28745b; stroke: #fff; stroke-width: 2; }
+.page-vfx-angle-hint { grid-column: 1 / -1; color: #758079; font-size: .65rem; font-weight: 500; text-align: center; }
 .page-vfx-controls { display: flex; flex-direction: column; gap: 2rem; padding-top: 10px; }
 .page-text-editor-canvas > img.page-visual-filter-warm, .reader-page-art > img.page-visual-filter-warm, .reader-book-page-art > img.page-visual-filter-warm { filter: sepia(.18) saturate(1.22) brightness(1.03); }
 .page-text-editor-canvas > img.page-visual-filter-cool, .reader-page-art > img.page-visual-filter-cool, .reader-book-page-art > img.page-visual-filter-cool { filter: hue-rotate(12deg) saturate(.9) brightness(.97); }
@@ -805,7 +815,8 @@ html[data-theme="dark"] .chapter-move-panel { border-color: var(--line); backgro
 .page-visual-effects-layer { position: absolute; z-index: 2; inset: 0; overflow: hidden; pointer-events: none; }
 .page-visual-effect, .page-visual-fog { position: absolute; inset: 0; overflow: hidden; }
 .page-visual-effect > span, .page-visual-fog > span { position: absolute; display: block; }
-.page-visual-effect-rain > span { top: -15%; width: 1px !important; height: 12% !important; border-radius: 50%; background: linear-gradient(transparent, rgba(213,235,255,.75)); box-shadow: 0 0 2px rgba(213,235,255,.35); animation: page-vfx-rain-fall 1.05s linear infinite; animation-duration: calc(1.05s * var(--page-vfx-speed, 1)); }
+.page-visual-effect-rain > span { top: -15%; width: 0 !important; height: var(--page-vfx-rain-height, 8%) !important; animation: page-vfx-rain-fall 1.05s linear infinite; animation-duration: calc(1.05s * var(--page-vfx-speed, 1)); }
+.page-visual-effect-rain > span::before { position: absolute; top: 0; left: 0; width: var(--page-vfx-rain-width, 1px); height: 100%; border-radius: 50%; background: linear-gradient(transparent, rgba(213,235,255,.75)); box-shadow: 0 0 2px rgba(213,235,255,.35); opacity: var(--page-vfx-rain-opacity, .5); transform: rotate(var(--page-vfx-rain-angle, 0deg)); transform-origin: 50% 0; content: ""; }
 .page-visual-effect-snow > span { border-radius: 50%; background: rgba(255,255,255,.88); box-shadow: 0 0 5px rgba(255,255,255,.7); animation: page-vfx-snow-fall 4s linear infinite; animation-duration: calc(4s * var(--page-vfx-speed, 1)); }
 .page-visual-effect-sparkles > span { width: auto !important; height: auto !important; color: #fff5b8; font-size: clamp(9px, 2.3cqw, 22px); text-shadow: 0 0 8px rgba(255,238,146,.9); animation: page-vfx-twinkle 1.8s ease-in-out infinite alternate; animation-duration: calc(1.8s * var(--page-vfx-speed, 1)); }
 .page-visual-effect-insects > span { width: 3px !important; height: 2px !important; border-radius: 50%; background: #493b20; box-shadow: 0 0 2px rgba(255,239,183,.75); opacity: var(--page-vfx-density, .5); animation: page-vfx-insect-flight 5s ease-in-out infinite; animation-duration: calc(5s * var(--page-vfx-speed, 1)); }
@@ -814,7 +825,7 @@ html[data-theme="dark"] .chapter-move-panel { border-color: var(--line); backgro
 .page-visual-effect-insects > span::after { right: -1px; transform-origin: left center; animation-delay: -.06s; }
 .page-visual-effect-leaves > span { width: calc(var(--page-vfx-leaf-size) * 1.8) !important; height: calc(var(--page-vfx-leaf-size) * .9) !important; border-radius: 0 85% 0 85%; background: var(--page-vfx-leaf-color); box-shadow: 0 0 3px rgba(226,205,112,.35); animation: page-vfx-leaf-blow 6s ease-in-out infinite; animation-duration: calc(6s * var(--page-vfx-speed, 1)); }
 .page-visual-fog > span { width: 95% !important; height: 32% !important; border-radius: 50%; background: radial-gradient(ellipse, rgba(230,238,235,.4), rgba(218,229,226,.16) 48%, transparent 75%); filter: blur(9px); opacity: var(--page-vfx-density, .5); animation: page-vfx-fog-drift 12s ease-in-out infinite alternate; animation-duration: calc(12s * var(--page-vfx-speed, 1)); }
-@keyframes page-vfx-rain-fall { to { transform: translate3d(-25px, 110cqw, 0) rotate(13deg); } }
+@keyframes page-vfx-rain-fall { to { transform: translate3d(var(--page-vfx-rain-x, 0px), 110cqw, 0); } }
 @keyframes page-vfx-snow-fall { to { transform: translate3d(28px, 110cqw, 0); } }
 @keyframes page-vfx-twinkle { from { opacity: .25; transform: scale(.7) rotate(-18deg); } to { opacity: .95; transform: scale(1.12) rotate(18deg); } }
 @keyframes page-vfx-fog-drift { from { transform: translateX(-13%); opacity: .45; } to { transform: translateX(18%); opacity: .9; } }

@@ -5,6 +5,7 @@ import { ArrowLeft, Bold, Eye, EyeOff, Italic, LoaderCircle, MessageSquareText, 
 import Link from "next/link";
 import Image from "next/image";
 import PageVisualEffectsLayer, { getPageVisualFilterClass } from "@/components/page-visual-effects-layer";
+import CircularAngleSlider from "@/components/circular-angle-slider";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getInteractiveSound, interactiveSounds } from "@/lib/interactive-sounds";
@@ -21,6 +22,7 @@ import {
   PAGE_TEXT_BALLOON_TAIL_DIRECTIONS,
   PAGE_COLOR_FILTERS,
   PAGE_LEAF_COLORS,
+  PAGE_RAIN_PATTERNS,
   PAGE_VISUAL_EFFECTS,
   PAGE_VISUAL_PRESETS,
   defaultPageVisualEffectSettings,
@@ -307,6 +309,20 @@ export default function PageTextEditor() {
       effectSettings: {
         ...current.effectSettings,
         leaves: { ...current.effectSettings.leaves, [setting]: value },
+      },
+    }));
+    setMessage("");
+  }
+
+  function updateRainSetting<K extends "rainAngle" | "rainPattern" | "rainLength">(
+    setting: K,
+    value: PageVisualEffects["effectSettings"]["rain"][K],
+  ) {
+    setVisualEffects((current) => ({
+      ...current,
+      effectSettings: {
+        ...current.effectSettings,
+        rain: { ...current.effectSettings.rain, [setting]: value },
       },
     }));
     setMessage("");
@@ -882,6 +898,47 @@ export default function PageTextEditor() {
                         ))}
                       </select>
                     </div>
+                    {value === "rain" && (
+                      <>
+                        <div className="page-vfx-setting">
+                          <span id="page-vfx-rain-angle-label">Arah hujan</span>
+                          <output>{visualEffects.effectSettings.rain.rainAngle}°</output>
+                          <CircularAngleSlider
+                            id="page-vfx-rain-angle"
+                            labelId="page-vfx-rain-angle-label"
+                            value={visualEffects.effectSettings.rain.rainAngle}
+                            onChange={(angle) => updateRainSetting("rainAngle", angle)}
+                          />
+                          <span className="page-vfx-angle-hint">0° vertikal · searah jarum jam</span>
+                        </div>
+                        <div className="page-vfx-setting">
+                          <label htmlFor="page-vfx-rain-pattern">Bentuk hujan</label>
+                          <output>{PAGE_RAIN_PATTERNS.find(({ value: pattern }) => pattern === visualEffects.effectSettings.rain.rainPattern)?.label}</output>
+                          <select
+                            id="page-vfx-rain-pattern"
+                            value={visualEffects.effectSettings.rain.rainPattern}
+                            onChange={(event) => updateRainSetting("rainPattern", event.target.value as PageVisualEffects["effectSettings"]["rain"]["rainPattern"])}
+                          >
+                            {PAGE_RAIN_PATTERNS.map(({ value: pattern, label: patternLabel }) => (
+                              <option value={pattern} key={pattern}>{patternLabel}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="page-vfx-setting">
+                          <label htmlFor="page-vfx-rain-length">Panjang hujan</label>
+                          <output>{visualEffects.effectSettings.rain.rainLength}%</output>
+                          <input
+                            id="page-vfx-rain-length"
+                            type="range"
+                            min="2"
+                            max="30"
+                            step="1"
+                            value={visualEffects.effectSettings.rain.rainLength}
+                            onChange={(event) => updateRainSetting("rainLength", Number(event.target.value))}
+                          />
+                        </div>
+                      </>
+                    )}
                     {value === "leaves" && (
                       <>
                         <div className="page-vfx-setting">

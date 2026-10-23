@@ -6,6 +6,8 @@ export type PageTextImageVerticalAlign = "top" | "center" | "bottom";
 export type PageVisualEffect = "rain" | "fog" | "snow" | "sparkles" | "insects" | "leaves";
 export type PageColorFilter = "none" | "warm" | "cool" | "vintage" | "mono" | "cinematic" | "morning";
 export type PageLeafColor = "green" | "yellow" | "orange" | "red" | "brown";
+export type PageRainDirection = "vertical" | "diagonal-right" | "diagonal-left";
+export type PageRainPattern = "drizzle" | "heavy";
 export type PageTextBalloonTailDirection =
   | "bottom-left"
   | "bottom"
@@ -70,6 +72,17 @@ export const PAGE_LEAF_COLORS: Array<{ value: PageLeafColor; label: string }> = 
   { value: "orange", label: "Oranye" },
   { value: "red", label: "Merah" },
   { value: "brown", label: "Cokelat" },
+];
+
+export const PAGE_RAIN_DIRECTIONS: Array<{ value: PageRainDirection; label: string }> = [
+  { value: "vertical", label: "Vertikal" },
+  { value: "diagonal-right", label: "Diagonal ke kanan" },
+  { value: "diagonal-left", label: "Diagonal ke kiri" },
+];
+
+export const PAGE_RAIN_PATTERNS: Array<{ value: PageRainPattern; label: string }> = [
+  { value: "drizzle", label: "Rintik-rintik" },
+  { value: "heavy", label: "Hujan lebat" },
 ];
 
 export type PageTextOverlay = {
@@ -194,15 +207,18 @@ export type PageVisualEffectSettings = {
   leafSize: number;
   leafRandomness: number;
   leafColor: PageLeafColor;
+  rainPattern: PageRainPattern;
+  rainLength: number;
+  rainAngle: number;
 };
 
 export const defaultPageVisualEffectSettings: Record<PageVisualEffect, PageVisualEffectSettings> = {
-  rain: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green" },
-  fog: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green" },
-  snow: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green" },
-  sparkles: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green" },
-  insects: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green" },
-  leaves: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green" },
+  rain: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0 },
+  fog: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0 },
+  snow: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0 },
+  sparkles: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0 },
+  insects: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0 },
+  leaves: { density: 50, speed: 100, densityMultiplier: 1, speedMultiplier: 1, leafSize: 8, leafRandomness: 50, leafColor: "green", rainPattern: "drizzle", rainLength: 8, rainAngle: 0 },
 };
 
 export const defaultPageVisualEffects: PageVisualEffects = {
@@ -238,7 +254,7 @@ export const PAGE_VISUAL_PRESETS: PageVisualPreset[] = [
     effects: ["rain", "fog"],
     colorFilter: "cool",
     effectSettings: {
-      rain: { density: 35, speed: 80 },
+      rain: { density: 35, speed: 80, rainAngle: 90, rainPattern: "drizzle" },
       fog: { density: 25, speed: 70 },
     },
   },
@@ -454,7 +470,15 @@ function parsePageVisualEffects(value: object): PageVisualEffects {
       || "leafRandomness" in stored && (typeof stored.leafRandomness !== "number"
         || !Number.isInteger(stored.leafRandomness) || stored.leafRandomness < 0 || stored.leafRandomness > 100)
       || "leafColor" in stored && (typeof stored.leafColor !== "string"
-        || !PAGE_LEAF_COLORS.some((color) => color.value === stored.leafColor)))) {
+        || !PAGE_LEAF_COLORS.some((color) => color.value === stored.leafColor))
+      || "rainDirection" in stored && (typeof stored.rainDirection !== "string"
+        || !PAGE_RAIN_DIRECTIONS.some((direction) => direction.value === stored.rainDirection))
+      || "rainPattern" in stored && (typeof stored.rainPattern !== "string"
+        || !PAGE_RAIN_PATTERNS.some((pattern) => pattern.value === stored.rainPattern))
+      || "rainLength" in stored && (typeof stored.rainLength !== "number"
+        || !Number.isInteger(stored.rainLength) || stored.rainLength < 2 || stored.rainLength > 30)
+      || "rainAngle" in stored && (typeof stored.rainAngle !== "number"
+        || !Number.isInteger(stored.rainAngle) || stored.rainAngle < 0 || stored.rainAngle > 359))) {
       throw new Error(`Pengaturan efek ${effect} tidak valid.`);
     }
     return [effect, {
@@ -465,6 +489,13 @@ function parsePageVisualEffects(value: object): PageVisualEffects {
       leafSize: stored && "leafSize" in stored ? stored.leafSize as number : 8,
       leafRandomness: stored && "leafRandomness" in stored ? stored.leafRandomness as number : 50,
       leafColor: stored && "leafColor" in stored ? stored.leafColor as PageLeafColor : "green",
+      rainPattern: stored && "rainPattern" in stored ? stored.rainPattern as PageRainPattern : "drizzle",
+      rainLength: stored && "rainLength" in stored ? stored.rainLength as number : 8,
+      rainAngle: stored && "rainAngle" in stored
+        ? stored.rainAngle as number
+        : stored && "rainDirection" in stored
+          ? stored.rainDirection === "diagonal-right" ? 90 : stored.rainDirection === "diagonal-left" ? 270 : 0
+          : 0,
     }];
   })) as Record<PageVisualEffect, PageVisualEffectSettings>;
   return {
