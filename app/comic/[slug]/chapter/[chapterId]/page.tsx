@@ -76,6 +76,7 @@ export default async function ChapterPage({
       title: linkedComic.title,
       slug: linkedComic.slug,
       target_device: linkedComic.target_device || "all",
+      guest_read_all_episodes: false,
       kids_mode_approved: Boolean(kidsCuration),
       kids_age_range: kidsCuration?.age_range as "4_6" | "7_9" | "10_12" | null,
     },

@@ -25,7 +25,7 @@ type ComicReview = { id: string; title: string; slug: string; synopsis: string; 
 type KidsCurationReview = { comic_id: string; age_range: "4_6" | "7_9" | "10_12"; submitted_at: string; review_note: string; title: string; slug: string; creator: string };
 type AdminAccountStatus = "active" | "blocked" | "deleted";
 type AdminUser = { id: string; display_name: string; email: string | null; role: "reader" | "creator" | "admin"; isStaff: boolean; staffTitle: string; staffPermissions: AdminSection[]; staffContactCategories: ContactCategory[]; canUploadAudio: boolean; membershipTier: ReaderMembershipTier; accountStatus: AdminAccountStatus; created_at: string };
-type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string; kids_curation_status: "pending" | "approved" | "rejected" | null; kids_age_range: "4_6" | "7_9" | "10_12" | null };
+type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; guest_read_all_episodes: boolean; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string; kids_curation_status: "pending" | "approved" | "rejected" | null; kids_age_range: "4_6" | "7_9" | "10_12" | null };
 type SettingsAuditEntry = { id: number; changed_by: string | null; changed_at: string; previous_values: Record<string, unknown>; new_values: Record<string, unknown> };
 type AdminSection = "overview" | "analytics" | "comic-review" | "kids-review" | "creator-requests" | "users" | "admins" | "staf" | "readers" | "kreator" | "comics" | "articles" | "share-previews" | "ad-requests" | "contact-messages" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "homepage-promos" | "platform-settings";
 
@@ -122,6 +122,8 @@ export default function AdminPage() {
   const [adminStaffTitle, setAdminStaffTitle] = useState("");
   const [userEmailSetupError, setUserEmailSetupError] = useState("");
   const [audioPermissionSetupError, setAudioPermissionSetupError] = useState("");
+  const [comicGuestAccessSetupError, setComicGuestAccessSetupError] = useState("");
+  const [comicGuestAccessMessage, setComicGuestAccessMessage] = useState("");
   const [comics, setComics] = useState<AdminComic[]>([]);
   const [adminUserId, setAdminUserId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -225,7 +227,7 @@ export default function AdminPage() {
       userIsStaff
         ? supabase.from("reader_memberships").select("user_id, tier").eq("user_id", userData.user.id)
         : supabase.from("reader_memberships").select("user_id, tier"),
-      supabase.from("comics").select("id, title, slug, synopsis, contributor, genre, cover_key, share_preview_key, status, created_at, creator_id")
+      supabase.from("comics").select("id, title, slug, synopsis, contributor, genre, cover_key, share_preview_key, guest_read_all_episodes, status, created_at, creator_id")
         .order("created_at", { ascending: false })
         .or(userIsStaff && !staffHasAccess("comic-review") && !staffHasAccess("comics")
           && !staffHasAccess("kids-review") && !staffHasAccess("share-previews") ? `id.eq.${emptyUuid}` : "id.not.is.null"),
@@ -270,7 +272,23 @@ export default function AdminPage() {
         }
       }
     }
-    const loadErrors = [requestResult.error, profileRowsError, membershipResult.error, comicResult.error].filter(Boolean);
+    let comicRows = comicResult.data;
+    let comicLoadError = comicResult.error;
+    if (comicLoadError?.code === "42703" || comicLoadError?.code === "PGRST204") {
+      const legacyComicResult = await supabase.from("comics")
+        .select("id, title, slug, synopsis, contributor, genre, cover_key, share_preview_key, status, created_at, creator_id")
+        .order("created_at", { ascending: false })
+        .or(userIsStaff && !staffHasAccess("comic-review") && !staffHasAccess("comics")
+          && !staffHasAccess("kids-review") && !staffHasAccess("share-previews") ? `id.eq.${emptyUuid}` : "id.not.is.null");
+      comicRows = legacyComicResult.data as typeof comicRows;
+      comicLoadError = legacyComicResult.error;
+      if (!comicLoadError) {
+        setComicGuestAccessSetupError("Jalankan supabase/comic-guest-reading.sql untuk mengaktifkan pengaturan akses baca tamu.");
+      }
+    } else {
+      setComicGuestAccessSetupError("");
+    }
+    const loadErrors = [requestResult.error, profileRowsError, membershipResult.error, comicLoadError].filter(Boolean);
     if (loadErrors.length) {
       const missingMembershipTable = membershipResult.error?.code === "42P01" || membershipResult.error?.code === "PGRST205";
       setMessage(missingMembershipTable
@@ -349,7 +367,7 @@ export default function AdminPage() {
       applicant: profileMap.get(request.user_id)?.display_name || "Pengguna tanpa nama",
       role: profileMap.get(request.user_id)?.role || "reader",
     })));
-    const comicData = (comicResult.data ?? []) as Omit<AdminComic, "creator">[];
+    const comicData = (comicRows ?? []) as Omit<AdminComic, "creator">[];
     const kidsCurationByComic = new Map((kidsCurationResult.data ?? []).map((request) => [
       request.comic_id,
       {
@@ -359,6 +377,7 @@ export default function AdminPage() {
     ]));
     setComics(comicData.map((comic) => ({
       ...comic,
+      guest_read_all_episodes: comic.guest_read_all_episodes === true,
       creator: profileMap.get(comic.creator_id)?.display_name || `Akun ${comic.creator_id.slice(0, 8)}`,
       kids_curation_status: kidsCurationByComic.get(comic.id)?.status ?? null,
       kids_age_range: kidsCurationByComic.get(comic.id)?.ageRange ?? null,
@@ -756,6 +775,40 @@ export default function AdminPage() {
         setComicReviews((current) => current.filter((item) => item.id !== comic.id));
       }
       setMessage(`${comic.title}: status diubah menjadi ${comicStatusLabels[status]}.`);
+    }
+    setComicActionId(null);
+  };
+
+  const updateComicGuestAccess = async (comic: AdminComic, guestReadAllEpisodes: boolean) => {
+    if (isStaff || comicActionId === comic.id || comic.guest_read_all_episodes === guestReadAllEpisodes) return;
+    setComicActionId(comic.id);
+    setComicGuestAccessMessage("");
+    setMessage("");
+    const { data, error } = await supabase
+      .from("comics")
+      .update({ guest_read_all_episodes: guestReadAllEpisodes })
+      .eq("id", comic.id)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) {
+      if (error) console.error("Unable to update guest episode access:", error);
+      setMessage(error?.code === "42703" || error?.code === "PGRST204"
+        ? "Jalankan supabase/comic-guest-reading.sql untuk mengaktifkan pengaturan akses baca tamu."
+        : "Pengaturan akses baca tamu gagal diperbarui. Periksa koneksi dan coba lagi.");
+      setComicGuestAccessMessage(error?.code === "42703" || error?.code === "PGRST204"
+        ? "Kolom pengaturan akses tamu belum tersedia. Jalankan supabase/comic-guest-reading.sql."
+        : "Pengaturan gagal disimpan. Periksa koneksi lalu coba lagi.");
+    } else {
+      setComics((current) => current.map((item) => item.id === comic.id
+        ? { ...item, guest_read_all_episodes: guestReadAllEpisodes }
+        : item));
+      setSelectedComicDetail((current) => current?.id === comic.id
+        ? { ...current, guest_read_all_episodes: guestReadAllEpisodes }
+        : current);
+      setMessage(`${comic.title}: akses tamu ${guestReadAllEpisodes ? "dibuka untuk semua episode" : "dibatasi maksimal dua episode"}.`);
+      setComicGuestAccessMessage(guestReadAllEpisodes
+        ? "Pengaturan tersimpan. Tamu dapat membaca semua episode komik ini."
+        : "Pengaturan tersimpan. Batas tamu kembali maksimal dua episode.");
     }
     setComicActionId(null);
   };
@@ -1334,7 +1387,7 @@ export default function AdminPage() {
                     <td>{comic.genre}</td>
                     <td><span className={`request-status request-${comic.status === "published" ? "approved" : comic.status === "pending_review" ? "pending" : comic.status}`}>{comicStatusLabels[comic.status]}</span></td>
                     <td className="admin-comic-actions">
-                      <button className="admin-action-link" onClick={() => setSelectedComicDetail(comic)}>Detail</button>
+                      <button className="admin-action-link" onClick={() => { setComicGuestAccessMessage(""); setSelectedComicDetail(comic); }}>Detail</button>
                       {!isStaff && <>
                         <Link className="admin-manage-link" href={`/account/komik/${comic.id}`}>Kelola</Link>
                         {comic.status === "draft" && <button className="admin-action-link" onClick={() => updateComicStatus(comic, "pending_review")} disabled={comicActionId === comic.id}>Ajukan kurasi</button>}
@@ -1389,6 +1442,21 @@ export default function AdminPage() {
               <div><dt>Status</dt><dd>{comicStatusLabels[selectedComicDetail.status]}</dd></div>
               <div><dt>Dibuat</dt><dd>{new Date(selectedComicDetail.created_at).toLocaleDateString("id-ID")}</dd></div>
             </dl>
+            {!isStaff && <div className="admin-user-edit-form admin-comic-guest-setting">
+              <label htmlFor="admin-comic-guest-access">Akses baca untuk tamu
+                <select
+                  id="admin-comic-guest-access"
+                  value={selectedComicDetail.guest_read_all_episodes ? "all" : "limited"}
+                  disabled={Boolean(comicGuestAccessSetupError) || comicActionId === selectedComicDetail.id}
+                  onChange={(event) => void updateComicGuestAccess(selectedComicDetail, event.target.value === "all")}
+                >
+                  <option value="limited">Maksimal 2 episode (default)</option>
+                  <option value="all">Semua episode</option>
+                </select>
+              </label>
+              <p>{comicGuestAccessSetupError || "Pengaturan ini berlaku untuk pembaca yang belum masuk. Perubahan tidak mengubah batas untuk komik lain."}</p>
+              {comicGuestAccessMessage && <p role="status">{comicGuestAccessMessage}</p>}
+            </div>}
             <div className="admin-comic-detail-synopsis">
               <strong>Sinopsis</strong>
               <p>{selectedComicDetail.synopsis || "Belum ada sinopsis."}</p>

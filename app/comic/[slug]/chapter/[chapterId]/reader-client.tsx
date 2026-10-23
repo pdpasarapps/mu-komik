@@ -29,6 +29,7 @@ const GUEST_READ_CHAPTER_LIMIT = 2;
 const PENDING_GUEST_READING_STORAGE_KEY = "mu-komik:pending-guest-reading";
 
 type Page = { id: string; page_number: number; object_key: string; text_overlays: PageTextOverlay[]; interactive_markers: PageInteractiveMarker[]; image_vertical_align: PageTextImageVerticalAlign; visual_effects: PageVisualEffect[]; visual_effect_settings: Record<PageVisualEffect, PageVisualEffectSettings>; color_filter: PageColorFilter };
+type ReaderComicData = Pick<Comic, "id" | "title" | "slug"> & Partial<Pick<Comic, "target_device" | "guest_read_all_episodes">>;
 type Chapter = {
   id: string;
   title: string;
@@ -38,7 +39,7 @@ type Chapter = {
   subtitles_srt?: string | null;
   subtitle_page_map?: Record<string, string> | null;
 };
-type Comic = { id: string; title: string; slug: string; target_device: ComicTargetDevice; kids_mode_approved: boolean; kids_age_range: "4_6" | "7_9" | "10_12" | null };
+type Comic = { id: string; title: string; slug: string; target_device: ComicTargetDevice; guest_read_all_episodes: boolean; kids_mode_approved: boolean; kids_age_range: "4_6" | "7_9" | "10_12" | null };
 type ReaderAdKind = "internal" | "adsterra";
 type BookLeaf = { kind: "page"; page: Page; pageIndex: number } | { kind: "ad"; afterPageIndex: number; provider: ReaderAdKind } | { kind: "blank" } | { kind: "end" };
 type BookTurn = { from: number; to: number; direction: "next" | "previous" };
@@ -258,23 +259,34 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       const chapterData = seed.chapter;
       const { data: comicDataResult, error: initialComicError } = await supabase
         .from("comics")
-        .select("id, title, slug, target_device")
+        .select("id, title, slug, target_device, guest_read_all_episodes")
         .eq("id", chapterData.comic_id)
         .eq("slug", slug)
         .abortSignal(requestController.signal)
         .maybeSingle();
       let comicError = initialComicError;
-      let legacyComicData: Pick<Comic, "id" | "title" | "slug"> | null = null;
+      let legacyComicData: ReaderComicData | null = null;
       if (comicError?.code === "42703") {
         const legacyComic = await supabase
           .from("comics")
-          .select("id, title, slug")
+          .select("id, title, slug, target_device")
           .eq("id", chapterData.comic_id)
           .eq("slug", slug)
           .abortSignal(requestController.signal)
           .maybeSingle();
         legacyComicData = legacyComic.data;
         comicError = legacyComic.error;
+        if (comicError?.code === "42703") {
+          const oldestComic = await supabase
+            .from("comics")
+            .select("id, title, slug")
+            .eq("id", chapterData.comic_id)
+            .eq("slug", slug)
+            .abortSignal(requestController.signal)
+            .maybeSingle();
+          legacyComicData = oldestComic.data;
+          comicError = oldestComic.error;
+        }
       }
       const loadedComicData = comicDataResult ?? legacyComicData;
       if (comicError || !loadedComicData) {
@@ -288,6 +300,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       const comicData: Comic = {
         ...loadedComicData,
         target_device: ("target_device" in loadedComicData ? loadedComicData.target_device : null) || seed.comic.target_device || "all",
+        guest_read_all_episodes: "guest_read_all_episodes" in loadedComicData && loadedComicData.guest_read_all_episodes === true,
         kids_mode_approved: seed.comic.kids_mode_approved,
         kids_age_range: seed.comic.kids_age_range,
       };
@@ -357,7 +370,9 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
           setLoading(false);
           return;
         }
-        if (!guestReadChapterIds.includes(chapterId) && guestReadChapterIds.length >= GUEST_READ_CHAPTER_LIMIT) {
+        if (!comicData.guest_read_all_episodes
+          && !guestReadChapterIds.includes(chapterId)
+          && guestReadChapterIds.length >= GUEST_READ_CHAPTER_LIMIT) {
           setComic(comicData);
           setGuestLoginRequired(true);
           setLoading(false);

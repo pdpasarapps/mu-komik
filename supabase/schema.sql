@@ -63,6 +63,7 @@ create table if not exists public.comics (
     check (target_audience in ('all_ages', 'teen', 'adult')),
   target_device text not null default 'all'
     check (target_device in ('all', 'mobile', 'tablet', 'desktop')),
+  guest_read_all_episodes boolean not null default false,
   language text not null default 'id' check (btrim(language) <> ''),
   origin_type text not null default 'original' check (origin_type in ('original', 'adaptation')),
   source_info text not null default '',
@@ -73,7 +74,8 @@ create table if not exists public.comics (
 );
 
 alter table public.comics
-  add column if not exists kids_series_cover_key text;
+  add column if not exists kids_series_cover_key text,
+  add column if not exists guest_read_all_episodes boolean not null default false;
 
 create table if not exists public.chapters (
   id uuid primary key default gen_random_uuid(),
