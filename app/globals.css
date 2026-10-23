@@ -794,6 +794,7 @@ html[data-theme="dark"] .chapter-move-panel { border-color: var(--line); backgro
 .page-text-editor-canvas > img.page-visual-filter-vintage, .reader-page-art > img.page-visual-filter-vintage, .reader-book-page-art > img.page-visual-filter-vintage { filter: sepia(.34) saturate(.78) contrast(.94); }
 .page-text-editor-canvas > img.page-visual-filter-mono, .reader-page-art > img.page-visual-filter-mono, .reader-book-page-art > img.page-visual-filter-mono { filter: grayscale(1) contrast(1.06); }
 .page-text-editor-canvas > img.page-visual-filter-cinematic, .reader-page-art > img.page-visual-filter-cinematic, .reader-book-page-art > img.page-visual-filter-cinematic { filter: saturate(1.16) contrast(1.1) brightness(.94); }
+.page-text-editor-canvas > img.page-visual-filter-morning, .reader-page-art > img.page-visual-filter-morning, .reader-book-page-art > img.page-visual-filter-morning { filter: sepia(.22) saturate(1.18) brightness(1.06) hue-rotate(-8deg); }
 .page-visual-effects-layer { position: absolute; z-index: 2; inset: 0; overflow: hidden; pointer-events: none; }
 .page-visual-effect, .page-visual-fog { position: absolute; inset: 0; overflow: hidden; }
 .page-visual-effect > span, .page-visual-fog > span { position: absolute; display: block; }

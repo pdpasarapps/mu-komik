@@ -4,7 +4,7 @@ export type PageTextLevel = "body" | "h1" | "h2" | "h3";
 export type PageTextFont = "default" | "comic-neue" | "bangers" | "patrick-hand" | "nunito" | "caveat";
 export type PageTextImageVerticalAlign = "top" | "center" | "bottom";
 export type PageVisualEffect = "rain" | "fog" | "snow" | "sparkles";
-export type PageColorFilter = "none" | "warm" | "cool" | "vintage" | "mono" | "cinematic";
+export type PageColorFilter = "none" | "warm" | "cool" | "vintage" | "mono" | "cinematic" | "morning";
 export type PageTextBalloonTailDirection =
   | "bottom-left"
   | "bottom"
@@ -58,6 +58,7 @@ export const PAGE_COLOR_FILTERS: Array<{ value: PageColorFilter; label: string }
   { value: "vintage", label: "Vintage" },
   { value: "mono", label: "Monokrom" },
   { value: "cinematic", label: "Sinematik" },
+  { value: "morning", label: "Atmosfer pagi hari" },
 ];
 
 export type PageTextOverlay = {
