@@ -351,6 +351,17 @@ export default function PageTextEditor() {
     setMessage("");
   }
 
+  function updateVfxSize(effect: "glow" | "burst", size: number) {
+    setVisualEffects((current) => ({
+      ...current,
+      effectSettings: {
+        ...current.effectSettings,
+        [effect]: { ...current.effectSettings[effect], size },
+      },
+    }));
+    setMessage("");
+  }
+
   function removeOverlay(id: string) {
     setOverlays((current) => current.filter((overlay) => overlay.id !== id));
     setSelectedId((current) => current === id ? null : current);
@@ -1031,6 +1042,19 @@ export default function PageTextEditor() {
                             step="5"
                             value={visualEffects.effectSettings[value].brightness}
                             onChange={(event) => updateVfxBrightness(value, Number(event.target.value))}
+                          />
+                        </div>
+                        <div className="page-vfx-setting">
+                          <label htmlFor={`page-vfx-${value}-size`}>Ukuran</label>
+                          <output>{visualEffects.effectSettings[value].size}%</output>
+                          <input
+                            id={`page-vfx-${value}-size`}
+                            type="range"
+                            min="25"
+                            max="200"
+                            step="5"
+                            value={visualEffects.effectSettings[value].size}
+                            onChange={(event) => updateVfxSize(value, Number(event.target.value))}
                           />
                         </div>
                       </>
