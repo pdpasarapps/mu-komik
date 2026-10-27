@@ -77,6 +77,12 @@ alter table public.comics
   add column if not exists kids_series_cover_key text,
   add column if not exists guest_read_all_episodes boolean not null default false;
 
+create table if not exists public.comic_ad_settings (
+  comic_id uuid primary key references public.comics(id) on delete cascade,
+  internal_enabled boolean not null default true,
+  adsterra_enabled boolean not null default true
+);
+
 create table if not exists public.chapters (
   id uuid primary key default gen_random_uuid(),
   comic_id uuid not null references public.comics(id) on delete cascade,
@@ -180,6 +186,7 @@ alter table public.profiles enable row level security;
 alter table public.reader_memberships enable row level security;
 grant select, insert, update on public.reader_memberships to authenticated;
 alter table public.comics enable row level security;
+alter table public.comic_ad_settings enable row level security;
 alter table public.chapters enable row level security;
 alter table public.pages enable row level security;
 alter table public.comic_kids_curation enable row level security;
@@ -188,6 +195,8 @@ alter table public.bookmarks enable row level security;
 grant select on public.comic_kids_curation to anon, authenticated;
 grant insert, delete on public.comic_kids_curation to authenticated;
 grant update on public.comic_kids_curation to authenticated;
+grant select on public.comic_ad_settings to anon, authenticated;
+grant insert, update, delete on public.comic_ad_settings to authenticated;
 
 drop policy if exists "Published comics are public" on public.comics;
 drop policy if exists "Published chapters are public" on public.chapters;
@@ -211,8 +220,14 @@ drop policy if exists "Creators and admins view kids curation" on public.comic_k
 drop policy if exists "Creators request kids curation" on public.comic_kids_curation;
 drop policy if exists "Creators remove rejected kids request" on public.comic_kids_curation;
 drop policy if exists "Admins manage kids curation" on public.comic_kids_curation;
+drop policy if exists "Public can read comic ad settings" on public.comic_ad_settings;
+drop policy if exists "Admins manage comic ad settings" on public.comic_ad_settings;
 
 create policy "Published comics are public" on public.comics for select using (status = 'published' or creator_id = auth.uid());
+create policy "Public can read comic ad settings" on public.comic_ad_settings for select using (true);
+create policy "Admins manage comic ad settings" on public.comic_ad_settings for all
+using (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'admin'))
+with check (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'admin'));
 create policy "Published chapters are public" on public.chapters for select using (
   exists (
     select 1 from public.comics

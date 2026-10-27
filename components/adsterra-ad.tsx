@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useReaderMembership } from "@/app/membership-runtime";
 import { useKidsMode, usePlatformSettings } from "@/app/platform-runtime";
 import { useLocale } from "@/components/locale-provider";
+import { useComicAdSettings } from "@/components/comic-ad-settings";
 
 type AdPlacement = "home" | "catalog" | "comic" | "reader" | "transition" | "article";
 type DisplayZone = { key: string; width: number; height: number };
@@ -60,9 +61,12 @@ export default function AdsterraAd({
   const membership = useReaderMembership();
   const { kidsMode } = useKidsMode();
   const { settings } = usePlatformSettings();
+  const comicAds = useComicAdSettings();
   const { t } = useLocale();
   const [viewportWidth, setViewportWidth] = useState<number | null>(null);
-  const placementEnabled = settings.ads_adsterra_enabled && settings.ad_placements[placement].adsterra;
+  const placementEnabled = settings.ads_adsterra_enabled
+    && settings.ad_placements[placement].adsterra
+    && (placement !== "comic" && placement !== "reader" && placement !== "transition" || comicAds.adsterraEnabled);
 
   useEffect(() => {
     const updateViewportWidth = () => setViewportWidth(window.innerWidth);
@@ -72,12 +76,12 @@ export default function AdsterraAd({
   }, []);
 
   useEffect(() => {
-    if (membership.ready && (!placementEnabled || kidsMode || membership.tier !== "free")) {
+    if (comicAds.ready && membership.ready && (!placementEnabled || kidsMode || membership.tier !== "free")) {
       onAvailabilityChange?.(false);
     }
-  }, [kidsMode, membership.ready, membership.tier, onAvailabilityChange, placementEnabled]);
+  }, [comicAds.ready, kidsMode, membership.ready, membership.tier, onAvailabilityChange, placementEnabled]);
 
-  if (!placementEnabled || kidsMode || !membership.ready || membership.tier !== "free") return null;
+  if (!comicAds.ready || !placementEnabled || kidsMode || !membership.ready || membership.tier !== "free") return null;
   if (format === "display" && viewportWidth === null) return null;
 
   const zone = format === "display" ? getDisplayZone(placement, viewportWidth ?? 1280) : null;

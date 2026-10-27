@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import SponsoredAd from "@/components/sponsored-ad";
 import AdsterraAd from "@/components/adsterra-ad";
+import { ComicAdSettingsProvider } from "@/components/comic-ad-settings";
 import BrandLogo from "@/components/brand-logo";
 import DeviceUnavailableNotice from "@/components/device-unavailable-notice";
 import PageInteractiveMarkerLayer from "@/components/page-interactive-marker-layer";
@@ -1081,6 +1082,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   );
 
   return (
+    <ComicAdSettingsProvider comicId={comic.id}>
     <main
       className={`reader-experience${controlsVisible ? "" : " reader-controls-hidden"}`}
       onContextMenu={(event) => event.preventDefault()}
@@ -1467,5 +1469,6 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         </section>
       </div>}
     </main>
+    </ComicAdSettingsProvider>
   );
 }

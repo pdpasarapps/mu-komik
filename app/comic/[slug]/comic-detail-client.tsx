@@ -13,6 +13,7 @@ import { getComicGenreLabel } from "@/lib/comic-genres";
 import { getKidsAgeLabel } from "@/lib/kids-curation";
 import SponsoredAd from "@/components/sponsored-ad";
 import AdsterraAd from "@/components/adsterra-ad";
+import { ComicAdSettingsProvider } from "@/components/comic-ad-settings";
 import { ORIGIN_TYPES, PRODUCTION_TECHNIQUES, STORY_STATUSES, TARGET_AUDIENCES, getMetadataLabel } from "@/lib/comic-metadata";
 import DeviceUnavailableNotice from "@/components/device-unavailable-notice";
 import { useCurrentDevice } from "@/components/use-current-device";
@@ -852,6 +853,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const kidsAgeLabel = getKidsAgeLabel(comic.kids_age_range);
 
   return (
+    <ComicAdSettingsProvider comicId={comic.id}>
     <main className={`reader-detail-page reader-comic-detail-page${kidsEpisodeGrid ? " reader-comic-detail-kids-grid" : ""}${kidsTabletLandscape ? " reader-comic-detail-kids-landscape" : ""}`}>
       <nav className="reader-subnav">
         <BrandLogo className="wordmark reader-wordmark" showName />
@@ -1139,5 +1141,6 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
       )}
       {episodeSnackbar && <div className="reader-episode-snackbar" role="status" aria-live="polite">{t(episodeSnackbar)}</div>}
     </main>
+    </ComicAdSettingsProvider>
   );
 }

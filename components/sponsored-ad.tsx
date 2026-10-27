@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useReaderMembership } from "@/app/membership-runtime";
 import { useKidsMode, usePlatformSettings } from "@/app/platform-runtime";
 import { useLocale } from "@/components/locale-provider";
+import { useComicAdSettings } from "@/components/comic-ad-settings";
 
 type SponsoredCampaign = {
   campaign_id: string;
@@ -26,12 +27,16 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
   const membership = useReaderMembership();
   const { kidsMode } = useKidsMode();
   const { settings } = usePlatformSettings();
+  const comicAds = useComicAdSettings();
   const { t } = useLocale();
   const [campaign, setCampaign] = useState<SponsoredCampaign | null>(null);
   const [matchedPageHeight, setMatchedPageHeight] = useState<number | null>(null);
-  const placementEnabled = settings.ads_internal_enabled && settings.ad_placements[placement].internal;
+  const placementEnabled = settings.ads_internal_enabled
+    && settings.ad_placements[placement].internal
+    && (placement !== "comic" && placement !== "reader" && placement !== "transition" || comicAds.internalEnabled);
 
   useEffect(() => {
+    if (!comicAds.ready) return;
     if (!placementEnabled) {
       onCampaignAvailability?.(false);
       return;
@@ -94,7 +99,7 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
     };
     void load();
     return () => { cancelled = true; };
-  }, [comicId, kidsMode, membership.ready, membership.tier, onCampaignAvailability, placementEnabled, slotKey]);
+  }, [comicAds.ready, comicId, kidsMode, membership.ready, membership.tier, onCampaignAvailability, placementEnabled, slotKey]);
 
   useEffect(() => {
     if (!membership.ready || membership.tier !== "free") return;
@@ -115,7 +120,7 @@ export default function SponsoredAd({ slotKey, placement, comicId, matchPageInde
     return () => observer.disconnect();
   }, [matchPageIndex, membership.ready, membership.tier, placement]);
 
-  if (kidsMode || !placementEnabled) return null;
+  if (!comicAds.ready || kidsMode || !placementEnabled) return null;
   if (!membership.ready || membership.tier !== "free" || !campaign) return fallback ?? null;
   const sponsorLabel = t(campaign.format === "sponsor" ? "Sponsor" : "Iklan");
   const nativeReaderAd = (placement === "reader" || placement === "transition") && campaign.format === "native";

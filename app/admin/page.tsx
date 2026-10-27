@@ -9,6 +9,7 @@ import { CONTACT_CATEGORIES, type ContactCategory } from "@/lib/contact-categori
 import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import AdminAnalyticsPanel from "./analytics-panel";
+import ComicAdSettingsEditor from "./comic-ad-settings-editor";
 import AdsManagementPanel from "./ads-management-panel";
 import HomepagePromosPanel from "./homepage-promos-panel";
 import AdRequestsPanel from "./ad-requests-panel";
@@ -1467,6 +1468,7 @@ export default function AdminPage() {
               <p>{comicGuestAccessSetupError || "Pengaturan ini berlaku untuk pembaca yang belum masuk. Perubahan tidak mengubah batas untuk komik lain."}</p>
               {comicGuestAccessMessage && <p role="status">{comicGuestAccessMessage}</p>}
             </div>}
+            {!isStaff && <ComicAdSettingsEditor comicId={selectedComicDetail.id} />}
             <div className="admin-comic-detail-synopsis">
               <strong>Sinopsis</strong>
               <p>{selectedComicDetail.synopsis || "Belum ada sinopsis."}</p>
