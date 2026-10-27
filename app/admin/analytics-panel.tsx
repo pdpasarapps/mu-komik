@@ -16,6 +16,13 @@ type AnalyticsData = {
   topComics: TopComic[];
   topChapters: TopChapter[];
 };
+type Ga4AnalyticsData = {
+  activeUsers: number;
+  sessions: number;
+  pageViews: number;
+  daily: DailyViews[];
+  topPages: { path: string; views: number }[];
+};
 
 const supabase = createClient();
 
@@ -74,9 +81,76 @@ function formatCount(value: number) {
 
 export default function AdminAnalyticsPanel() {
   const [days, setDays] = useState(7);
+  const [ga4Result, setGa4Result] = useState<{ days: number; analytics: Ga4AnalyticsData | null; errorMessage: string }>(
+    { days: 0, analytics: null, errorMessage: "" },
+  );
   const [result, setResult] = useState<{ days: number; analytics: AnalyticsData | null; errorMessage: string }>(
     { days: 0, analytics: null, errorMessage: "" },
   );
+
+  useEffect(() => {
+    let active = true;
+    const loadGa4Analytics = async () => {
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!sessionData.session?.access_token) {
+          if (active) {
+            setGa4Result({ days, analytics: null, errorMessage: "Sesi login tidak tersedia. Silakan masuk kembali." });
+          }
+          return;
+        }
+        const response = await fetch(`/api/admin/ga4-analytics?days=${days}`, {
+          headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
+        });
+        const data: unknown = await response.json();
+        if (!active) return;
+        if (!response.ok) {
+          const message = isRecord(data) && typeof data.error === "string"
+            ? data.error
+            : "Laporan Google Analytics tidak dapat dimuat.";
+          setGa4Result({ days, analytics: null, errorMessage: message });
+          return;
+        }
+        if (!isRecord(data)
+          || typeof data.activeUsers !== "number"
+          || typeof data.sessions !== "number"
+          || typeof data.pageViews !== "number"
+          || !Array.isArray(data.daily)
+          || !Array.isArray(data.topPages)) {
+          throw new Error("Google Analytics returned an invalid response.");
+        }
+        const daily = data.daily.flatMap((row): DailyViews[] => (
+          isRecord(row) && typeof row.date === "string" && typeof row.views === "number"
+            ? [{ date: row.date, views: row.views }]
+            : []
+        ));
+        const topPages = data.topPages.flatMap((row): { path: string; views: number }[] => (
+          isRecord(row) && typeof row.path === "string" && typeof row.views === "number"
+            ? [{ path: row.path, views: row.views }]
+            : []
+        ));
+        setGa4Result({
+          days,
+          analytics: {
+            activeUsers: data.activeUsers,
+            sessions: data.sessions,
+            pageViews: data.pageViews,
+            daily,
+            topPages,
+          },
+          errorMessage: "",
+        });
+      } catch (error) {
+        console.error("Unable to load Google Analytics report:", error);
+        if (active) {
+          setGa4Result({ days, analytics: null, errorMessage: "Laporan Google Analytics belum dapat dimuat. Coba muat ulang halaman." });
+        }
+      }
+    };
+    void loadGa4Analytics();
+    return () => { active = false; };
+  }, [days]);
 
   useEffect(() => {
     let active = true;
@@ -116,7 +190,11 @@ export default function AdminAnalyticsPanel() {
   const loading = result.days !== days;
   const analytics = loading ? null : result.analytics;
   const errorMessage = loading ? "" : result.errorMessage;
+  const ga4Loading = ga4Result.days !== days;
+  const ga4Analytics = ga4Loading ? null : ga4Result.analytics;
+  const ga4ErrorMessage = ga4Loading ? "" : ga4Result.errorMessage;
   const maxDailyViews = Math.max(1, ...(analytics?.daily.map((item) => item.views) ?? [0]));
+  const maxGa4DailyViews = Math.max(1, ...(ga4Analytics?.daily.map((item) => item.views) ?? [0]));
 
   return (
     <section className="admin-analytics-section" id="analytics" aria-labelledby="admin-analytics-title">
@@ -129,6 +207,47 @@ export default function AdminAnalyticsPanel() {
             <option value={90}>90 hari</option>
           </select>
         </label>
+      </div>
+      <div className="admin-analytics-chart-panel">
+        <div className="admin-analytics-subheading"><h3>Google Analytics 4</h3><span>GA4</span></div>
+        {ga4ErrorMessage
+          ? <p className="admin-analytics-message" role="alert">{ga4ErrorMessage}</p>
+          : ga4Loading || !ga4Analytics
+            ? <div className="admin-analytics-loading"><LoaderCircle className="spin" size={20} /> Memuat laporan GA4...</div>
+            : (
+              <>
+                <div className="admin-analytics-stats">
+                  <article className="admin-stat"><span>Pengguna aktif</span><strong>{formatCount(ga4Analytics.activeUsers)}</strong><Users size={20} /></article>
+                  <article className="admin-stat"><span>Sesi</span><strong>{formatCount(ga4Analytics.sessions)}</strong><UserRound size={20} /></article>
+                  <article className="admin-stat"><span>Tampilan halaman</span><strong>{formatCount(ga4Analytics.pageViews)}</strong><Eye size={20} /></article>
+                </div>
+                <div className="admin-analytics-chart-panel">
+                  <div className="admin-analytics-subheading"><h3>Tampilan halaman harian</h3><span><BarChart3 size={15} /> GA4</span></div>
+                  {ga4Analytics.daily.length === 0
+                    ? <p className="admin-analytics-empty">Belum ada data GA4 pada rentang ini.</p>
+                    : <div className="admin-analytics-chart" role="img" aria-label={`Grafik ${days} hari tampilan halaman GA4`}>
+                      {ga4Analytics.daily.map((item, index) => {
+                        const showLabel = days <= 30 || index % 7 === 0 || index === ga4Analytics.daily.length - 1;
+                        const date = new Date(`${item.date}T00:00:00Z`);
+                        return (
+                          <div className="admin-analytics-day" key={item.date} title={`${date.toLocaleDateString("id-ID", { timeZone: "UTC" })}: ${formatCount(item.views)} tampilan`}>
+                            <span className="admin-analytics-bar-wrap"><span className="admin-analytics-bar" style={{ height: `${Math.max(3, item.views / maxGa4DailyViews * 100)}%` }} /></span>
+                            {showLabel && <span className="admin-analytics-day-label">{date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", timeZone: "UTC" })}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>}
+                </div>
+                <section className="admin-analytics-list">
+                  <h3>Halaman terpopuler</h3>
+                  {ga4Analytics.topPages.length === 0
+                    ? <p className="admin-analytics-empty">Belum ada data.</p>
+                    : <ol>{ga4Analytics.topPages.map((page) => <li key={page.path}>
+                      <span>{page.path}</span><strong>{formatCount(page.views)}</strong>
+                    </li>)}</ol>}
+                </section>
+              </>
+            )}
       </div>
       {errorMessage
         ? <p className="admin-analytics-message" role="alert">{errorMessage}</p>
