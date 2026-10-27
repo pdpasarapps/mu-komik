@@ -30,6 +30,12 @@ type Ga4AnalyticsData = {
   sources: Ga4DimensionRow[];
 };
 type Ga4DimensionRow = { dimension: string; activeUsers: number; sessions: number };
+type Ga4RealtimeData = {
+  activeUsers: number;
+  pages: Ga4DimensionRow[];
+  countries: Ga4DimensionRow[];
+  devices: Ga4DimensionRow[];
+};
 
 const supabase = createClient();
 
@@ -104,12 +110,68 @@ function parseDimensionRows(value: unknown): Ga4DimensionRow[] | null {
 
 export default function AdminAnalyticsPanel() {
   const [days, setDays] = useState(7);
+  const [realtimeResult, setRealtimeResult] = useState<{ analytics: Ga4RealtimeData | null; errorMessage: string }>(
+    { analytics: null, errorMessage: "" },
+  );
   const [ga4Result, setGa4Result] = useState<{ days: number; analytics: Ga4AnalyticsData | null; errorMessage: string }>(
     { days: 0, analytics: null, errorMessage: "" },
   );
   const [result, setResult] = useState<{ days: number; analytics: AnalyticsData | null; errorMessage: string }>(
     { days: 0, analytics: null, errorMessage: "" },
   );
+
+  useEffect(() => {
+    let active = true;
+    let requestInProgress = false;
+    const loadRealtimeAnalytics = async () => {
+      if (requestInProgress) return;
+      requestInProgress = true;
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!sessionData.session?.access_token) {
+          if (active) setRealtimeResult({ analytics: null, errorMessage: "Sesi login tidak tersedia. Silakan masuk kembali." });
+          return;
+        }
+        const response = await fetch("/api/admin/ga4-analytics?realtime=1", {
+          headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
+        });
+        const data: unknown = await response.json();
+        if (!active) return;
+        if (!response.ok) {
+          const message = isRecord(data) && typeof data.error === "string"
+            ? data.error
+            : "Laporan Realtime Google Analytics tidak dapat dimuat.";
+          setRealtimeResult({ analytics: null, errorMessage: message });
+          return;
+        }
+        if (!isRecord(data) || typeof data.activeUsers !== "number") {
+          throw new Error("Google Analytics returned an invalid realtime response.");
+        }
+        const pages = parseDimensionRows(data.pages);
+        const countries = parseDimensionRows(data.countries);
+        const devices = parseDimensionRows(data.devices);
+        if (!pages || !countries || !devices) throw new Error("Google Analytics returned invalid realtime dimensions.");
+        setRealtimeResult({
+          analytics: { activeUsers: data.activeUsers, pages, countries, devices },
+          errorMessage: "",
+        });
+      } catch (error) {
+        console.error("Unable to load Google Analytics realtime report:", error);
+        if (active) {
+          setRealtimeResult({ analytics: null, errorMessage: "Laporan Realtime Google Analytics belum dapat dimuat." });
+        }
+      } finally {
+        requestInProgress = false;
+      }
+    };
+    void loadRealtimeAnalytics();
+    const intervalId = window.setInterval(() => void loadRealtimeAnalytics(), 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -243,6 +305,37 @@ export default function AdminAnalyticsPanel() {
             <option value={90}>90 hari</option>
           </select>
         </label>
+      </div>
+      <div className="admin-analytics-chart-panel">
+        <div className="admin-analytics-subheading"><h3>Google Analytics Realtime</h3><span>Perbarui tiap 60 detik</span></div>
+        {realtimeResult.errorMessage
+          ? <p className="admin-analytics-message" role="alert">{realtimeResult.errorMessage}</p>
+          : !realtimeResult.analytics
+            ? <div className="admin-analytics-loading"><LoaderCircle className="spin" size={20} /> Memuat data Realtime...</div>
+            : (
+              <>
+                <div className="admin-analytics-stats">
+                  <article className="admin-stat"><span>Pengguna aktif sekarang</span><strong>{formatCount(realtimeResult.analytics.activeUsers)}</strong><Users size={20} /></article>
+                </div>
+                <div className="admin-analytics-rankings">
+                  {([
+                    ["Halaman aktif", realtimeResult.analytics.pages],
+                    ["Negara", realtimeResult.analytics.countries],
+                    ["Perangkat", realtimeResult.analytics.devices],
+                  ] as const).map(([title, rows]) => (
+                    <section className="admin-analytics-list" key={title}>
+                      <h3>{title}</h3>
+                      {rows.length === 0
+                        ? <p className="admin-analytics-empty">Belum ada pengguna aktif.</p>
+                        : <ol>{rows.map((row) => <li key={row.dimension}>
+                          <span>{row.dimension}</span><strong>{formatCount(row.activeUsers)} aktif</strong>
+                        </li>)}</ol>}
+                    </section>
+                  ))}
+                </div>
+                <p className="admin-analytics-note">Realtime menampilkan snapshot aktivitas terbaru GA4, bukan riwayat yang disimpan. Nama halaman mungkin tidak tersedia pada sebagian laporan bergantung pada data yang dikirim GA4.</p>
+              </>
+            )}
       </div>
       <div className="admin-analytics-chart-panel">
         <div className="admin-analytics-subheading"><h3>Google Analytics 4</h3><span>GA4</span></div>

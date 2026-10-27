@@ -6,6 +6,9 @@ type GoogleReport = {
     dimensionValues?: { value?: string }[];
     metricValues?: { value?: string }[];
   }[];
+  totals?: {
+    metricValues?: { value?: string }[];
+  }[];
 };
 
 function errorResponse(error: string, status: number) {
@@ -70,6 +73,16 @@ function readMetric(report: GoogleReport | undefined, index: number) {
   return Number.isFinite(value) ? value : 0;
 }
 
+function readReportRows(report: GoogleReport | undefined) {
+  return report?.rows?.flatMap((row) => {
+    const dimension = row.dimensionValues?.[0]?.value;
+    const activeUsers = Number(row.metricValues?.[0]?.value ?? 0);
+    return typeof dimension === "string" && Number.isFinite(activeUsers)
+      ? [{ dimension, activeUsers }]
+      : [];
+  }) ?? [];
+}
+
 export async function GET(request: NextRequest) {
   const accessToken = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!accessToken) return errorResponse("Unauthorized.", 401);
@@ -121,6 +134,44 @@ export async function GET(request: NextRequest) {
 
   try {
     const googleToken = await getGoogleAccessToken(serviceAccountEmail, privateKey);
+    const apiUrl = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}`;
+    const headers = {
+      Authorization: `Bearer ${googleToken}`,
+      "Content-Type": "application/json",
+    };
+    if (new URL(request.url).searchParams.get("realtime") === "1") {
+      const realtimeRequests = [
+        { metrics: [{ name: "activeUsers" }] },
+        { dimensions: [{ name: "unifiedScreenName" }], metrics: [{ name: "activeUsers" }], orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }], limit: "10" },
+        { dimensions: [{ name: "country" }], metrics: [{ name: "activeUsers" }], orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }], limit: "10" },
+        { dimensions: [{ name: "deviceCategory" }], metrics: [{ name: "activeUsers" }], orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }], limit: "10" },
+      ];
+      const responses = await Promise.all(realtimeRequests.map((body) => fetch(`${apiUrl}:runRealtimeReport`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        cache: "no-store",
+      })));
+      const reportData: unknown[] = await Promise.all(responses.map((response) => response.json()));
+      const failedIndex = responses.findIndex((response, index) => !response.ok || !isRecord(reportData[index]));
+      if (failedIndex !== -1) {
+        console.error("Google Analytics Realtime API request failed:", {
+          status: responses[failedIndex].status,
+          error: reportData[failedIndex],
+        });
+        return errorResponse("Google Analytics Realtime gagal mengambil laporan.", 502);
+      }
+
+      const reports = reportData as GoogleReport[];
+      const totalActiveUsers = readMetric(reports[0], 0);
+      return NextResponse.json({
+        activeUsers: Number.isFinite(totalActiveUsers) ? totalActiveUsers : 0,
+        pages: readReportRows(reports[1]),
+        countries: readReportRows(reports[2]),
+        devices: readReportRows(reports[3]),
+      }, { headers: { "Cache-Control": "no-store" } });
+    }
+
     const reportRequests = [
       { dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }, { name: "sessions" }, { name: "screenPageViews" }, { name: "engagementRate" }, { name: "averageSessionDuration" }] },
       { dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }], dimensions: [{ name: "date" }], metrics: [{ name: "screenPageViews" }], orderBys: [{ dimension: { dimensionName: "date" } }] },
@@ -129,11 +180,6 @@ export async function GET(request: NextRequest) {
       { dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }], dimensions: [{ name: "country" }], metrics: [{ name: "activeUsers" }, { name: "sessions" }], orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: "10" },
       { dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }], dimensions: [{ name: "sessionSourceMedium" }], metrics: [{ name: "activeUsers" }, { name: "sessions" }], orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: "10" },
     ];
-    const apiUrl = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}`;
-    const headers = {
-      Authorization: `Bearer ${googleToken}`,
-      "Content-Type": "application/json",
-    };
     const [mainResponse, sourceResponse] = await Promise.all([
       fetch(`${apiUrl}:batchRunReports`, {
         method: "POST",
