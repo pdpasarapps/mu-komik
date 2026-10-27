@@ -5,6 +5,7 @@ import { getPlatformSettings } from "@/lib/platform-settings";
 import { cookies, headers } from "next/headers";
 import { KIDS_MODE_COOKIE_NAME, readKidsModeState } from "@/lib/kids-mode";
 import { getLocaleFromCountry, isLocale, LOCALE_COOKIE_NAME } from "@/lib/locale";
+import Script from "next/script";
 import PlatformRuntime from "./platform-runtime";
 import ReaderMembershipRuntime from "./membership-runtime";
 import PwaSupport from "./pwa-support";
@@ -139,6 +140,18 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         </LocaleProvider>
         <AppSplash />
         <PwaSupport />
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-6L34F8FBJM"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){window.dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-6L34F8FBJM');
+          `}
+        </Script>
       </body>
     </html>
   );
