@@ -80,13 +80,13 @@ function membershipExpiryHasPassed(expiresAt: string | null | undefined) {
   return typeof expiresAt === "string" && Date.parse(expiresAt) <= Date.now();
 }
 
-function KidsEpisodeThumbnail({ src, chapterId }: { src?: string; chapterId: string }) {
+function EpisodeThumbnail({ src, chapterId, className = "" }: { src?: string; chapterId: string; className?: string }) {
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const imageLoaded = Boolean(src && loadedSrc === src);
 
   return (
-    <span className="reader-kids-episode-thumbnail">
+    <span className={`reader-kids-episode-thumbnail ${className}`.trim()}>
       {src && failedSrc !== src
         ? <>
             {!imageLoaded && <span className="reader-kids-thumbnail-skeleton" aria-hidden="true" />}
@@ -99,7 +99,7 @@ function KidsEpisodeThumbnail({ src, chapterId }: { src?: string; chapterId: str
               unoptimized
               onLoad={() => setLoadedSrc(src)}
               onError={() => {
-                console.error("Unable to load Kids Mode episode thumbnail:", { chapterId });
+                console.error("Unable to load episode thumbnail:", { chapterId });
                 setFailedSrc(src);
               }}
             />
@@ -1034,9 +1034,11 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
               const rowClass = `reader-episode-row${chapter.id === lastReadChapterId ? " reader-episode-last-read" : ""}${unlocked ? "" : " reader-episode-row-locked"}`;
               const content = (
                 <>
-                  {kidsEpisodeGrid && (
-                    <KidsEpisodeThumbnail src={firstPageImageUrls[chapter.id]} chapterId={chapter.id} />
-                  )}
+                  <EpisodeThumbnail
+                    src={firstPageImageUrls[chapter.id]}
+                    chapterId={chapter.id}
+                    className={kidsEpisodeGrid ? "" : "reader-episode-row-thumbnail"}
+                  />
                   <span className="reader-episode-number">{kidsEpisodeGrid ? String(chapter.chapter_number).padStart(2, "0") : `${t("EPISODE")} ${String(chapter.chapter_number).padStart(2, "0")}`}</span>
                   <span className="reader-episode-title">
                     <strong>{chapter.title || `${t("Episode")} ${chapter.chapter_number}`}</strong>

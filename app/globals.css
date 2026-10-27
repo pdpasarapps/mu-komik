@@ -1665,6 +1665,7 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .reader-kids-episode-grid .reader-episode-row-locked { opacity: .68; }
 .reader-kids-episode-thumbnail { position: relative; width: 100%; aspect-ratio: 3 / 4; display: grid; place-items: center; overflow: hidden; background: #e8e3d8; color: #788078; }
 .reader-kids-episode-thumbnail img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .18s ease; }.reader-kids-episode-thumbnail .reader-kids-thumbnail-image-loaded { opacity: 1; }
+.reader-episode-row-thumbnail { width: 42px; height: 56px; flex: 0 0 auto; aspect-ratio: auto; border-radius: 4px; }
 .reader-kids-thumbnail-skeleton { position: absolute; z-index: 1; inset: 0; background: linear-gradient(100deg, #e8e3d8 25%, #f5f1e8 42%, #e8e3d8 65%); background-size: 300% 100%; animation: reader-skeleton-shimmer 1.5s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .reader-kids-thumbnail-skeleton { animation: none; } }
 .reader-kids-episode-grid .reader-episode-number { padding: 9px 10px 0; font-size: .59rem; }
@@ -1687,7 +1688,7 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
   .reader-kids-episode-grid .reader-episode-title { padding: 4px 7px 8px; }
   .reader-kids-episode-grid .reader-episode-title strong { font-size: .68rem; }
 }
-.reader-episode-row { min-height: 76px; display: grid; grid-template-columns: 94px minmax(0,1fr) minmax(100px, auto); align-items: center; gap: 16px; padding: 10px 12px; border-bottom: 1px solid var(--reader-border); transition: background .18s ease; color: inherit; text-decoration: none; }
+.reader-episode-row { min-height: 76px; display: grid; grid-template-columns: 44px 94px minmax(0,1fr) minmax(100px, auto); align-items: center; gap: 16px; padding: 10px 12px; border-bottom: 1px solid var(--reader-border); transition: background .18s ease; color: inherit; text-decoration: none; }
 .reader-episode-row:hover, .reader-episode-last-read { background: #efeee8; }.reader-episode-row:hover .reader-episode-arrow { transform: translateX(3px); }.reader-episode-arrow { transition: transform .18s ease; }
 .reader-episode-number { color: #79827a; font-size: .63rem; font-weight: 800; letter-spacing: .08em; }
 .reader-episode-title { min-width: 0; display: grid; gap: 4px; }.reader-episode-title strong { overflow: hidden; font-size: .88rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }.reader-episode-title small { color: #647269; font-size: .67rem; }
@@ -2050,7 +2051,7 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
   .reader-discovery-tools { gap: 10px; }.reader-mobile-search-inline { display: flex; }.reader-genre-chips { margin-right: -16px; padding-right: 16px; }.reader-genre-scroll-hint { display: flex; align-items: center; justify-content: flex-end; gap: 3px; margin: -5px 0 -3px; color: var(--reader-muted); font-size: .62rem; }.reader-kids-welcome { min-height: 112px; align-items: flex-start; flex-direction: column; gap: 12px; padding: 20px 16px; }.reader-kids-welcome h2 { font-size: 1.65rem; }
   .reader-creator-cta { align-items: start; flex-direction: column; gap: 15px; margin-top: 34px; padding: 26px 20px; }.reader-footer { width: 100%; min-width: 0; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 11px; padding: 14px 8px; }.reader-footer-main-row { min-width: 0; width: 100%; grid-column: 1; grid-row: 1; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); align-items: center; gap: 0; }.reader-footer-brand { display: contents; }.reader-footer-brand > .wordmark { width: 100%; display: flex; justify-content: center; }.reader-footer-brand > .wordmark .wordmark-image { width: 34px; height: 34px; }.reader-footer-brand > p { display: none; }.reader-footer-main-row > .platform-links, .reader-footer-links { display: contents; }.reader-footer-main-row .platform-links a, .reader-footer-links > a { min-width: 0; max-width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #626d65; font-size: .53rem; line-height: 1.1; text-align: center; text-decoration: none; white-space: normal; overflow-wrap: anywhere; }.reader-footer-links:nth-of-type(2) > a:nth-child(-n+3):not([href="/faq"]) { display: none; }.reader-footer-links:last-of-type > a:last-child { grid-column: 1 / -1; grid-row: 2; padding: 6px 0; }.reader-footer > span { grid-column: 1; grid-row: 3; justify-self: center; text-align: center; font-size: .62rem; white-space: nowrap; }
   .reader-detail-page { padding: 0 17px 22px; }.reader-subnav { height: 60px; }.reader-comic-detail { grid-template-columns: minmax(0,1fr); gap: 20px; padding: 22px 0 30px; }.reader-detail-cover { width: min(58vw, 220px); justify-self: center; border-radius: 8px; }.reader-detail-copy { padding-top: 1px; }.reader-detail-genre { margin-bottom: 10px; padding: 5px 8px; font-size: .62rem; }.reader-detail-copy .reader-section-kicker { margin-bottom: 7px; font-size: .58rem; }.reader-detail-copy h1 { font-size: clamp(2rem, 9vw, 3rem); }.reader-detail-creator { margin: 8px 0 11px; font-size: .76rem; }.reader-detail-synopsis { display: -webkit-box; overflow: hidden; margin-bottom: 13px; font-size: .79rem; line-height: 1.55; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }.reader-comic-metadata { grid-template-columns: 1fr; gap: 8px; margin-bottom: 16px; }.reader-comic-metadata dt { font-size: .62rem; }.reader-comic-metadata dd { font-size: .72rem; }.reader-detail-copy .reader-primary-button { min-height: 44px; font-size: .72rem; }.reader-detail-resume { font-size: .68rem; }
-  .reader-episodes .reader-section-heading { align-items: center; }.reader-episode-row { min-height: 63px; grid-template-columns: 37px minmax(0,1fr) 18px; gap: 9px; padding: 8px 5px; }.reader-episode-date { display: none; }.reader-episode-title strong { font-size: .76rem; }.reader-episode-number { font-size: .72rem; }
+  .reader-episodes .reader-section-heading { align-items: center; }.reader-episode-row { min-height: 63px; grid-template-columns: 40px 37px minmax(0,1fr) 18px; gap: 9px; padding: 8px 5px; }.reader-episode-row-thumbnail { width: 36px; height: 48px; }.reader-episode-date { display: none; }.reader-episode-title strong { font-size: .76rem; }.reader-episode-number { font-size: .72rem; }
   .reader-experience { --reader-header-height: 78px; padding: 82px 0 80px; }.reader-experience-header { min-height: var(--reader-header-height); grid-template-columns: minmax(0,1fr) auto; grid-template-rows: 40px 34px; align-content: center; gap: 0 8px; padding: 0 10px; }.reader-experience-back { max-width: 70vw; font-size: .72rem; }.reader-experience-chapter { grid-column: 1 / -1; grid-row: 2; flex-direction: column; justify-content: center; align-items: center; gap: 1px; padding: 0 36px 4px; font-size: .75rem; line-height: 1.1; text-align: center; }.reader-experience-chapter strong { max-width: 75vw; font-size: .94rem; line-height: 1.15; text-align: center; }.reader-episode-menu { grid-column: 2; grid-row: 1; justify-self: end; }.reader-episode-menu summary { min-height: 43px; }.reader-experience .reader-page-frame { min-height: 140px; scroll-margin-top: calc(var(--reader-header-height) + 4px); }.reader-experience-controls { min-height: 55px; padding: 0 9px; }.reader-experience-controls button, .reader-experience-controls a { min-height: 44px; gap: 3px; font-size: .65rem; }.reader-controls-toggle { right: 10px; bottom: 68px; width: 40px; height: 40px; }.reader-controls-hidden .reader-controls-toggle { bottom: 10px; }.reader-chapter-navigation { width: calc(100% - 14px); }.reader-chapter-navigation a { padding: 0 4px; font-size: .66rem; }
   .reader-experience-header > .kids-mode-toggle { position: absolute; top: 8px; right: 57px; min-height: 34px; width: 54px; padding: 0; }.reader-experience-header > .kids-mode-toggle .kids-mode-toggle-label { display: none; }
   .reader-experience-header .reader-experience-back { position: relative; grid-column: 1 / -1; grid-row: 1; width: 100%; max-width: none; min-height: 40px; box-sizing: border-box; justify-content: flex-start; padding: 0 42px 0 10px; }
@@ -2138,7 +2139,7 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 .reader-offline-replacement-list button { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 11px; border: 1px solid var(--reader-border); border-radius: 7px; background: #fff; color: var(--reader-text); text-align: left; cursor: pointer; }
 .reader-offline-replacement-list button:hover { border-color: #9caf9e; background: #f4f8f2; }.reader-offline-replacement-list button > span:first-child { min-width: 0; display: grid; gap: 4px; }.reader-offline-replacement-list strong { overflow: hidden; font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }.reader-offline-replacement-list small { color: #68716a; font-size: .64rem; line-height: 1.4; }.reader-offline-replacement-list button > span:last-child { flex: 0 0 auto; color: #47624e; font-size: .7rem; font-weight: 800; }
 .reader-offline-cancel { min-height: 42px; border: 1px solid var(--reader-border); border-radius: 7px; background: transparent; color: var(--reader-text); font: inherit; font-size: .75rem; font-weight: 750; cursor: pointer; }
-@media (max-width: 640px) { .reader-episode-entry { grid-template-columns: minmax(0,1fr); gap: 0; }.reader-episode-offline-actions { justify-content: start; padding: 0 6px 9px 50px; }.reader-offline-download { min-height: 34px; }.reader-offline-replace-dialog { padding: 23px 17px; } }
+@media (max-width: 640px) { .reader-episode-entry { grid-template-columns: minmax(0,1fr); gap: 0; }.reader-episode-offline-actions { justify-content: start; padding: 0 6px 9px 94px; }.reader-offline-download { min-height: 34px; }.reader-offline-replace-dialog { padding: 23px 17px; } }
 @media (min-width: 641px) {
   .reader-comic-detail { grid-template-columns: minmax(240px, 320px) minmax(0,1fr); }
   .reader-detail-cover-wrap { align-self: center; }
@@ -2177,7 +2178,8 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
   .reader-detail-action { min-height: 44px; }
   .reader-episodes { padding-bottom: 22px; }
   .reader-episodes .reader-section-heading { align-items: center; }
-  .reader-episode-row { min-height: 70px; grid-template-columns: 72px minmax(0,1fr) auto; gap: 8px; padding: 9px 4px; }
+  .reader-episode-row { min-height: 70px; grid-template-columns: 40px 37px minmax(0,1fr) auto; gap: 8px; padding: 9px 4px; }
+  .reader-episode-row-thumbnail { width: 36px; height: 48px; }
   .reader-episode-number { font-size: .57rem; letter-spacing: .04em; }
   .reader-episode-title { gap: 3px; }
   .reader-episode-title strong { font-size: .79rem; }
@@ -2203,7 +2205,8 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
   .reader-detail-cover { width: min(54vw, 180px); }
   .reader-detail-cover-skeleton { width: min(54vw, 180px); }
   .reader-detail-copy h1 { font-size: 2.25rem; }
-  .reader-episode-row { grid-template-columns: 65px minmax(0,1fr) auto; gap: 6px; }
+  .reader-episode-row { grid-template-columns: 34px 32px minmax(0,1fr) auto; gap: 6px; }
+  .reader-episode-row-thumbnail { width: 32px; height: 43px; }
   .reader-episode-title strong { font-size: .75rem; }
   .reader-episode-latest-badge { padding: 4px 5px; }
   .reader-about-comic .reader-comic-metadata { gap: 12px 9px; }
@@ -2307,7 +2310,8 @@ html[data-theme="dark"] .reader-home-content .reader-latest-comic-grid .reader-c
 }
 @media (max-width: 380px) {
   .reader-detail-cover, .reader-detail-cover-skeleton { width: 100%; }
-  .reader-episode-row { grid-template-columns: 65px minmax(0,1fr) auto; gap: 6px; }
+  .reader-episode-row { grid-template-columns: 34px 32px minmax(0,1fr) auto; gap: 6px; }
+  .reader-episode-row-thumbnail { width: 32px; height: 43px; }
   .reader-sticky-read { grid-template-columns: minmax(0,1fr) auto 32px; gap: 5px; padding-left: 10px; }
   .reader-sticky-read-action { gap: 5px; padding: 0 9px; font-size: .7rem; }
 }
