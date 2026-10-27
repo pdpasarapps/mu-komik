@@ -76,6 +76,10 @@ function formatEngagementCount(count: number, locale: "id" | "en") {
   return new Intl.NumberFormat(locale === "id" ? "id-ID" : "en-US", { notation: "compact", maximumFractionDigits: 1 }).format(count);
 }
 
+function membershipExpiryHasPassed(expiresAt: string | null | undefined) {
+  return typeof expiresAt === "string" && Date.parse(expiresAt) <= Date.now();
+}
+
 function KidsEpisodeThumbnail({ src, chapterId }: { src?: string; chapterId: string }) {
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
@@ -747,12 +751,13 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
       }
       const [{ data: sessionData, error: sessionError }, { data: currentMembership, error: membershipError }] = await Promise.all([
         supabase.auth.getSession(),
-        supabase.from("reader_memberships").select("tier").eq("user_id", userId).maybeSingle(),
+        supabase.from("reader_memberships").select("tier, expires_at").eq("user_id", userId).maybeSingle(),
       ]);
       if (sessionError) throw new Error(`Sesi akun tidak dapat diverifikasi: ${sessionError.message}`);
       if (sessionData.session?.user.id !== userId) throw new Error("Akun berubah selama pengunduhan. Silakan mulai lagi.");
       if (membershipError) throw new Error(`Status Premium tidak dapat diverifikasi: ${membershipError.message}`);
-      if (currentMembership?.tier !== "premium" && currentMembership?.tier !== "vip") {
+      const membershipExpired = membershipExpiryHasPassed(currentMembership?.expires_at);
+      if (membershipExpired || (currentMembership?.tier !== "premium" && currentMembership?.tier !== "vip")) {
         throw new Error("Keanggotaan Premium tidak aktif. Episode tidak disimpan.");
       }
       localStorage.removeItem(`mu-komik:offline-revoked:${userId}`);

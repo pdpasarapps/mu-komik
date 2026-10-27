@@ -20,6 +20,7 @@ import { usePlatformSettings } from "../platform-runtime";
 import { useReaderMembership } from "../membership-runtime";
 import { READER_MEMBERSHIP_TIERS } from "@/lib/reader-membership";
 import { useLocale } from "@/components/locale-provider";
+import MembershipCheckout from "./membership-checkout";
 
 export type AccountSection = "overview" | "reading" | "favorites" | "messages" | "account-settings" | "creator-application" | "creator-profile" | "creator-guide" | "comic-editor" | "analitik-komik" | CreatorArea;
 const isCreatorArea = (section: AccountSection): section is CreatorArea =>
@@ -518,6 +519,7 @@ export default function AccountContent({ section, children }: { section: Account
           </dl>
           <Link className="account-reader-info-settings" href="/account/account-settings">{t("Pengaturan akun")} <ArrowRight size={15} /></Link>
         </article>}
+        {section === "overview" && profile?.role === "reader" && <MembershipCheckout />}
         {section === "overview" && profile?.is_staff && <article className="account-panel account-staff-access-panel">
           <div className="panel-heading"><div><p className="eyebrow">{t("Penugasan tambahan")}</p><h2>{t("Akses staf")}</h2></div><Settings2 size={22} /></div>
           <div className="settings-row"><span>{t("Jabatan")}</span><strong>{profile.staff_title || t("Staf")}</strong></div>

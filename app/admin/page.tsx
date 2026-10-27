@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { ArrowLeft, ArrowUpRight, Archive, Ban, Baby, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, FileText, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Mail, Megaphone, Pencil, Search, Settings2, ShieldCheck, Trash2, UserRound, UserRoundCheck, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Archive, Ban, Baby, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, FileText, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Mail, Megaphone, Pencil, ReceiptText, Search, Settings2, ShieldCheck, Trash2, UserRound, UserRoundCheck, Users, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -9,6 +9,7 @@ import { CONTACT_CATEGORIES, type ContactCategory } from "@/lib/contact-categori
 import Link from "next/link";
 import BrandLogo from "@/components/brand-logo";
 import AdminAnalyticsPanel from "./analytics-panel";
+import TripayPaymentsPanel from "./tripay-payments-panel";
 import ComicAdSettingsEditor from "./comic-ad-settings-editor";
 import AdsManagementPanel from "./ads-management-panel";
 import HomepagePromosPanel from "./homepage-promos-panel";
@@ -28,12 +29,13 @@ type AdminAccountStatus = "active" | "blocked" | "deleted";
 type AdminUser = { id: string; display_name: string; email: string | null; role: "reader" | "creator" | "admin"; isStaff: boolean; staffTitle: string; staffPermissions: AdminSection[]; staffContactCategories: ContactCategory[]; canUploadAudio: boolean; membershipTier: ReaderMembershipTier; accountStatus: AdminAccountStatus; created_at: string };
 type AdminComic = { id: string; title: string; slug: string; synopsis: string; contributor: string; genre: string; cover_key: string | null; share_preview_key: string | null; guest_read_all_episodes: boolean; status: "draft" | "pending_review" | "published" | "archived"; created_at: string; creator_id: string; creator: string; kids_curation_status: "pending" | "approved" | "rejected" | null; kids_age_range: "4_6" | "7_9" | "10_12" | null };
 type SettingsAuditEntry = { id: number; changed_by: string | null; changed_at: string; previous_values: Record<string, unknown>; new_values: Record<string, unknown> };
-type AdminSection = "overview" | "analytics" | "comic-review" | "kids-review" | "creator-requests" | "users" | "admins" | "staf" | "readers" | "kreator" | "comics" | "articles" | "share-previews" | "ad-requests" | "contact-messages" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "homepage-promos" | "platform-settings";
+type AdminSection = "overview" | "analytics" | "payments" | "comic-review" | "kids-review" | "creator-requests" | "users" | "admins" | "staf" | "readers" | "kreator" | "comics" | "articles" | "share-previews" | "ad-requests" | "contact-messages" | "ads-management" | "ads-list" | "sponsor-campaigns" | "ad-slots" | "homepage-promos" | "platform-settings";
 
 const supabase = createClient();
 const adminSections: Record<AdminSection, { label: string; description: string }> = {
   overview: { label: "Dasbor admin", description: "Kelola akun, komik, kurasi, dan pengajuan kreator mu-komik." },
   analytics: { label: "Analitik", description: "Pantau aktivitas membaca dan komik yang paling banyak dibaca." },
+  payments: { label: "Pembayaran", description: "Lihat laporan transaksi membership Premium melalui Tripay." },
   "comic-review": { label: "Kurasi komik", description: "Tinjau komik yang menunggu persetujuan untuk diterbitkan." },
   "kids-review": { label: "Kurasi Kids Mode", description: "Tinjau komik dan rentang usia yang diajukan untuk library anak." },
   "creator-requests": { label: "Pengajuan kreator", description: "Tinjau permohonan akses kreator." },
@@ -208,7 +210,7 @@ export default function AdminPage() {
     const staffCanSeeProfiles = !userIsStaff || ["users", "admins", "staf", "readers", "kreator", "creator-requests"]
       .some((permission) => userStaffPermissions.includes(permission as AdminSection));
     const resolvedSection = staffSectionAliases[section] ?? section;
-    if (userIsStaff && !userStaffPermissions.includes(resolvedSection)) {
+    if (userIsStaff && (resolvedSection === "payments" || !userStaffPermissions.includes(resolvedSection))) {
       setLoading(false);
       const firstAllowed = staffPermissionOptions.find((option) => userStaffPermissions.includes(option.value));
       router.replace(firstAllowed ? `/admin/${firstAllowed.value}` : "/account");
@@ -720,6 +722,7 @@ export default function AdminPage() {
     const { error } = await supabase.from("reader_memberships").upsert({
       user_id: user.id,
       tier,
+      expires_at: null,
       updated_at: new Date().toISOString(),
     });
     if (error) {
@@ -757,7 +760,7 @@ export default function AdminPage() {
 
   const canAccessSection = (target: AdminSection) => {
     const resolvedSection = staffSectionAliases[target] ?? target;
-    return !isStaff || staffPermissions.includes(resolvedSection);
+    return !isStaff || (resolvedSection !== "payments" && staffPermissions.includes(resolvedSection));
   };
 
   const updateComicStatus = async (comic: AdminComic, status: "pending_review" | "archived" | "draft") => {
@@ -917,10 +920,11 @@ export default function AdminPage() {
           <BrandLogo className="admin-brand" showName />
           <nav ref={sidebarNavigationRef} className="admin-sidebar-links" aria-label="Navigasi dashboard admin">
             <p className="admin-sidebar-label">Administrasi</p>
-            {(["overview", "analytics"] as AdminSection[]).some(canAccessSection) && <div className="admin-sidebar-group" aria-label="Dasbor">
+            {(["overview", "analytics", "payments"] as AdminSection[]).some(canAccessSection) && <div className="admin-sidebar-group" aria-label="Dasbor">
               <p className="admin-sidebar-group-label">Dasbor</p>
               {canAccessSection("overview") && <Link href="/admin/overview" aria-current={section === "overview" ? "page" : undefined}><LayoutDashboard size={18} /><span>Ringkasan</span></Link>}
               {canAccessSection("analytics") && <Link href="/admin/analytics" aria-current={section === "analytics" ? "page" : undefined}><ChartNoAxesColumn size={18} /><span>Analitik</span></Link>}
+              {canAccessSection("payments") && <Link href="/admin/payments" aria-current={section === "payments" ? "page" : undefined}><ReceiptText size={18} /><span>Pembayaran</span></Link>}
             </div>}
             {(["comic-review", "kids-review", "creator-requests"] as AdminSection[]).some(canAccessSection) && <div className="admin-sidebar-group" aria-label="Moderasi">
               <p className="admin-sidebar-group-label">Moderasi</p>
@@ -1113,6 +1117,7 @@ export default function AdminPage() {
           </>}
         </section>}
         {section === "analytics" && <AdminAnalyticsPanel />}
+        {section === "payments" && !isStaff && <TripayPaymentsPanel />}
         {section === "share-previews" && <section className="admin-management-section">
           <div className="admin-section-heading">
             <div><p className="eyebrow">Gambar sosial</p><h2>Pratinjau berbagi komik</h2></div>

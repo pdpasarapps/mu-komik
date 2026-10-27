@@ -6,7 +6,12 @@ import type { ReaderMembershipTier } from "@/lib/reader-membership";
 import { synchronizeOfflineMembership } from "@/lib/offline-episodes";
 
 const supabase = createClient();
-const ReaderMembershipContext = createContext<{ tier: ReaderMembershipTier; ready: boolean; verified: boolean } | null>(null);
+const ReaderMembershipContext = createContext<{
+  tier: ReaderMembershipTier;
+  ready: boolean;
+  verified: boolean;
+  expiresAt: string | null;
+} | null>(null);
 
 function shouldSilenceMembershipError(error: { code?: string; message?: string } | null | undefined) {
   if (!error) return true;
@@ -31,6 +36,7 @@ export default function ReaderMembershipRuntime({ children }: { children: ReactN
   const [tier, setTier] = useState<ReaderMembershipTier>("free");
   const [ready, setReady] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const requestId = useRef(0);
 
   useEffect(() => {
@@ -50,6 +56,7 @@ export default function ReaderMembershipRuntime({ children }: { children: ReactN
       if (!userId) {
         if (active && currentRequest === requestId.current) {
           setTier("free");
+          setExpiresAt(null);
           setVerified(sessionVerified);
           setReady(true);
         }
@@ -57,7 +64,7 @@ export default function ReaderMembershipRuntime({ children }: { children: ReactN
       }
       const { data, error } = await supabase
         .from("reader_memberships")
-        .select("tier")
+        .select("tier, expires_at")
         .eq("user_id", userId)
         .maybeSingle();
       if (error) {
@@ -66,13 +73,19 @@ export default function ReaderMembershipRuntime({ children }: { children: ReactN
         }
         if (active && currentRequest === requestId.current) {
           setTier("free");
+          setExpiresAt(null);
           setVerified(false);
         }
       } else if (active) {
         const loadedTier = data?.tier;
         if (currentRequest === requestId.current) {
-          const verifiedTier = loadedTier === "premium" || loadedTier === "vip" ? loadedTier : "free";
+          const membershipExpiry = typeof data?.expires_at === "string" ? data.expires_at : null;
+          const expired = membershipExpiry !== null && Date.parse(membershipExpiry) <= Date.now();
+          const verifiedTier = !expired && (loadedTier === "premium" || loadedTier === "vip")
+            ? loadedTier
+            : "free";
           setTier(verifiedTier);
+          setExpiresAt(expired ? null : membershipExpiry);
           setVerified(true);
           try {
             await synchronizeOfflineMembership(userId, verifiedTier);
@@ -111,6 +124,36 @@ export default function ReaderMembershipRuntime({ children }: { children: ReactN
     };
   }, []);
 
-  const context = useMemo(() => ({ tier, ready, verified }), [ready, tier, verified]);
+  useEffect(() => {
+    if (!expiresAt) return;
+    const expiresAtMs = Date.parse(expiresAt);
+    if (!Number.isFinite(expiresAtMs)) return;
+    let timeoutId = 0;
+    const expireMembershipWhenDue = () => {
+      const remainingMs = expiresAtMs - Date.now();
+      if (remainingMs > 0) {
+        timeoutId = window.setTimeout(expireMembershipWhenDue, Math.min(remainingMs, 2_147_000_000));
+        return;
+      }
+      setTier("free");
+      setExpiresAt(null);
+      void (async () => {
+        try {
+          const { data, error } = await supabase.auth.getSession();
+          if (error) throw error;
+          if (data.session?.user.id) await synchronizeOfflineMembership(data.session.user.id, "free");
+        } catch (error) {
+          console.error("Unable to revoke expired offline membership licenses:", error);
+        }
+      })();
+    };
+    timeoutId = window.setTimeout(expireMembershipWhenDue, Math.min(
+      Math.max(0, expiresAtMs - Date.now()),
+      2_147_000_000,
+    ));
+    return () => window.clearTimeout(timeoutId);
+  }, [expiresAt]);
+
+  const context = useMemo(() => ({ tier, ready, verified, expiresAt }), [expiresAt, ready, tier, verified]);
   return <ReaderMembershipContext.Provider value={context}>{children}</ReaderMembershipContext.Provider>;
 }
