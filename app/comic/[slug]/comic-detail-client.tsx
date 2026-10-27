@@ -20,6 +20,7 @@ import { useCurrentDevice } from "@/components/use-current-device";
 import { COMIC_TARGET_DEVICES, isComicAvailableOnDevice, type ComicTargetDevice } from "@/lib/comic-target-device";
 import { useReaderMembership } from "@/app/membership-runtime";
 import { useLocale } from "@/components/locale-provider";
+import { trackGa4Event } from "@/lib/ga4-client";
 import {
   formatOfflineSize,
   getOfflineTimestamp,
@@ -191,6 +192,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const [stickyReadDismissed, setStickyReadDismissed] = useState(false);
   const [tabletLandscape, setTabletLandscape] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
+  const trackedComicIdRef = useRef<string | null>(null);
   const shareUrlRef = useRef<HTMLTextAreaElement>(null);
   const kidsDescriptionTriggerRef = useRef<HTMLButtonElement>(null);
   const kidsDescriptionCloseRef = useRef<HTMLButtonElement>(null);
@@ -198,6 +200,18 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
   const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
   const kidsEpisodeGrid = kidsMode && chapters.length > 1;
   const kidsTabletLandscape = kidsEpisodeGrid && tabletLandscape;
+
+  useEffect(() => {
+    if (loading || !comic || currentDevice === null
+      || !isComicAvailableOnDevice(comic.target_device, currentDevice)
+      || trackedComicIdRef.current === comic.id) return;
+    trackedComicIdRef.current = comic.id;
+    trackGa4Event("comic_view", {
+      comic_id: comic.id,
+      comic_slug: comic.slug,
+      comic_title: comic.title,
+    });
+  }, [comic, currentDevice, loading]);
 
   useEffect(() => {
     const orientationQuery = window.matchMedia("(orientation: landscape)");

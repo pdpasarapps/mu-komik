@@ -25,17 +25,25 @@ type Ga4AnalyticsData = {
   averageSessionDuration: number;
   daily: DailyViews[];
   topPages: { path: string; views: number }[];
+  readingJourney: ReadingJourneyItem[];
   devices: Ga4DimensionRow[];
   countries: Ga4DimensionRow[];
   sources: Ga4DimensionRow[];
 };
 type Ga4DimensionRow = { dimension: string; activeUsers: number; sessions: number };
+type ReadingJourneyEventName = "comic_view" | "episode_start" | "episode_next";
+type ReadingJourneyItem = { eventName: ReadingJourneyEventName; users: number; events: number };
 type Ga4RealtimeData = {
   activeUsers: number;
   pages: Ga4DimensionRow[];
   countries: Ga4DimensionRow[];
   devices: Ga4DimensionRow[];
 };
+const readingJourneySteps: { eventName: ReadingJourneyEventName; label: string }[] = [
+  { eventName: "comic_view", label: "Halaman komik dibuka" },
+  { eventName: "episode_start", label: "Episode mulai dibaca" },
+  { eventName: "episode_next", label: "Lanjut ke episode berikutnya" },
+];
 
 const supabase = createClient();
 
@@ -104,6 +112,18 @@ function parseDimensionRows(value: unknown): Ga4DimensionRow[] | null {
     isRecord(row) && typeof row.dimension === "string"
       && typeof row.activeUsers === "number" && typeof row.sessions === "number"
       ? [{ dimension: row.dimension, activeUsers: row.activeUsers, sessions: row.sessions }]
+      : []
+  ));
+}
+
+function parseReadingJourney(value: unknown): ReadingJourneyItem[] | null {
+  if (!Array.isArray(value)) return null;
+  return value.flatMap((row): ReadingJourneyItem[] => (
+    isRecord(row)
+      && (row.eventName === "comic_view" || row.eventName === "episode_start" || row.eventName === "episode_next")
+      && typeof row.users === "number"
+      && typeof row.events === "number"
+      ? [{ eventName: row.eventName, users: row.users, events: row.events }]
       : []
   ));
 }
@@ -211,7 +231,10 @@ export default function AdminAnalyticsPanel() {
         const devices = parseDimensionRows(data.devices);
         const countries = parseDimensionRows(data.countries);
         const sources = parseDimensionRows(data.sources);
-        if (!devices || !countries || !sources) throw new Error("Google Analytics returned invalid dimension reports.");
+        const readingJourney = parseReadingJourney(data.readingJourney);
+        if (!devices || !countries || !sources || !readingJourney) {
+          throw new Error("Google Analytics returned invalid report dimensions.");
+        }
         const daily = data.daily.flatMap((row): DailyViews[] => (
           isRecord(row) && typeof row.date === "string" && typeof row.views === "number"
             ? [{ date: row.date, views: row.views }]
@@ -233,6 +256,7 @@ export default function AdminAnalyticsPanel() {
             averageSessionDuration: data.averageSessionDuration,
             daily,
             topPages,
+            readingJourney,
             devices,
             countries,
             sources,
@@ -393,6 +417,22 @@ export default function AdminAnalyticsPanel() {
                         </li>)}</ol>}
                     </section>
                   ))}
+                </div>
+                <div className="admin-analytics-chart-panel">
+                  <div className="admin-analytics-subheading"><h3>Perjalanan baca</h3><span>Event GA4</span></div>
+                  <div className="admin-analytics-stats">
+                    {readingJourneySteps.map((step) => {
+                      const data = ga4Analytics.readingJourney.find((item) => item.eventName === step.eventName);
+                      return (
+                        <article className="admin-stat" key={step.eventName}>
+                          <span>{step.label}</span>
+                          <strong>{formatCount(data?.users ?? 0)}</strong>
+                          <span>{formatCount(data?.events ?? 0)} event</span>
+                        </article>
+                      );
+                    })}
+                  </div>
+                  <p className="admin-analytics-note">Setiap angka menunjukkan pengguna unik yang memicu event dan jumlah event pada rentang terpilih; laporan ini belum menghubungkan urutan aktivitas tiap pengguna. Data mulai terkumpul setelah event baru aktif dan dapat memerlukan waktu untuk muncul di GA4.</p>
                 </div>
               </>
             )}

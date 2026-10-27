@@ -11,6 +11,8 @@ type GoogleReport = {
   }[];
 };
 
+const readingJourneyEventNames = ["comic_view", "episode_start", "episode_next"] as const;
+
 function errorResponse(error: string, status: number) {
   return NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store" } });
 }
@@ -180,7 +182,19 @@ export async function GET(request: NextRequest) {
       { dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }], dimensions: [{ name: "country" }], metrics: [{ name: "activeUsers" }, { name: "sessions" }], orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: "10" },
       { dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }], dimensions: [{ name: "sessionSourceMedium" }], metrics: [{ name: "activeUsers" }, { name: "sessions" }], orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: "10" },
     ];
-    const [mainResponse, sourceResponse] = await Promise.all([
+    const readingJourneyRequest = {
+      dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
+      dimensions: [{ name: "eventName" }],
+      metrics: [{ name: "totalUsers" }, { name: "eventCount" }],
+      dimensionFilter: {
+        filter: {
+          fieldName: "eventName",
+          inListFilter: { values: [...readingJourneyEventNames], caseSensitive: true },
+        },
+      },
+      limit: "3",
+    };
+    const [mainResponse, sourceResponse, readingJourneyResponse] = await Promise.all([
       fetch(`${apiUrl}:batchRunReports`, {
         method: "POST",
         headers,
@@ -193,21 +207,45 @@ export async function GET(request: NextRequest) {
         body: JSON.stringify(reportRequests[5]),
         cache: "no-store",
       }),
+      fetch(`${apiUrl}:runReport`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(readingJourneyRequest),
+        cache: "no-store",
+      }),
     ]);
-    const [mainData, sourceData]: unknown[] = await Promise.all([mainResponse.json(), sourceResponse.json()]);
+    const [mainData, sourceData, readingJourneyData]: unknown[] = await Promise.all([
+      mainResponse.json(),
+      sourceResponse.json(),
+      readingJourneyResponse.json(),
+    ]);
     if (!mainResponse.ok || !sourceResponse.ok
+      || !readingJourneyResponse.ok
       || !isRecord(mainData) || !Array.isArray(mainData.reports)
-      || !isRecord(sourceData)) {
+      || !isRecord(sourceData) || !isRecord(readingJourneyData)) {
       console.error("Google Analytics Data API request failed:", {
         mainStatus: mainResponse.status,
         sourceStatus: sourceResponse.status,
+        readingJourneyStatus: readingJourneyResponse.status,
         mainError: mainData,
         sourceError: sourceData,
+        readingJourneyError: readingJourneyData,
       });
       return errorResponse("Google Analytics gagal mengambil laporan. Periksa akses service account dan GA4 Property ID.", 502);
     }
 
     const reports = mainData.reports as GoogleReport[];
+    const journeyRows = (readingJourneyData as GoogleReport).rows ?? [];
+    const readingJourney = readingJourneyEventNames.map((eventName) => {
+      const row = journeyRows.find((candidate) => candidate.dimensionValues?.[0]?.value === eventName);
+      const users = Number(row?.metricValues?.[0]?.value ?? 0);
+      const events = Number(row?.metricValues?.[1]?.value ?? 0);
+      return {
+        eventName,
+        users: Number.isFinite(users) ? users : 0,
+        events: Number.isFinite(events) ? events : 0,
+      };
+    });
     const daily = (reports[1]?.rows ?? []).flatMap((row) => {
       const date = row.dimensionValues?.[0]?.value;
       const views = Number(row.metricValues?.[0]?.value ?? 0);
@@ -240,6 +278,7 @@ export async function GET(request: NextRequest) {
       averageSessionDuration: readMetric(reports[0], 5),
       daily,
       topPages,
+      readingJourney,
       devices: readDimensionReport(reports[3], 10),
       countries: readDimensionReport(reports[4], 10),
       sources: readDimensionReport(sourceData as GoogleReport, 10),

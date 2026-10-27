@@ -20,6 +20,7 @@ import PageTextOverlayLayer from "@/components/page-text-overlay-layer";
 import PageVisualEffectsLayer, { getPageVisualFilterClass } from "@/components/page-visual-effects-layer";
 import { parsePageTextOverlayDocument, type PageColorFilter, type PageInteractiveMarker, type PageTextImageVerticalAlign, type PageTextOverlay, type PageVisualEffect, type PageVisualEffectSettings } from "@/lib/page-text-overlays";
 import { useLocale } from "@/components/locale-provider";
+import { trackGa4Event } from "@/lib/ga4-client";
 
 const supabase = createClient();
 const TRANSITION_AD_LOAD_TIMEOUT_MS = 2000;
@@ -122,6 +123,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const [transitionCountdown, setTransitionCountdown] = useState<number | null>(null);
   const [transitionDeadline, setTransitionDeadline] = useState<number | null>(null);
   const transitionCountdownStartedRef = useRef(false);
+  const trackedChapterIdsRef = useRef(new Set<string>());
   const transitionAdAvailable = transitionHouseAdAvailable === true
     ? true
     : transitionHouseAdAvailable === false
@@ -574,6 +576,17 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   useEffect(() => {
     if (loading || !chapter || !pages.length) return;
     let active = true;
+    if (!comic?.preview_access && !trackedChapterIdsRef.current.has(chapter.id)) {
+      trackedChapterIdsRef.current.add(chapter.id);
+      trackGa4Event("episode_start", {
+        comic_id: comic?.id ?? chapter.comic_id,
+        comic_slug: slug,
+        comic_title: comic?.title ?? "",
+        episode_id: chapter.id,
+        episode_number: chapter.chapter_number,
+        episode_title: chapter.title,
+      });
+    }
     const recordChapterView = async () => {
       try {
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -601,7 +614,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     };
     void recordChapterView();
     return () => { active = false; };
-  }, [chapter, loading, pages.length]);
+  }, [chapter, comic, loading, pages.length, slug]);
 
   useEffect(() => {
     if (loading || !pages.length) return;
@@ -848,7 +861,18 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
     if (available) startTransitionCountdown();
   }, [startTransitionCountdown]);
 
-  const requestChapterTransition = (href: string) => {
+  const requestChapterTransition = (href: string, nextEpisode?: Chapter) => {
+    if (nextEpisode && chapter && comic && !comic.preview_access) {
+      trackGa4Event("episode_next", {
+        comic_id: comic.id,
+        comic_slug: comic.slug,
+        comic_title: comic.title,
+        episode_id: chapter.id,
+        episode_number: chapter.chapter_number,
+        next_episode_id: nextEpisode.id,
+        next_episode_number: nextEpisode.chapter_number,
+      });
+    }
     if (kidsMode) {
       router.push(href);
       return;
@@ -1072,7 +1096,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       <div className="reader-episode-end-actions">
         {previousChapter && <Link className="reader-episode-secondary-action" href={`/comic/${comic.slug}/chapter/${previousChapter.id}`} onClick={(event) => { event.preventDefault(); requestChapterTransition(`/comic/${comic.slug}/chapter/${previousChapter.id}`); }}><ChevronLeft size={17} /> {t(kidsMode ? "Cerita sebelumnya" : "Episode sebelumnya")}</Link>}
         {nextChapter
-          ? <Link className="reader-episode-next-action" href={`/comic/${comic.slug}/chapter/${nextChapter.id}`} onClick={(event) => { event.preventDefault(); requestChapterTransition(`/comic/${comic.slug}/chapter/${nextChapter.id}`); }}>{t(kidsMode ? "Baca cerita berikutnya" : "Baca episode berikutnya")} <ArrowRight size={18} /></Link>
+          ? <Link className="reader-episode-next-action" href={`/comic/${comic.slug}/chapter/${nextChapter.id}`} onClick={(event) => { event.preventDefault(); requestChapterTransition(`/comic/${comic.slug}/chapter/${nextChapter.id}`, nextChapter); }}>{t(kidsMode ? "Baca cerita berikutnya" : "Baca episode berikutnya")} <ArrowRight size={18} /></Link>
           : nextChapterCandidate
             ? <span className="reader-episode-latest-label"><LockKeyhole size={15} /> {t(kidsMode ? "Selesaikan cerita ini untuk lanjut" : "Selesaikan episode ini untuk lanjut")}</span>
             : <span className="reader-episode-latest-label">{t(kidsMode ? "Ini adalah cerita terbaru" : "Ini adalah episode terbaru")}</span>}
@@ -1107,7 +1131,10 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                 ? <Link className={item.id === chapter.id ? "reader-menu-current" : ""} key={item.id} href={`/comic/${comic.slug}/chapter/${item.id}`} onClick={(event) => {
                     if (item.id !== chapter.id) {
                       event.preventDefault();
-                      requestChapterTransition(`/comic/${comic.slug}/chapter/${item.id}`);
+                      requestChapterTransition(
+                        `/comic/${comic.slug}/chapter/${item.id}`,
+                        item.id === nextChapter?.id ? nextChapter : undefined,
+                      );
                     }
                   }}>{chapterTerm} {item.chapter_number} · {item.title}</Link>
                 : <span className="reader-menu-locked" key={item.id}><LockKeyhole size={13} /> {chapterTerm} {item.chapter_number} · {item.title}</span>;
@@ -1365,7 +1392,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
                           readerStopId={desktopBookMode ? undefined : `mid-chapter-ad-${page.page_number}`}
                           onReaderContinue={desktopBookMode ? undefined : () => {
                             if (!navigateReaderStop(1, `mid-chapter-ad-${page.page_number}`) && nextChapter) {
-                              requestChapterTransition(`/comic/${comic.slug}/chapter/${nextChapter.id}`);
+                              requestChapterTransition(`/comic/${comic.slug}/chapter/${nextChapter.id}`, nextChapter);
                             }
                           }}
                         />
@@ -1431,7 +1458,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
           {canAdvancePage
             ? <button onClick={() => navigateReaderStop(1)} aria-label={t("Halaman berikutnya")}><span>{t("Berikutnya")}</span><ChevronRight size={20} /></button>
             : nextChapter
-              ? <Link href={`/comic/${comic.slug}/chapter/${nextChapter.id}`} onClick={(event) => { event.preventDefault(); requestChapterTransition(`/comic/${comic.slug}/chapter/${nextChapter.id}`); }}><span>{t(kidsMode ? "Cerita selanjutnya" : "Episode selanjutnya")}</span><ArrowRight size={19} /></Link>
+              ? <Link href={`/comic/${comic.slug}/chapter/${nextChapter.id}`} onClick={(event) => { event.preventDefault(); requestChapterTransition(`/comic/${comic.slug}/chapter/${nextChapter.id}`, nextChapter); }}><span>{t(kidsMode ? "Cerita selanjutnya" : "Episode selanjutnya")}</span><ArrowRight size={19} /></Link>
               : <Link href={`/comic/${comic.slug}`}><span>{t(kidsMode ? "Daftar cerita" : "Daftar episode")}</span><BookOpen size={18} /></Link>}
         </footer>
       )}
@@ -1440,7 +1467,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         {previousChapter
           ? <Link href={`/comic/${comic.slug}/chapter/${previousChapter.id}`} onClick={(event) => { event.preventDefault(); requestChapterTransition(`/comic/${comic.slug}/chapter/${previousChapter.id}`); }}><ChevronLeft size={17} /> {t(kidsMode ? "Cerita sebelumnya" : "Episode sebelumnya")}</Link>
           : <span />}
-        {nextChapter && <Link href={`/comic/${comic.slug}/chapter/${nextChapter.id}`} onClick={(event) => { event.preventDefault(); requestChapterTransition(`/comic/${comic.slug}/chapter/${nextChapter.id}`); }}>{t(kidsMode ? "Cerita selanjutnya" : "Episode selanjutnya")} <ChevronRight size={17} /></Link>}
+        {nextChapter && <Link href={`/comic/${comic.slug}/chapter/${nextChapter.id}`} onClick={(event) => { event.preventDefault(); requestChapterTransition(`/comic/${comic.slug}/chapter/${nextChapter.id}`, nextChapter); }}>{t(kidsMode ? "Cerita selanjutnya" : "Episode selanjutnya")} <ChevronRight size={17} /></Link>}
       </nav>}
 
       {pendingChapterHref && <div className="reader-transition-ad-backdrop">
