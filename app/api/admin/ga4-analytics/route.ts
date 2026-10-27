@@ -121,31 +121,47 @@ export async function GET(request: NextRequest) {
 
   try {
     const googleToken = await getGoogleAccessToken(serviceAccountEmail, privateKey);
-    const response = await fetch(
-      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:batchRunReports`,
-      {
+    const reportRequests = [
+      { dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }], metrics: [{ name: "activeUsers" }, { name: "newUsers" }, { name: "sessions" }, { name: "screenPageViews" }, { name: "engagementRate" }, { name: "averageSessionDuration" }] },
+      { dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }], dimensions: [{ name: "date" }], metrics: [{ name: "screenPageViews" }], orderBys: [{ dimension: { dimensionName: "date" } }] },
+      { dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }], dimensions: [{ name: "pagePath" }], metrics: [{ name: "screenPageViews" }], orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }], limit: "10" },
+      { dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }], dimensions: [{ name: "deviceCategory" }], metrics: [{ name: "activeUsers" }, { name: "sessions" }], orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: "10" },
+      { dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }], dimensions: [{ name: "country" }], metrics: [{ name: "activeUsers" }, { name: "sessions" }], orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: "10" },
+      { dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }], dimensions: [{ name: "sessionSourceMedium" }], metrics: [{ name: "activeUsers" }, { name: "sessions" }], orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: "10" },
+    ];
+    const apiUrl = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}`;
+    const headers = {
+      Authorization: `Bearer ${googleToken}`,
+      "Content-Type": "application/json",
+    };
+    const [mainResponse, sourceResponse] = await Promise.all([
+      fetch(`${apiUrl}:batchRunReports`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${googleToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          requests: [
-            { dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }], metrics: [{ name: "activeUsers" }, { name: "sessions" }, { name: "screenPageViews" }] },
-            { dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }], dimensions: [{ name: "date" }], metrics: [{ name: "screenPageViews" }], orderBys: [{ dimension: { dimensionName: "date" } }] },
-            { dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }], dimensions: [{ name: "pagePath" }], metrics: [{ name: "screenPageViews" }], orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }], limit: "10" },
-          ],
-        }),
+        headers,
+        body: JSON.stringify({ requests: reportRequests.slice(0, 5) }),
         cache: "no-store",
-      },
-    );
-    const data: unknown = await response.json();
-    if (!response.ok || !isRecord(data) || !Array.isArray(data.reports)) {
-      console.error("Google Analytics Data API request failed:", response.status, data);
+      }),
+      fetch(`${apiUrl}:runReport`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(reportRequests[5]),
+        cache: "no-store",
+      }),
+    ]);
+    const [mainData, sourceData]: unknown[] = await Promise.all([mainResponse.json(), sourceResponse.json()]);
+    if (!mainResponse.ok || !sourceResponse.ok
+      || !isRecord(mainData) || !Array.isArray(mainData.reports)
+      || !isRecord(sourceData)) {
+      console.error("Google Analytics Data API request failed:", {
+        mainStatus: mainResponse.status,
+        sourceStatus: sourceResponse.status,
+        mainError: mainData,
+        sourceError: sourceData,
+      });
       return errorResponse("Google Analytics gagal mengambil laporan. Periksa akses service account dan GA4 Property ID.", 502);
     }
 
-    const reports = data.reports as GoogleReport[];
+    const reports = mainData.reports as GoogleReport[];
     const daily = (reports[1]?.rows ?? []).flatMap((row) => {
       const date = row.dimensionValues?.[0]?.value;
       const views = Number(row.metricValues?.[0]?.value ?? 0);
@@ -158,13 +174,29 @@ export async function GET(request: NextRequest) {
       const views = Number(row.metricValues?.[0]?.value ?? 0);
       return typeof path === "string" && Number.isFinite(views) ? [{ path, views }] : [];
     });
+    const readDimensionReport = (report: GoogleReport | undefined, dimensionCount: number) => (
+      report?.rows?.flatMap((row) => {
+        const dimension = row.dimensionValues?.[0]?.value;
+        const activeUsers = Number(row.metricValues?.[0]?.value ?? 0);
+        const sessions = Number(row.metricValues?.[1]?.value ?? 0);
+        return typeof dimension === "string" && Number.isFinite(activeUsers) && Number.isFinite(sessions)
+          ? [{ dimension, activeUsers, sessions }]
+          : [];
+      }).slice(0, dimensionCount) ?? []
+    );
 
     return NextResponse.json({
       activeUsers: readMetric(reports[0], 0),
-      sessions: readMetric(reports[0], 1),
-      pageViews: readMetric(reports[0], 2),
+      newUsers: readMetric(reports[0], 1),
+      sessions: readMetric(reports[0], 2),
+      pageViews: readMetric(reports[0], 3),
+      engagementRate: readMetric(reports[0], 4),
+      averageSessionDuration: readMetric(reports[0], 5),
       daily,
       topPages,
+      devices: readDimensionReport(reports[3], 10),
+      countries: readDimensionReport(reports[4], 10),
+      sources: readDimensionReport(sourceData as GoogleReport, 10),
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Unable to load Google Analytics report:", error);

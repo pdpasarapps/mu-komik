@@ -18,11 +18,18 @@ type AnalyticsData = {
 };
 type Ga4AnalyticsData = {
   activeUsers: number;
+  newUsers: number;
   sessions: number;
   pageViews: number;
+  engagementRate: number;
+  averageSessionDuration: number;
   daily: DailyViews[];
   topPages: { path: string; views: number }[];
+  devices: Ga4DimensionRow[];
+  countries: Ga4DimensionRow[];
+  sources: Ga4DimensionRow[];
 };
+type Ga4DimensionRow = { dimension: string; activeUsers: number; sessions: number };
 
 const supabase = createClient();
 
@@ -79,6 +86,22 @@ function formatCount(value: number) {
   return new Intl.NumberFormat("id-ID").format(value);
 }
 
+function formatDuration(seconds: number) {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  return `${minutes}:${String(safeSeconds % 60).padStart(2, "0")}`;
+}
+
+function parseDimensionRows(value: unknown): Ga4DimensionRow[] | null {
+  if (!Array.isArray(value)) return null;
+  return value.flatMap((row): Ga4DimensionRow[] => (
+    isRecord(row) && typeof row.dimension === "string"
+      && typeof row.activeUsers === "number" && typeof row.sessions === "number"
+      ? [{ dimension: row.dimension, activeUsers: row.activeUsers, sessions: row.sessions }]
+      : []
+  ));
+}
+
 export default function AdminAnalyticsPanel() {
   const [days, setDays] = useState(7);
   const [ga4Result, setGa4Result] = useState<{ days: number; analytics: Ga4AnalyticsData | null; errorMessage: string }>(
@@ -114,12 +137,19 @@ export default function AdminAnalyticsPanel() {
         }
         if (!isRecord(data)
           || typeof data.activeUsers !== "number"
+          || typeof data.newUsers !== "number"
           || typeof data.sessions !== "number"
           || typeof data.pageViews !== "number"
+          || typeof data.engagementRate !== "number"
+          || typeof data.averageSessionDuration !== "number"
           || !Array.isArray(data.daily)
           || !Array.isArray(data.topPages)) {
           throw new Error("Google Analytics returned an invalid response.");
         }
+        const devices = parseDimensionRows(data.devices);
+        const countries = parseDimensionRows(data.countries);
+        const sources = parseDimensionRows(data.sources);
+        if (!devices || !countries || !sources) throw new Error("Google Analytics returned invalid dimension reports.");
         const daily = data.daily.flatMap((row): DailyViews[] => (
           isRecord(row) && typeof row.date === "string" && typeof row.views === "number"
             ? [{ date: row.date, views: row.views }]
@@ -134,10 +164,16 @@ export default function AdminAnalyticsPanel() {
           days,
           analytics: {
             activeUsers: data.activeUsers,
+            newUsers: data.newUsers,
             sessions: data.sessions,
             pageViews: data.pageViews,
+            engagementRate: data.engagementRate,
+            averageSessionDuration: data.averageSessionDuration,
             daily,
             topPages,
+            devices,
+            countries,
+            sources,
           },
           errorMessage: "",
         });
@@ -218,8 +254,11 @@ export default function AdminAnalyticsPanel() {
               <>
                 <div className="admin-analytics-stats">
                   <article className="admin-stat"><span>Pengguna aktif</span><strong>{formatCount(ga4Analytics.activeUsers)}</strong><Users size={20} /></article>
+                  <article className="admin-stat"><span>Pengguna baru</span><strong>{formatCount(ga4Analytics.newUsers)}</strong><UserRound size={20} /></article>
                   <article className="admin-stat"><span>Sesi</span><strong>{formatCount(ga4Analytics.sessions)}</strong><UserRound size={20} /></article>
                   <article className="admin-stat"><span>Tampilan halaman</span><strong>{formatCount(ga4Analytics.pageViews)}</strong><Eye size={20} /></article>
+                  <article className="admin-stat"><span>Rasio engagement</span><strong>{new Intl.NumberFormat("id-ID", { style: "percent", maximumFractionDigits: 1 }).format(ga4Analytics.engagementRate)}</strong><BarChart3 size={20} /></article>
+                  <article className="admin-stat"><span>Durasi sesi rata-rata</span><strong>{formatDuration(ga4Analytics.averageSessionDuration)}</strong><BarChart3 size={20} /></article>
                 </div>
                 <div className="admin-analytics-chart-panel">
                   <div className="admin-analytics-subheading"><h3>Tampilan halaman harian</h3><span><BarChart3 size={15} /> GA4</span></div>
@@ -238,14 +277,30 @@ export default function AdminAnalyticsPanel() {
                       })}
                     </div>}
                 </div>
-                <section className="admin-analytics-list">
-                  <h3>Halaman terpopuler</h3>
-                  {ga4Analytics.topPages.length === 0
-                    ? <p className="admin-analytics-empty">Belum ada data.</p>
-                    : <ol>{ga4Analytics.topPages.map((page) => <li key={page.path}>
-                      <span>{page.path}</span><strong>{formatCount(page.views)}</strong>
-                    </li>)}</ol>}
-                </section>
+                <div className="admin-analytics-rankings">
+                  <section className="admin-analytics-list">
+                    <h3>Halaman terpopuler</h3>
+                    {ga4Analytics.topPages.length === 0
+                      ? <p className="admin-analytics-empty">Belum ada data.</p>
+                      : <ol>{ga4Analytics.topPages.map((page) => <li key={page.path}>
+                        <span>{page.path}</span><strong>{formatCount(page.views)}</strong>
+                      </li>)}</ol>}
+                  </section>
+                  {([
+                    ["Perangkat", ga4Analytics.devices],
+                    ["Negara", ga4Analytics.countries],
+                    ["Sumber / medium", ga4Analytics.sources],
+                  ] as const).map(([title, rows]) => (
+                    <section className="admin-analytics-list" key={title}>
+                      <h3>{title}</h3>
+                      {rows.length === 0
+                        ? <p className="admin-analytics-empty">Belum ada data.</p>
+                        : <ol>{rows.map((row) => <li key={row.dimension}>
+                          <span>{row.dimension}</span><strong>{formatCount(row.sessions)} sesi</strong>
+                        </li>)}</ol>}
+                    </section>
+                  ))}
+                </div>
               </>
             )}
       </div>
