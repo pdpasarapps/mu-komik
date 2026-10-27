@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "mu-komik-pwa-";
-const CACHE_NAME = `${CACHE_PREFIX}v5`;
+const CACHE_NAME = `${CACHE_PREFIX}v6`;
 const OFFLINE_URL = "/offline.html";
 const OFFLINE_SCRIPT_URL = "/offline-episodes.js";
 const PRECACHE_URLS = [

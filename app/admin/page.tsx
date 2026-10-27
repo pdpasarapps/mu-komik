@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { ArrowLeft, ArrowUpRight, Archive, Ban, Baby, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, FileText, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Mail, Megaphone, Pencil, ReceiptText, Search, Settings2, ShieldCheck, Trash2, UserRound, UserRoundCheck, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Archive, Ban, Baby, BookOpen, ChartNoAxesColumn, Check, ClipboardList, Eye, FileText, Image as ImageIcon, LayoutDashboard, LoaderCircle, List, Mail, Megaphone, Pencil, ReceiptText, RotateCw, Search, Settings2, ShieldCheck, Trash2, UserRound, UserRoundCheck, Users, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -498,13 +498,15 @@ export default function AdminPage() {
     return () => window.clearTimeout(timer);
   }, [section]);
 
-  const generateSharePreviews = async () => {
+  const generateSharePreviews = async (comicToRegenerate?: AdminComic) => {
     if (generatingSharePreviews) return;
     if (!publicUrl) {
       setMessage("NEXT_PUBLIC_R2_PUBLIC_URL belum dikonfigurasi.");
       return;
     }
-    const comicsToProcess = comics.filter((comic) => comic.status === "published" && comic.cover_key && !comic.share_preview_key);
+    const comicsToProcess = comicToRegenerate
+      ? [comicToRegenerate].filter((comic) => comic.status === "published" && comic.cover_key && comic.share_preview_key)
+      : comics.filter((comic) => comic.status === "published" && comic.cover_key && !comic.share_preview_key);
     if (!comicsToProcess.length) {
       setMessage("Tidak ada komik terbit dengan cover untuk diproses.");
       return;
@@ -515,6 +517,7 @@ export default function AdminPage() {
     setSharePreviewProgress(`0 dari ${comicsToProcess.length} komik`);
     let generated = 0;
     const failures: string[] = [];
+    const cleanupFailures: string[] = [];
     try {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
@@ -529,27 +532,31 @@ export default function AdminPage() {
           const previewForm = new FormData();
           previewForm.set("comicId", comic.id);
           previewForm.set("coverKey", comic.cover_key!);
+          if (comicToRegenerate) previewForm.set("regenerate", "true");
           previewForm.set("file", preview, "share-preview.jpg");
           const signResponse = await fetch("/api/r2/share-preview", {
             method: "POST",
             headers: { Authorization: `Bearer ${token}` },
             body: previewForm,
           });
-          const signResult = await signResponse.json() as { objectKey?: string; linked?: boolean; error?: string };
+          const signResult = await signResponse.json() as { objectKey?: string; linked?: boolean; error?: string; cleanupError?: string };
           if (!signResponse.ok || !signResult.objectKey) {
             throw new Error(signResult.error || "Pratinjau berbagi gagal diunggah.");
           }
           if (isStaff && !signResult.linked) {
             throw new Error("Pratinjau berhasil diunggah, tetapi belum tertaut ke komik.");
           }
-          if (!isStaff) {
-            const { error: savePreviewError } = await supabase
+          if (!isStaff && !comicToRegenerate) {
+            const { data: linkedComic, error: savePreviewError } = await supabase
               .from("comics")
               .update({ share_preview_key: signResult.objectKey })
               .eq("id", comic.id)
-              .eq("status", "published");
-            if (savePreviewError) throw new Error("Pratinjau berhasil diunggah, tetapi belum tertaut ke komik.");
+              .eq("status", "published")
+              .select("id")
+              .maybeSingle();
+            if (savePreviewError || !linkedComic) throw new Error("Pratinjau berhasil diunggah, tetapi belum tertaut ke komik.");
           }
+          if (signResult.cleanupError) cleanupFailures.push(comic.title);
           setComics((current) => current.map((item) => item.id === comic.id
             ? { ...item, share_preview_key: signResult.objectKey! }
             : item));
@@ -563,7 +570,9 @@ export default function AdminPage() {
       }
       setMessage(failures.length
         ? `${generated} pratinjau berhasil dibuat; ${failures.length} gagal. ${failures.slice(0, 3).join(" · ")}`
-        : `${generated} pratinjau berbagi komik berhasil dibuat dan disimpan di R2.`);
+        : comicToRegenerate
+          ? `Pratinjau berbagi "${comicToRegenerate.title}" berhasil dibuat ulang.${cleanupFailures.length ? ` Berkas lama untuk ${cleanupFailures.join(", ")} belum berhasil dibersihkan.` : ""}`
+          : `${generated} pratinjau berbagi komik berhasil dibuat dan disimpan di R2.`);
     } catch (error) {
       console.error("Comic share preview generation failed:", error);
       setMessage("Pratinjau berbagi komik gagal dibuat. Periksa koneksi dan coba lagi.");
@@ -1123,7 +1132,7 @@ export default function AdminPage() {
             <div><p className="eyebrow">Gambar sosial</p><h2>Pratinjau berbagi komik</h2></div>
             <span>{comics.filter((comic) => comic.status === "published" && comic.cover_key && !comic.share_preview_key).length} komik belum memiliki pratinjau</span>
           </div>
-          <p>Sampul diolah di peramban menjadi JPG lanskap, lalu disimpan sebagai berkas statis di R2. Layanan penyimpanan hanya menyediakan alamat unggah dan tidak mengolah gambar. Tombol ini membuat pratinjau untuk komik terbit yang belum memilikinya.</p>
+          <p>Sampul diolah di peramban menjadi JPG lanskap, lalu disimpan sebagai berkas statis di R2. Layanan penyimpanan hanya menyediakan alamat unggah dan tidak mengolah gambar. Tombol ini membuat pratinjau untuk komik terbit yang belum memilikinya; gunakan Regenerasi jika judul di gambar perlu diperbarui.</p>
           {sharePreviewProgress && <p role="status">{sharePreviewProgress}</p>}
           <button className="approve-button" type="button" onClick={() => void generateSharePreviews()} disabled={generatingSharePreviews}>
             {generatingSharePreviews ? <LoaderCircle className="spin" size={16} /> : <ImageIcon size={16} />}
@@ -1137,7 +1146,7 @@ export default function AdminPage() {
             <div className="request-table-wrap">
               <table className="request-table">
                 <thead>
-                  <tr><th>Pratinjau</th><th>Komik</th><th>Status</th><th>Berkas R2</th></tr>
+                  <tr><th>Pratinjau</th><th>Komik</th><th>Status</th><th>Berkas R2</th><th>Tindakan</th></tr>
                 </thead>
                 <tbody>
                   {generatedSharePreviews.map((comic) => {
@@ -1163,6 +1172,18 @@ export default function AdminPage() {
                         <td><strong>{comic.title}</strong><code>{comic.slug}</code></td>
                         <td><span className="request-status request-approved">Sudah dibuat</span></td>
                         <td>{previewUrl && <a href={previewUrl} target="_blank" rel="noreferrer">Lihat berkas JPG</a>}</td>
+                        <td>
+                          <button
+                            className="button button-light"
+                            type="button"
+                            onClick={() => void generateSharePreviews(comic)}
+                            disabled={generatingSharePreviews}
+                            aria-label={`Regenerasi pratinjau berbagi ${comic.title}`}
+                          >
+                            {generatingSharePreviews ? <LoaderCircle className="spin" size={15} /> : <RotateCw size={15} />}
+                            Regenerasi
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}

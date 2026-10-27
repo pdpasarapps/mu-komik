@@ -80,8 +80,8 @@ export async function createComicSharePreview(source: Blob, title: string): Prom
   }
 }
 
-export function getComicSharePreviewKey(comicId: string, coverKey: string) {
+export function getComicSharePreviewKey(comicId: string, coverKey: string, revision?: string) {
   const filename = coverKey.split("/").at(-1)?.replace(/\.[^.]+$/, "");
   if (!filename) throw new Error("Comic cover key does not include a filename.");
-  return `comics/${comicId}/share-preview/${filename}.jpg`;
+  return `comics/${comicId}/share-preview/${filename}${revision ? `-${revision}` : ""}.jpg`;
 }

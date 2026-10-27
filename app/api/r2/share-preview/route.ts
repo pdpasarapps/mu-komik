@@ -45,7 +45,7 @@ async function authorize(request: NextRequest, comicId: string, coverKey?: strin
 
   const { data: comic, error: comicError } = await supabase
     .from("comics")
-    .select("id, creator_id, status, cover_key")
+    .select("id, creator_id, status, cover_key, share_preview_key")
     .eq("id", comicId)
     .maybeSingle();
   if (comicError) {
@@ -57,7 +57,7 @@ async function authorize(request: NextRequest, comicId: string, coverKey?: strin
     return { response: NextResponse.json({ error: "Comic not found" }, { status: 404 }) };
   }
 
-  return { comic, isStaff };
+  return { comic, isStaff, supabase };
 }
 
 function createStorageClient() {
@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
     const form = await request.formData();
     const comicId = form.get("comicId");
     const coverKey = form.get("coverKey");
+    const regenerate = form.get("regenerate") === "true";
     const file = form.get("file");
     if (typeof comicId !== "string" || !/^[0-9a-f-]{36}$/i.test(comicId)
       || typeof coverKey !== "string" || !coverKeyPattern.test(coverKey)
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Staff preview linking is not configured" }, { status: 500 });
     }
 
-    const objectKey = getComicSharePreviewKey(comicId, coverKey);
+    const objectKey = getComicSharePreviewKey(comicId, coverKey, regenerate ? crypto.randomUUID() : undefined);
     const storage = new S3Client({
       endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
       region: "auto",
@@ -129,29 +130,65 @@ export async function POST(request: NextRequest) {
       ContentLength: file.size,
       CacheControl: "public, max-age=31536000, immutable",
     }));
-    if (auth.isStaff) {
-      const serviceClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      });
-      const { data: linkedComic, error: linkError } = await serviceClient
-        .from("comics")
-        .update({ share_preview_key: objectKey })
-        .eq("id", auth.comic.id)
-        .eq("status", "published")
-        .eq("cover_key", coverKey)
-        .select("id")
-        .maybeSingle();
+    let linked = auth.isStaff;
+    if (auth.isStaff || regenerate) {
+      let linkedComic: { id: string } | null = null;
+      let linkError: unknown = null;
+      if (auth.isStaff) {
+        const serviceClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        });
+        const result = await serviceClient
+          .from("comics")
+          .update({ share_preview_key: objectKey })
+          .eq("id", auth.comic.id)
+          .eq("status", "published")
+          .eq("cover_key", coverKey)
+          .select("id")
+          .maybeSingle();
+        linkedComic = result.data;
+        linkError = result.error;
+      } else {
+        const result = await auth.supabase
+          .from("comics")
+          .update({ share_preview_key: objectKey })
+          .eq("id", auth.comic.id)
+          .eq("status", "published")
+          .eq("cover_key", coverKey)
+          .select("id")
+          .maybeSingle();
+        linkedComic = result.data;
+        linkError = result.error;
+      }
       if (linkError || !linkedComic) {
-        if (linkError) console.error("Unable to link staff comic share preview:", linkError);
+        if (linkError) console.error("Unable to link comic share preview:", linkError);
         try {
           await storage.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET_NAME!, Key: objectKey }));
         } catch (cleanupError) {
-          console.error("Unable to clean up unlinked staff comic share preview:", cleanupError);
+          console.error("Unable to clean up unlinked comic share preview:", cleanupError);
         }
         return NextResponse.json({ error: "Could not link the generated preview to its comic" }, { status: 500 });
       }
+      linked = true;
+
+      const previousPreviewKey = auth.comic.share_preview_key;
+      if (regenerate && previousPreviewKey && previousPreviewKey !== objectKey) {
+        try {
+          await storage.send(new DeleteObjectCommand({
+            Bucket: process.env.R2_BUCKET_NAME!,
+            Key: previousPreviewKey,
+          }));
+        } catch (cleanupError) {
+          console.error("Unable to remove previous comic share preview:", cleanupError);
+          return NextResponse.json({
+            objectKey,
+            linked,
+            cleanupError: "Pratinjau baru aktif, tetapi berkas lama belum berhasil dibersihkan.",
+          });
+        }
+      }
     }
-    return NextResponse.json({ objectKey, linked: auth.isStaff });
+    return NextResponse.json({ objectKey, linked });
   } catch (error) {
     console.error("Comic share preview upload URL error:", error);
     return NextResponse.json({ error: "Could not prepare comic share preview upload" }, { status: 500 });
@@ -169,8 +206,9 @@ export async function DELETE(request: NextRequest) {
     if (!body.comicId || !/^[0-9a-f-]{36}$/i.test(body.comicId)
       || !body.coverKey || !coverKeyPattern.test(body.coverKey)
       || !body.coverKey.startsWith(`comics/${body.comicId}/cover/`)
-      || !body.previewKey
-      || body.previewKey !== getComicSharePreviewKey(body.comicId, body.coverKey)) {
+      || typeof body.previewKey !== "string"
+      || !body.previewKey.startsWith(`comics/${body.comicId}/share-preview/`)
+      || !/^[a-zA-Z0-9._-]+\.jpg$/.test(body.previewKey.slice(`comics/${body.comicId}/share-preview/`.length))) {
       return NextResponse.json({ error: "Invalid comic share preview details" }, { status: 400 });
     }
 
