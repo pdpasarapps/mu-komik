@@ -148,13 +148,7 @@ export async function POST(request: NextRequest) {
         status: error.status,
         code: error.code,
       });
-      const details = [error.code, error.status, error.message]
-        .filter((value): value is string | number => typeof value === "string" || typeof value === "number")
-        .join(": ");
-      return errorResponse(
-        `User emails could not be loaded${details ? ` (Auth admin API: ${details})` : ""}.`,
-        500,
-      );
+      return errorResponse("User emails could not be loaded. Please retry in a moment.", 500);
     }
     for (const user of data.users) {
       if (requestedIds.delete(user.id)) {

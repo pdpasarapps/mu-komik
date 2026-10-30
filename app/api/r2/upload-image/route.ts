@@ -124,11 +124,11 @@ export async function POST(request: NextRequest) {
       } catch (cleanupError) {
         console.error("Could not remove unregistered comic page from R2:", cleanupError);
       }
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
+      return NextResponse.json({ error: "Comic page could not be registered. Please retry the upload." }, { status: 500 });
     }
     return NextResponse.json({ objectKey, page });
   } catch (error) {
     console.error("Comic image upload failed:", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Comic image upload failed." }, { status: 500 });
+    return NextResponse.json({ error: "Comic image upload failed." }, { status: 500 });
   }
 }

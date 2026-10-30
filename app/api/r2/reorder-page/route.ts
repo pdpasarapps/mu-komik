@@ -78,7 +78,8 @@ export async function PATCH(request: NextRequest) {
       .eq("id", page.id)
       .eq("chapter_id", body.chapterId);
     if (movePageError) {
-      return NextResponse.json({ error: movePageError.message }, { status: 500 });
+      console.error("Could not move page to a temporary position:", movePageError);
+      return NextResponse.json({ error: "Could not move page" }, { status: 500 });
     }
 
     const { error: moveTargetError } = await supabase
@@ -92,7 +93,12 @@ export async function PATCH(request: NextRequest) {
         .update({ page_number: page.page_number })
         .eq("id", page.id)
         .eq("chapter_id", body.chapterId);
-      return NextResponse.json({ error: rollbackError ? "Could not restore page order" : moveTargetError.message }, { status: 500 });
+      if (moveTargetError) console.error("Could not move target page:", moveTargetError);
+      if (rollbackError) console.error("Could not restore page order:", rollbackError);
+      return NextResponse.json(
+        { error: rollbackError ? "Could not restore page order" : "Could not move page" },
+        { status: 500 },
+      );
     }
 
     const { error: finalizeMoveError } = await supabase
@@ -111,7 +117,13 @@ export async function PATCH(request: NextRequest) {
         .update({ page_number: page.page_number })
         .eq("id", page.id)
         .eq("chapter_id", body.chapterId);
-      return NextResponse.json({ error: rollbackTargetError || rollbackPageError ? "Could not restore page order" : finalizeMoveError.message }, { status: 500 });
+      console.error("Could not finalize page move:", finalizeMoveError);
+      if (rollbackTargetError) console.error("Could not restore target page:", rollbackTargetError);
+      if (rollbackPageError) console.error("Could not restore moved page:", rollbackPageError);
+      return NextResponse.json(
+        { error: rollbackTargetError || rollbackPageError ? "Could not restore page order" : "Could not move page" },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({
