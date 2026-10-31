@@ -415,6 +415,8 @@ const translations: Record<string, string> = {
   "Menyiapkan halaman komik...": "Preparing comic pages...",
   "Batas baca tamu sudah tercapai.": "You've reached the guest reading limit.",
   "Kamu sudah membaca 2 episode tanpa masuk. Masuk atau daftar untuk melanjutkan membaca.": "You've read 2 chapters without signing in. Sign in or create an account to keep reading.",
+  "Kamu sudah membaca": "You've read",
+  "episode gratis tanpa masuk. Masuk atau daftar untuk melanjutkan membaca.": "free chapters without signing in. Sign in or create an account to keep reading.",
   "Masuk untuk lanjut membaca": "Sign in to keep reading",
   "Episode tidak dapat dibuka.": "The chapter couldn't be opened.",
   "Ke beranda": "Go to home",

@@ -101,6 +101,7 @@ const platformSettingLabels: Record<string, string> = {
   max_interactive_audio_size_mb: "Ukuran audio interaktif maksimum",
   max_interactive_audio_duration_seconds: "Durasi audio interaktif maksimum",
   max_pages_per_chapter: "Batas halaman per bab",
+  guest_read_chapter_limit: "Batas episode baca tamu",
   allowed_image_types: "Format gambar",
   allowed_interactive_audio_types: "Format audio interaktif",
   feature_flags: "Status fitur",
@@ -150,6 +151,7 @@ export default function AdminPage() {
   const [sharePreviewProgress, setSharePreviewProgress] = useState("");
   const [platformSettings, setPlatformSettings] = useState<PlatformSettings>(defaultPlatformSettings);
   const [platformSettingsError, setPlatformSettingsError] = useState("");
+  const [guestReadLimitAvailable, setGuestReadLimitAvailable] = useState(false);
   const [savingPlatformSettings, setSavingPlatformSettings] = useState(false);
   const [platformSettingsMessage, setPlatformSettingsMessage] = useState("");
   const [settingsAudit, setSettingsAudit] = useState<SettingsAuditEntry[]>([]);
@@ -433,11 +435,22 @@ export default function AdminPage() {
   });
 
   const loadPlatformSettings = useEffectEvent(async () => {
-    const { data: settingsData, error: settingsError } = await supabase
+    let { data: settingsData, error: settingsError } = await supabase
       .from("platform_settings")
-      .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_message, ads_internal_enabled, ads_adsterra_enabled, ad_placements, feature_flags, require_comic_review, creator_applications_enabled, max_comics_per_creator, max_upload_size_mb, max_pages_per_chapter, allowed_image_types, max_interactive_audio_size_mb, max_interactive_audio_duration_seconds, allowed_interactive_audio_types")
+      .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_message, ads_internal_enabled, ads_adsterra_enabled, ad_placements, feature_flags, require_comic_review, creator_applications_enabled, max_comics_per_creator, max_upload_size_mb, max_pages_per_chapter, guest_read_chapter_limit, allowed_image_types, max_interactive_audio_size_mb, max_interactive_audio_duration_seconds, allowed_interactive_audio_types")
       .eq("id", true)
       .maybeSingle();
+    const guestLimitSupported = !settingsError;
+    if (settingsError && (settingsError.code === "42703" || (settingsError.message ?? "").includes("guest_read_chapter_limit"))) {
+      const legacy = await supabase
+        .from("platform_settings")
+        .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_message, ads_internal_enabled, ads_adsterra_enabled, ad_placements, feature_flags, require_comic_review, creator_applications_enabled, max_comics_per_creator, max_upload_size_mb, max_pages_per_chapter, allowed_image_types, max_interactive_audio_size_mb, max_interactive_audio_duration_seconds, allowed_interactive_audio_types")
+        .eq("id", true)
+        .maybeSingle();
+      settingsData = legacy.data as typeof settingsData;
+      settingsError = legacy.error;
+    }
+    setGuestReadLimitAvailable(guestLimitSupported);
     const { data: auditData, error: auditError } = await supabase
       .from("platform_settings_audit")
       .select("id, changed_by, changed_at, previous_values, new_values")
@@ -455,6 +468,9 @@ export default function AdminPage() {
       setPlatformSettings({
         ...defaultPlatformSettings,
         ...settingsData,
+        guest_read_chapter_limit: typeof settingsData.guest_read_chapter_limit === "number"
+          ? settingsData.guest_read_chapter_limit
+          : defaultPlatformSettings.guest_read_chapter_limit,
         feature_flags: { ...defaultPlatformSettings.feature_flags, ...settingsData.feature_flags },
         ad_placements: {
           home: { ...defaultPlatformSettings.ad_placements.home, ...settingsData.ad_placements?.home },
@@ -605,6 +621,10 @@ export default function AdminPage() {
       setPlatformSettingsMessage("Batas halaman harus berupa bilangan bulat antara 1 dan 500.");
       return;
     }
+    if (!Number.isInteger(platformSettings.guest_read_chapter_limit) || platformSettings.guest_read_chapter_limit < 0 || platformSettings.guest_read_chapter_limit > 100) {
+      setPlatformSettingsMessage("Batas baca tamu harus berupa bilangan bulat antara 0 dan 100.");
+      return;
+    }
     if (platformSettings.announcement_enabled && !platformSettings.announcement_message.trim()) {
       setPlatformSettingsMessage("Isi banner pengumuman sebelum mengaktifkannya.");
       return;
@@ -623,9 +643,11 @@ export default function AdminPage() {
     }
     setSavingPlatformSettings(true);
     setPlatformSettingsMessage("");
+    const { guest_read_chapter_limit: guestReadChapterLimit, ...platformSettingsPayload } = platformSettings;
     const { error } = await supabase.from("platform_settings").upsert({
       id: true,
-      ...platformSettings,
+      ...platformSettingsPayload,
+      ...(guestReadLimitAvailable ? { guest_read_chapter_limit: guestReadChapterLimit } : {}),
       updated_by: adminUserId,
       updated_at: new Date().toISOString(),
     }, { onConflict: "id" });
@@ -1086,6 +1108,15 @@ export default function AdminPage() {
                 <label className="admin-feature-toggle"><span>Terima pengajuan kreator baru</span><input type="checkbox" checked={platformSettings.creator_applications_enabled} onChange={(event) => setPlatformSettings((current) => ({ ...current, creator_applications_enabled: event.target.checked }))} /></label>
               </div>
               <p className="admin-setting-note">{platformSettings.require_comic_review ? "Kreator mengajukan komik untuk ditinjau admin sebelum tayang." : "Kreator dapat menerbitkan komik secara langsung."}</p>
+            </article>
+            <article className="admin-setting-card">
+              <div className="admin-setting-heading"><div><h3>Batas baca tamu</h3><p>Jumlah episode yang boleh dibuka tamu tanpa masuk. Berlaku global; urutan episode tetap wajib diikuti.</p></div></div>
+              <div className="admin-setting-number-grid">
+                <label>Episode gratis untuk tamu<input type="number" min={0} max={100} value={platformSettings.guest_read_chapter_limit} disabled={!guestReadLimitAvailable} onChange={(event) => setPlatformSettings((current) => ({ ...current, guest_read_chapter_limit: Number(event.target.value) }))} /></label>
+              </div>
+              <p className="admin-setting-note">{guestReadLimitAvailable
+                ? "Isi 0 untuk mewajibkan tamu masuk sebelum membaca. Komik dengan opsi “tamu boleh membaca semua episode” tetap bebas dari batas ini, tetapi tidak dari urutan episode."
+                : "Jalankan supabase/reader-access-gate.sql di Supabase SQL Editor untuk mengaktifkan pengaturan ini."}</p>
             </article>
             <article className="admin-setting-card">
               <div className="admin-setting-heading"><div><h3>Batas unggahan</h3><p>Batasi jumlah karya dan ukuran konten untuk mengendalikan kapasitas serta biaya penyimpanan.</p></div></div>

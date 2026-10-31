@@ -27,6 +27,7 @@ export type PlatformSettings = {
   max_comics_per_creator: number;
   max_upload_size_mb: number;
   max_pages_per_chapter: number;
+  guest_read_chapter_limit: number;
   allowed_image_types: string[];
   max_interactive_audio_size_mb: number;
   max_interactive_audio_duration_seconds: number;
@@ -60,6 +61,7 @@ export const defaultPlatformSettings: PlatformSettings = {
   max_comics_per_creator: 5,
   max_upload_size_mb: 10,
   max_pages_per_chapter: 100,
+  guest_read_chapter_limit: 2,
   allowed_image_types: ["image/jpeg", "image/png", "image/webp"],
   max_interactive_audio_size_mb: 10,
   max_interactive_audio_duration_seconds: 15,
@@ -85,20 +87,33 @@ export async function getPlatformSettings(): Promise<{ settings: PlatformSetting
   }
 
   try {
-    const response = await fetch(`${url.replace(/\/$/, "")}/rest/v1/platform_settings?select=maintenance_enabled,maintenance_message,announcement_enabled,announcement_message,ads_internal_enabled,ads_adsterra_enabled,ad_placements,feature_flags,require_comic_review,creator_applications_enabled,max_comics_per_creator,max_upload_size_mb,max_pages_per_chapter,allowed_image_types,max_interactive_audio_size_mb,max_interactive_audio_duration_seconds,allowed_interactive_audio_types&id=eq.true`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      const detail = await response.text();
-      throw new Error(`HTTP ${response.status}: ${detail}`);
+    const baseColumns = "maintenance_enabled,maintenance_message,announcement_enabled,announcement_message,ads_internal_enabled,ads_adsterra_enabled,ad_placements,feature_flags,require_comic_review,creator_applications_enabled,max_comics_per_creator,max_upload_size_mb,max_pages_per_chapter,allowed_image_types,max_interactive_audio_size_mb,max_interactive_audio_duration_seconds,allowed_interactive_audio_types";
+    const loadSettings = async (columns: string) => {
+      const response = await fetch(`${url.replace(/\/$/, "")}/rest/v1/platform_settings?select=${columns}&id=eq.true`, {
+        headers: { apikey: key, Authorization: `Bearer ${key}` },
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        const detail = await response.text();
+        return { row: null as PlatformSettings | null, error: `HTTP ${response.status}: ${detail}` };
+      }
+      const [row] = await response.json() as PlatformSettings[];
+      return { row: row ?? null, error: null };
+    };
+    let result = await loadSettings(`${baseColumns},guest_read_chapter_limit`);
+    if (result.error && result.error.includes("guest_read_chapter_limit")) {
+      result = await loadSettings(baseColumns);
     }
-    const [row] = await response.json() as PlatformSettings[];
+    if (result.error) throw new Error(result.error);
+    const row = result.row;
     if (!row) return { settings: defaultPlatformSettings, error: null };
     return {
       settings: {
         ...defaultPlatformSettings,
         ...row,
+        guest_read_chapter_limit: typeof row.guest_read_chapter_limit === "number"
+          ? row.guest_read_chapter_limit
+          : defaultPlatformSettings.guest_read_chapter_limit,
         feature_flags: { ...defaultPlatformSettings.feature_flags, ...row.feature_flags },
         ad_placements: {
           home: { ...defaultPlatformSettings.ad_placements.home, ...row.ad_placements?.home },

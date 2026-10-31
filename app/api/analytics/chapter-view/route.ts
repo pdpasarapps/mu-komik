@@ -1,7 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  ANALYTICS_VISITOR_COOKIE_MAX_AGE_SECONDS,
+  ANALYTICS_VISITOR_COOKIE_NAME,
+  createVisitorId,
+  isVisitorId,
+} from "@/lib/visitor-cookie";
 
-const visitorCookieName = "mu_analytics_visitor";
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const analyticsRequestTimeoutMs = 8000;
 
@@ -60,10 +65,8 @@ export async function POST(request: NextRequest) {
     userId = data.user.id;
   }
 
-  const existingVisitorId = request.cookies.get(visitorCookieName)?.value;
-  const visitorId = existingVisitorId && uuidPattern.test(existingVisitorId)
-    ? existingVisitorId
-    : crypto.randomUUID();
+  const existingVisitorId = request.cookies.get(ANALYTICS_VISITOR_COOKIE_NAME)?.value;
+  const visitorId = isVisitorId(existingVisitorId) ? existingVisitorId : createVisitorId();
   const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -92,10 +95,10 @@ export async function POST(request: NextRequest) {
   }
 
   const response = NextResponse.json({ recorded: true }, { headers: { "Cache-Control": "no-store" } });
-  if (!existingVisitorId || !uuidPattern.test(existingVisitorId)) {
-    response.cookies.set(visitorCookieName, visitorId, {
+  if (!existingVisitorId || !isVisitorId(existingVisitorId)) {
+    response.cookies.set(ANALYTICS_VISITOR_COOKIE_NAME, visitorId, {
       httpOnly: true,
-      maxAge: 60 * 60 * 24 * 365,
+      maxAge: ANALYTICS_VISITOR_COOKIE_MAX_AGE_SECONDS,
       path: "/",
       sameSite: "lax",
       secure: request.nextUrl.protocol === "https:",

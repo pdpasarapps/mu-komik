@@ -45,7 +45,12 @@ type Comic = { id: string; title: string; slug: string; target_device: ComicTarg
 type ReaderAdKind = "internal" | "adsterra";
 type BookLeaf = { kind: "page"; page: Page; pageIndex: number } | { kind: "ad"; afterPageIndex: number; provider: ReaderAdKind } | { kind: "blank" } | { kind: "end" };
 type BookTurn = { from: number; to: number; direction: "next" | "previous" };
-export type ChapterReaderSeed = { chapter: Chapter; comic: Comic };
+export type ChapterReaderAccess = {
+  server_enforced: boolean;
+  guest_limit_reached: boolean;
+  guest_read_chapter_limit: number;
+};
+export type ChapterReaderSeed = { chapter: Chapter; comic: Comic; access?: ChapterReaderAccess };
 
 function getReaderAdKind(pageNumber: number, internalEnabled: boolean, adsterraEnabled: boolean): ReaderAdKind | null {
   if (pageNumber % 10 === 0) return adsterraEnabled ? "adsterra" : null;
@@ -88,6 +93,8 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const membership = useReaderMembership();
   const { kidsMode } = useKidsMode();
   const { settings } = usePlatformSettings();
+  const serverGuestLimitEnforced = seed.access?.server_enforced === true;
+  const guestReadChapterLimit = seed.access?.guest_read_chapter_limit ?? GUEST_READ_CHAPTER_LIMIT;
   const chapterTerm = t(kidsMode ? "Cerita" : "Episode");
   const [chapter, setChapter] = useState<Chapter | null>(seed.chapter);
   const [comic, setComic] = useState<Comic | null>(seed.comic);
@@ -110,9 +117,9 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   const [userId, setUserId] = useState<string | null>(null);
   const [watermarkName, setWatermarkName] = useState("Pembaca");
   const [historyReady, setHistoryReady] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(seed.access?.guest_limit_reached !== true);
   const [errorMessage, setErrorMessage] = useState("");
-  const [guestLoginRequired, setGuestLoginRequired] = useState(false);
+  const [guestLoginRequired, setGuestLoginRequired] = useState(seed.access?.guest_limit_reached === true);
   const [pageLoadError, setPageLoadError] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [bookTurn, setBookTurn] = useState<BookTurn | null>(null);
@@ -247,6 +254,11 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         setLoading(false);
         return;
       }
+      if (seed.access?.guest_limit_reached) {
+        setGuestLoginRequired(true);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setErrorMessage("");
       setGuestLoginRequired(false);
@@ -365,7 +377,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
       const chapterIds = chapters.map((item) => item.id);
       const currentUserId = sessionData.session?.user.id ?? null;
       let guestReadChapterIds: string[] | null = null;
-      if (!currentUserId && !comicData.preview_access) {
+      if (!currentUserId && !comicData.preview_access && !serverGuestLimitEnforced) {
         try {
           const storedChapterIds = localStorage.getItem(GUEST_READ_CHAPTERS_STORAGE_KEY);
           const parsedChapterIds: unknown = storedChapterIds ? JSON.parse(storedChapterIds) : [];
@@ -571,7 +583,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         bookTurnSpreadCommitTimeoutRef.current = null;
       }
     };
-  }, [chapterId, currentDevice, kidsMode, membership.ready, membership.tier, readerAdsterraEnabled, readerInternalAdsEnabled, router, seed.chapter, seed.comic.preview_access, seed.comic.kids_age_range, seed.comic.kids_mode_approved, seed.comic.target_device, slug]);
+  }, [chapterId, currentDevice, kidsMode, membership.ready, membership.tier, readerAdsterraEnabled, readerInternalAdsEnabled, router, seed.access?.guest_limit_reached, seed.chapter, seed.comic.preview_access, seed.comic.kids_age_range, seed.comic.kids_mode_approved, seed.comic.target_device, serverGuestLimitEnforced, slug]);
 
   useEffect(() => {
     if (loading || !chapter || !pages.length) return;
@@ -828,23 +840,45 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
   }, [activeReaderStopId, controlsVisible, currentDevice, currentPage, desktopBookMode]);
 
   useEffect(() => {
-    if (!userId || !historyReady || !chapter || !pages.length) return;
+    if (!historyReady || !chapter || !pages.length) return;
+    if (!userId && !serverGuestLimitEnforced) return;
     const timer = window.setTimeout(async () => {
       const spreadPages = desktopBookMode
         ? bookLeaves.slice(bookSpreadIndex * 2, bookSpreadIndex * 2 + 2)
           .flatMap((leaf) => leaf.kind === "page" ? [leaf.pageIndex] : [])
         : [currentPage];
       const lastReadPage = spreadPages.length ? Math.max(...spreadPages) + 1 : currentPage + 1;
-      const { error } = await supabase.from("reading_history").upsert({
-        user_id: userId,
-        chapter_id: chapter.id,
-        last_page: Math.min(pages.length, lastReadPage),
-        updated_at: new Date().toISOString(),
-      });
-      if (error) console.error("Unable to save reading progress:", error);
+      const recordedLastPage = Math.min(pages.length, lastReadPage);
+      if (userId) {
+        const { error } = await supabase.from("reading_history").upsert({
+          user_id: userId,
+          chapter_id: chapter.id,
+          last_page: recordedLastPage,
+          updated_at: new Date().toISOString(),
+        });
+        if (error) console.error("Unable to save reading progress:", error);
+        return;
+      }
+      try {
+        const response = await fetch("/api/reader/guest-progress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chapterId: chapter.id, lastPage: recordedLastPage }),
+        });
+        if (!response.ok) {
+          console.error("Unable to save guest reading progress:", response.status);
+          return;
+        }
+        const result = await response.json() as { recorded?: boolean; reason?: string | null };
+        if (result.recorded === false && (result.reason === "guest_limit" || result.reason === "login_required")) {
+          setGuestLoginRequired(true);
+        }
+      } catch (error) {
+        console.error("Unable to save guest reading progress:", error);
+      }
     }, 600);
     return () => window.clearTimeout(timer);
-  }, [bookLeaves, bookSpreadIndex, chapter, currentPage, desktopBookMode, historyReady, pages.length, userId]);
+  }, [bookLeaves, bookSpreadIndex, chapter, currentPage, desktopBookMode, historyReady, pages.length, serverGuestLimitEnforced, userId]);
 
   const startTransitionCountdown = useCallback(() => {
     if (transitionCountdownStartedRef.current) return;
@@ -1009,7 +1043,7 @@ export default function ChapterReaderPage({ seed }: { seed: ChapterReaderSeed })
         <div className="reader-detail-not-found">
           <p className="reader-section-kicker">{t("LANJUTKAN MEMBACA")}</p>
           <h1>{t("Batas baca tamu sudah tercapai.")}</h1>
-          <p>{t("Kamu sudah membaca 2 episode tanpa masuk. Masuk atau daftar untuk melanjutkan membaca.")}</p>
+          <p>{t("Kamu sudah membaca")} {guestReadChapterLimit} {t("episode gratis tanpa masuk. Masuk atau daftar untuk melanjutkan membaca.")}</p>
           <Link
             className="reader-primary-button"
             href={`/login?next=${encodeURIComponent(nextPath)}`}
