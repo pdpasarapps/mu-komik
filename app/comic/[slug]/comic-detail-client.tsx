@@ -619,9 +619,12 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ comicId: comic.id }),
-      }).then((response) => {
+      }).then(async (response) => {
         if (!response.ok) throw new Error(`Share analytics request failed with status ${response.status}`);
-        setEngagement((current) => current ? { ...current, shares: current.shares + 1 } : current);
+        const result = await response.json().catch(() => null) as { recorded?: boolean } | null;
+        if (result?.recorded === true) {
+          setEngagement((current) => current ? { ...current, shares: current.shares + 1 } : current);
+        }
       }).catch((error: unknown) => {
         console.error("Unable to record comic share:", error);
         setShareMessage("Bagikan dimulai, tetapi statistik belum dapat dicatat.");
