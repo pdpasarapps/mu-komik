@@ -57,7 +57,9 @@ export function ArticleListingContent({ articles }: { articles: (Article & { cov
       <ArticleAdPlacement />
       <footer className="article-site-footer">
         <Link href="/">{t("Kembali ke MU-Komik")}</Link>
+        <Link href="/tentang-kami">{t("Tentang kami")}</Link>
         <Link href="/syarat-ketentuan">{t("Syarat layanan")}</Link>
+        <Link href="/kebijakan-privasi">{t("Kebijakan privasi")}</Link>
       </footer>
     </>
   );
@@ -109,7 +111,9 @@ export function ArticleDetailContent({ article, cover, baseUrl }: { article: Art
       </article>
       <footer className="article-site-footer">
         <Link href="/">{t("Kembali ke MU-Komik")}</Link>
+        <Link href="/tentang-kami">{t("Tentang kami")}</Link>
         <Link href="/syarat-ketentuan">{t("Syarat layanan")}</Link>
+        <Link href="/kebijakan-privasi">{t("Kebijakan privasi")}</Link>
       </footer>
     </>
   );

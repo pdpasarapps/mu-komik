@@ -170,7 +170,7 @@ export default function FaqPage() {
       </section>
 
       <div className="faq-legal-note">
-        <p><LocalizedContent>Untuk aturan resmi tentang hak cipta dan penggunaan karya, baca</LocalizedContent>{" "}<Link href="/syarat-ketentuan"><LocalizedContent>Syarat dan Ketentuan Layanan</LocalizedContent></Link>.</p>
+        <p><LocalizedContent>Untuk aturan resmi tentang hak cipta dan penggunaan karya, baca</LocalizedContent>{" "}<Link href="/syarat-ketentuan"><LocalizedContent>Syarat dan Ketentuan Layanan</LocalizedContent></Link>{" · "}<Link href="/kebijakan-privasi"><LocalizedContent>Kebijakan privasi</LocalizedContent></Link>.</p>
       </div>
 
       <footer className="manifesto-footer">

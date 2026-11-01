@@ -633,8 +633,10 @@ export default function HomePageClient({
           <nav className="reader-footer-links" aria-label={t("Informasi platform")}>
             <Link href="/push-ads">{t("Pasang iklan")}</Link>
             <Link href="/contact">{t("Hubungi kami")}</Link>
+            <Link href="/tentang-kami">{t("Tentang kami")}</Link>
             <Link href="/manifesto">Manifesto AI</Link>
             <Link href="/syarat-ketentuan">{t("Syarat layanan")}</Link>
+            <Link href="/kebijakan-privasi">{t("Kebijakan privasi")}</Link>
             <Link href="/faq">{t("FAQ & Glosarium")}</Link>
           </nav>
         </div>}

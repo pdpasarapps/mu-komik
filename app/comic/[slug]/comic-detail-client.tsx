@@ -1154,6 +1154,7 @@ export default function ComicDetailPage({ initialComic, initialChapters }: Comic
         {!kidsMode && <>
           <Link href="/">Jelajahi komik <ArrowRight size={15} /></Link>
           <Link href="/syarat-ketentuan">Syarat layanan</Link>
+          <Link href="/kebijakan-privasi">Kebijakan privasi</Link>
         </>}
       </footer>
       {stickyReadVisible && firstChapter && (

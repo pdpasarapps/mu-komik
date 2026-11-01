@@ -15,6 +15,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "monthly",
     priority: 0.6,
   }, {
+    url: new URL("/tentang-kami", siteUrl).toString(),
+    changeFrequency: "monthly",
+    priority: 0.5,
+  }, {
+    url: new URL("/contact", siteUrl).toString(),
+    changeFrequency: "yearly",
+    priority: 0.4,
+  }, {
+    url: new URL("/kebijakan-privasi", siteUrl).toString(),
+    changeFrequency: "yearly",
+    priority: 0.4,
+  }, {
     url: new URL("/syarat-ketentuan", siteUrl).toString(),
     changeFrequency: "yearly",
     priority: 0.4,

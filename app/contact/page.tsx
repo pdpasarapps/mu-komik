@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, MessageCircle } from "lucide-react";
 import BrandLogo from "@/components/brand-logo";
 import ContactForm from "@/components/contact-form";
 import LocalizedContent from "@/components/localized-content";
 import { siteUrl } from "@/lib/seo";
 import { getRequestLocale } from "@/lib/request-locale";
+import { SUPPORT_WHATSAPP_DISPLAY, SUPPORT_WHATSAPP_URL } from "@/lib/support";
 
 export async function generateMetadata(): Promise<Metadata> {
   const english = await getRequestLocale() === "en";
@@ -29,6 +30,19 @@ export default function ContactPage() {
         <h1><LocalizedContent>Hubungi</LocalizedContent> <em><LocalizedContent>Kami</LocalizedContent></em></h1>
         <p className="terms-lead"><LocalizedContent>Ada pertanyaan, masukan, atau kendala?</LocalizedContent> <LocalizedContent>Kirim pesan kepada tim MU-Komik.</LocalizedContent></p>
       </header>
+      <section className="contact-support" aria-labelledby="contact-support-title">
+        <div>
+          <p className="manifesto-eyebrow">WHATSAPP SUPPORT</p>
+          <h2 id="contact-support-title"><LocalizedContent>Butuh jawaban cepat?</LocalizedContent></h2>
+          <p>
+            <LocalizedContent>Hubungi tim MU-Komik lewat WhatsApp di</LocalizedContent>{" "}
+            <strong>{SUPPORT_WHATSAPP_DISPLAY}</strong>.
+          </p>
+        </div>
+        <a className="reader-primary-button" href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noreferrer">
+          <MessageCircle size={16} /> <LocalizedContent>Chat WhatsApp</LocalizedContent>
+        </a>
+      </section>
       <ContactForm />
     </main>
   );
