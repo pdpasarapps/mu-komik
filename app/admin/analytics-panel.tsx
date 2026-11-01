@@ -31,13 +31,14 @@ type Ga4AnalyticsData = {
   sources: Ga4DimensionRow[];
 };
 type Ga4DimensionRow = { dimension: string; activeUsers: number; sessions: number };
+type Ga4RealtimeRow = { dimension: string; activeUsers: number };
 type ReadingJourneyEventName = "comic_view" | "episode_start" | "episode_next";
 type ReadingJourneyItem = { eventName: ReadingJourneyEventName; users: number; events: number };
 type Ga4RealtimeData = {
   activeUsers: number;
-  pages: Ga4DimensionRow[];
-  countries: Ga4DimensionRow[];
-  devices: Ga4DimensionRow[];
+  pages: Ga4RealtimeRow[];
+  countries: Ga4RealtimeRow[];
+  devices: Ga4RealtimeRow[];
 };
 const readingJourneySteps: { eventName: ReadingJourneyEventName; label: string }[] = [
   { eventName: "comic_view", label: "Halaman komik dibuka" },
@@ -116,6 +117,15 @@ function parseDimensionRows(value: unknown): Ga4DimensionRow[] | null {
   ));
 }
 
+function parseRealtimeRows(value: unknown): Ga4RealtimeRow[] | null {
+  if (!Array.isArray(value)) return null;
+  return value.flatMap((row): Ga4RealtimeRow[] => (
+    isRecord(row) && typeof row.dimension === "string" && typeof row.activeUsers === "number"
+      ? [{ dimension: row.dimension, activeUsers: row.activeUsers }]
+      : []
+  ));
+}
+
 function parseReadingJourney(value: unknown): ReadingJourneyItem[] | null {
   if (!Array.isArray(value)) return null;
   return value.flatMap((row): ReadingJourneyItem[] => (
@@ -168,9 +178,9 @@ export default function AdminAnalyticsPanel() {
         if (!isRecord(data) || typeof data.activeUsers !== "number") {
           throw new Error("Google Analytics returned an invalid realtime response.");
         }
-        const pages = parseDimensionRows(data.pages);
-        const countries = parseDimensionRows(data.countries);
-        const devices = parseDimensionRows(data.devices);
+        const pages = parseRealtimeRows(data.pages);
+        const countries = parseRealtimeRows(data.countries);
+        const devices = parseRealtimeRows(data.devices);
         if (!pages || !countries || !devices) throw new Error("Google Analytics returned invalid realtime dimensions.");
         setRealtimeResult({
           analytics: { activeUsers: data.activeUsers, pages, countries, devices },
