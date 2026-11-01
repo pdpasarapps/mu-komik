@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BarChart3, LoaderCircle, Users, Eye, UserRound } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { parseDimensionRows, parseRealtimeRows, type Ga4DimensionRow, type Ga4RealtimeRow } from "@/lib/ga4-rows";
 
 type DailyViews = { date: string; views: number };
 type TopComic = { comicId: string; slug: string; title: string; views: number };
@@ -30,8 +31,6 @@ type Ga4AnalyticsData = {
   countries: Ga4DimensionRow[];
   sources: Ga4DimensionRow[];
 };
-type Ga4DimensionRow = { dimension: string; activeUsers: number; sessions: number };
-type Ga4RealtimeRow = { dimension: string; activeUsers: number };
 type ReadingJourneyEventName = "comic_view" | "episode_start" | "episode_next";
 type ReadingJourneyItem = { eventName: ReadingJourneyEventName; users: number; events: number };
 type Ga4RealtimeData = {
@@ -105,25 +104,6 @@ function formatDuration(seconds: number) {
   const safeSeconds = Math.max(0, Math.floor(seconds));
   const minutes = Math.floor(safeSeconds / 60);
   return `${minutes}:${String(safeSeconds % 60).padStart(2, "0")}`;
-}
-
-function parseDimensionRows(value: unknown): Ga4DimensionRow[] | null {
-  if (!Array.isArray(value)) return null;
-  return value.flatMap((row): Ga4DimensionRow[] => (
-    isRecord(row) && typeof row.dimension === "string"
-      && typeof row.activeUsers === "number" && typeof row.sessions === "number"
-      ? [{ dimension: row.dimension, activeUsers: row.activeUsers, sessions: row.sessions }]
-      : []
-  ));
-}
-
-function parseRealtimeRows(value: unknown): Ga4RealtimeRow[] | null {
-  if (!Array.isArray(value)) return null;
-  return value.flatMap((row): Ga4RealtimeRow[] => (
-    isRecord(row) && typeof row.dimension === "string" && typeof row.activeUsers === "number"
-      ? [{ dimension: row.dimension, activeUsers: row.activeUsers }]
-      : []
-  ));
 }
 
 function parseReadingJourney(value: unknown): ReadingJourneyItem[] | null {
