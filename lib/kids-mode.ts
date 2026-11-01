@@ -35,7 +35,7 @@ export type KidsModeState = {
 };
 
 function getSigningSecret() {
-  const secret = process.env.KIDS_MODE_COOKIE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const secret = process.env.KIDS_MODE_COOKIE_SECRET;
   if (!secret || Buffer.byteLength(secret) < 32) {
     throw new Error("Kids Mode signing secret is missing. Configure KIDS_MODE_COOKIE_SECRET with at least 32 characters.");
   }

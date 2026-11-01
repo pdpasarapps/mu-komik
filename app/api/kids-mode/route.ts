@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
   }
   if (!isKidsModeRequest(body)) return jsonError("Invalid Kids Mode request", 400);
 
-  const signingSecret = process.env.KIDS_MODE_COOKIE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const signingSecret = process.env.KIDS_MODE_COOKIE_SECRET;
   if (!signingSecret || Buffer.byteLength(signingSecret) < 32) {
     return jsonError("Kids Mode belum dikonfigurasi di server. Atur secret KIDS_MODE_COOKIE_SECRET minimal 32 karakter.", 503);
   }
