@@ -26,6 +26,9 @@ type CheckoutData = {
   payments: Payment[];
 };
 
+// Tripay production is blocked until its static egress IP is whitelisted; flip this when that lands.
+const MEMBERSHIP_CHECKOUT_ENABLED = false;
+
 const supabase = createClient();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -112,7 +115,7 @@ export default function MembershipCheckout() {
   const [data, setData] = useState<CheckoutData | null>(null);
   const [selectedMethod, setSelectedMethod] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(MEMBERSHIP_CHECKOUT_ENABLED);
   const [creating, setCreating] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [message, setMessage] = useState("");
@@ -150,6 +153,7 @@ export default function MembershipCheckout() {
   }, []);
 
   useEffect(() => {
+    if (!MEMBERSHIP_CHECKOUT_ENABLED) return;
     const timerId = window.setTimeout(() => void loadData(), 0);
     return () => window.clearTimeout(timerId);
   }, [loadData]);
@@ -201,7 +205,7 @@ export default function MembershipCheckout() {
   return (
     <article className="account-panel account-panel-wide membership-checkout-panel">
       <div className="panel-heading">
-        <div><p className="eyebrow">Pembayaran aman melalui Tripay</p><h2>Membership Premium</h2></div>
+        <div><p className="eyebrow">{MEMBERSHIP_CHECKOUT_ENABLED ? "Pembayaran aman melalui Tripay" : "Pembayaran sedang disiapkan"}</p><h2>Membership Premium</h2></div>
         <Wallet size={22} />
       </div>
       {data?.mode === "sandbox" && <p className="request-status request-pending">TAHAP PENGEMBANGAN — MODE SANDBOX. Transaksi uji, bukan pembayaran produksi.</p>}
@@ -211,9 +215,11 @@ export default function MembershipCheckout() {
       {membership.tier === "vip" && <p className="membership-checkout-expiry">Akun Anda sudah memiliki akses VIP.</p>}
       {errorMessage && <p className="account-reading-message" role="alert">{errorMessage}</p>}
       {message && <p className="account-reading-message" role="status">{message}</p>}
-      {loading
-        ? <p className="membership-checkout-loading"><LoaderCircle className="spin" size={18} /> Memuat metode pembayaran…</p>
-        : data && (
+      {!MEMBERSHIP_CHECKOUT_ENABLED
+        ? <p className="request-status request-pending">Pembayaran Premium untuk sementara belum tersedia. Kami sedang menyiapkan metode pembayaran baru.</p>
+        : loading
+          ? <p className="membership-checkout-loading"><LoaderCircle className="spin" size={18} /> Memuat metode pembayaran…</p>
+          : data && (
           <>
             {membership.tier !== "vip" && !(membership.tier === "premium" && !membership.expiresAt) && (
               <>
